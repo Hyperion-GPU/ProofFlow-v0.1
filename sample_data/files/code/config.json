@@ -1,0 +1,5 @@
+{
+  "workflow": "proofflow-demo",
+  "local_first": true,
+  "requires_evidence": true
+}

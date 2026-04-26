@@ -1,0 +1,2 @@
+"""Bundled SQL schema assets."""
+
