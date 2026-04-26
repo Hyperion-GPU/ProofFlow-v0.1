@@ -20,6 +20,7 @@ def _require_git() -> None:
 
 def _client(monkeypatch, temp_root: Path) -> TestClient:
     monkeypatch.setenv("PROOFFLOW_DB_PATH", str(temp_root / "agentguard.db"))
+    monkeypatch.setenv("PROOFFLOW_DATA_DIR", str(temp_root / "data"))
     return TestClient(app)
 
 
@@ -42,6 +43,54 @@ def _init_repo(repo: Path) -> Path:
     _git(repo, "add", ".")
     _git(repo, "commit", "-m", "baseline")
     return repo
+
+
+def _git_diff_chunk_text(case_id: str) -> str:
+    with connect(get_db_path()) as connection:
+        rows = connection.execute(
+            """
+            SELECT artifact_text_chunks.content
+            FROM artifact_text_chunks
+            JOIN artifacts ON artifacts.id = artifact_text_chunks.artifact_id
+            JOIN case_artifacts ON case_artifacts.artifact_id = artifacts.id
+            WHERE case_artifacts.case_id = ?
+              AND artifacts.artifact_type = 'git_diff'
+            ORDER BY artifact_text_chunks.chunk_index ASC
+            """,
+            (case_id,),
+        ).fetchall()
+    return "\n".join(row["content"] for row in rows)
+
+
+def _git_diff_artifact_metadata(case_id: str) -> dict:
+    with connect(get_db_path()) as connection:
+        row = connection.execute(
+            """
+            SELECT artifacts.metadata_json
+            FROM artifacts
+            JOIN case_artifacts ON case_artifacts.artifact_id = artifacts.id
+            WHERE case_artifacts.case_id = ?
+              AND artifacts.artifact_type = 'git_diff'
+            """,
+            (case_id,),
+        ).fetchone()
+    assert row is not None
+    return json.loads(row["metadata_json"])
+
+
+def _claim_evidence_text(case_id: str) -> str:
+    with connect(get_db_path()) as connection:
+        rows = connection.execute(
+            """
+            SELECT claims.claim_text, evidence.content
+            FROM claims
+            JOIN evidence ON evidence.claim_id = claims.id
+            WHERE claims.case_id = ?
+            ORDER BY claims.created_at ASC, claims.id ASC
+            """,
+            (case_id,),
+        ).fetchall()
+    return "\n".join(f"{row['claim_text']}\n{row['content']}" for row in rows)
 
 
 def test_agentguard_review_records_modified_file_claims_and_evidence(monkeypatch):
@@ -188,3 +237,85 @@ def test_agentguard_review_honors_include_untracked(monkeypatch):
 
         assert included_chunk is not None
         assert "draft content" in included_chunk["content"]
+
+
+def test_agentguard_review_omits_sensitive_untracked_file_contents(monkeypatch):
+    _require_git()
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_root = Path(temp_dir)
+        repo = _init_repo(temp_root / "repo")
+        (repo / ".env").write_text("PROOFFLOW_SECRET=env-secret\n", encoding="utf-8")
+        (repo / "secret.pem").write_text("-----BEGIN PRIVATE KEY-----\npem-secret\n", encoding="utf-8")
+        (repo / "local.sqlite").write_bytes(b"SQLite format 3\x00sqlite-secret")
+
+        with _client(monkeypatch, temp_root) as client:
+            response = client.post(
+                "/agentguard/review",
+                json={"repo_path": str(repo), "include_untracked": True},
+            )
+            payload = response.json()
+            report_response = client.post(
+                f"/reports/cases/{payload['case_id']}/export",
+                json={"format": "markdown"},
+            )
+
+        assert response.status_code == 200
+        assert report_response.status_code == 200
+        assert {".env", "secret.pem", "local.sqlite"}.issubset(payload["changed_files"])
+
+        chunk_text = _git_diff_chunk_text(payload["case_id"])
+        evidence_text = _claim_evidence_text(payload["case_id"])
+        report_text = report_response.json()["content"]
+        combined_safe_text = "\n".join([chunk_text, evidence_text, report_text])
+
+        assert "env-secret" not in combined_safe_text
+        assert "pem-secret" not in combined_safe_text
+        assert "sqlite-secret" not in combined_safe_text
+        assert "sensitive_untracked_file" in evidence_text
+
+        metadata = _git_diff_artifact_metadata(payload["case_id"])
+        notes = metadata["untracked_policy_notes"]
+        assert {item["path"] for item in notes} == {".env", "secret.pem", "local.sqlite"}
+        assert all(item["reason"] == "sensitive_untracked_file" for item in notes)
+
+
+def test_agentguard_review_omits_oversized_untracked_text_content(monkeypatch):
+    _require_git()
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_root = Path(temp_dir)
+        repo = _init_repo(temp_root / "repo")
+        large_marker = "large-file-secret-marker"
+        large_content = large_marker + "\n" + ("x" * (262144 + 100))
+        large_path = repo / "large.txt"
+        large_path.write_text(large_content, encoding="utf-8")
+        large_size = large_path.stat().st_size
+
+        with _client(monkeypatch, temp_root) as client:
+            response = client.post(
+                "/agentguard/review",
+                json={"repo_path": str(repo), "include_untracked": True},
+            )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert "large.txt" in payload["changed_files"]
+
+        chunk_text = _git_diff_chunk_text(payload["case_id"])
+        evidence_text = _claim_evidence_text(payload["case_id"])
+
+        assert large_marker not in chunk_text
+        assert "[ProofFlow omitted untracked file content: file exceeds 262144 bytes]" in chunk_text
+        assert "untracked_file_exceeds_diff_cap" in evidence_text
+        assert "cap_bytes=262144" in evidence_text
+
+        metadata = _git_diff_artifact_metadata(payload["case_id"])
+        notes = metadata["untracked_policy_notes"]
+        assert notes == [
+            {
+                "path": "large.txt",
+                "reason": "untracked_file_exceeds_diff_cap",
+                "truncated": True,
+                "size_bytes": large_size,
+                "cap_bytes": 262144,
+            }
+        ]

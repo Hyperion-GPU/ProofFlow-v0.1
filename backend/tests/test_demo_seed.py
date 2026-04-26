@@ -2,7 +2,9 @@ from pathlib import Path
 import hashlib
 import importlib.util
 import json
+import os
 import shutil
+import stat
 import sys
 
 import pytest
@@ -119,6 +121,23 @@ def test_demo_seed_rejects_reset_outside_demo_data(monkeypatch, tmp_path):
         )
 
     assert marker.read_text(encoding="utf-8") == "do not delete\n"
+
+
+def test_demo_seed_remove_tree_retries_readonly_paths(tmp_path):
+    module = _load_demo_seed_module()
+    target = tmp_path / "readonly-tree"
+    target.mkdir()
+    readonly_file = target / "readonly.txt"
+    readonly_file.write_text("readonly\n", encoding="utf-8")
+    readonly_file.chmod(stat.S_IREAD)
+
+    try:
+        module._remove_tree(target)
+    finally:
+        if readonly_file.exists():
+            os.chmod(readonly_file, stat.S_IWRITE)
+
+    assert not target.exists()
 
 
 def test_demo_seed_png_fixture_has_real_png_signature():

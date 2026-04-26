@@ -21,7 +21,7 @@ ArtifactKind = Literal[
     "screenshot",
 ]
 CaseArtifactRole = Literal["primary", "supporting", "reference"]
-ActionKind = Literal["move_file", "rename_file", "manual_check"]
+ActionKind = Literal["move_file", "rename_file", "manual_check", "mkdir_dir"]
 ActionStatus = Literal["pending", "previewed", "approved", "executed", "undone", "rejected"]
 DecisionStatus = Literal["proposed", "accepted", "rejected", "superseded"]
 
@@ -155,18 +155,24 @@ class FileActionPreview(StrictRequest):
     to_path: str = Field(min_length=1)
 
 
+class DirectoryActionPreview(StrictRequest):
+    dir_path: str = Field(min_length=1)
+
+
 class ActionCreate(StrictRequest):
     case_id: str = Field(min_length=1)
     kind: ActionKind
     title: str = Field(min_length=1)
     reason: str = Field(min_length=1)
-    preview: FileActionPreview | None = None
+    preview: FileActionPreview | DirectoryActionPreview | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def require_preview_for_file_actions(self) -> "ActionCreate":
+    def require_preview_for_previewable_actions(self) -> "ActionCreate":
         if self.kind in {"move_file", "rename_file"} and self.preview is None:
             raise ValueError("move_file and rename_file actions require preview")
+        if self.kind == "mkdir_dir" and self.preview is None:
+            raise ValueError("mkdir_dir actions require preview")
         return self
 
 

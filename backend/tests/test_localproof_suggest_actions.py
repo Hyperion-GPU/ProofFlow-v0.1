@@ -48,13 +48,26 @@ def test_suggest_actions_creates_pending_moves_for_common_file_types(monkeypatch
 
             assert summary["case_id"] == case_id
             assert summary["target_root"] == str(target_root.resolve(strict=False))
-            assert summary["actions_created"] == 5
+            assert summary["actions_created"] == 10
             assert summary["skipped"] == 0
             assert not target_root.exists()
 
+            mkdir_actions = [
+                action for action in summary["actions"] if action["kind"] == "mkdir_dir"
+            ]
+            move_actions = [
+                action for action in summary["actions"] if action["kind"] == "move_file"
+            ]
+            assert {Path(action["preview"]["dir_path"]).name for action in mkdir_actions} == {
+                "Documents",
+                "Images",
+                "Notes",
+                "Code",
+                "Logs",
+            }
             actions_by_name = {
                 Path(action["preview"]["from_path"]).name: action
-                for action in summary["actions"]
+                for action in move_actions
             }
             assert set(actions_by_name) == set(files)
             assert Path(actions_by_name["invoice.pdf"]["preview"]["to_path"]).parent.name == "Documents"
@@ -63,21 +76,53 @@ def test_suggest_actions_creates_pending_moves_for_common_file_types(monkeypatch
             assert Path(actions_by_name["script.py"]["preview"]["to_path"]).parent.name == "Code"
             assert Path(actions_by_name["run.log"]["preview"]["to_path"]).parent.name == "Logs"
 
-            for action in summary["actions"]:
+            for action in move_actions:
                 assert action["status"] == "pending"
                 assert action["kind"] == "move_file"
                 assert action["result"] is None
                 assert action["undo"] is None
                 assert action["metadata"]["source"] == "localproof_suggest_actions"
+                assert action["metadata"]["depends_on_action_id"]
+                assert action["metadata"]["depends_on_dir_path"]
                 assert Path(action["preview"]["from_path"]).exists()
                 assert not Path(action["preview"]["to_path"]).exists()
 
             execute_response = client.post(f"/actions/{summary['actions'][0]['id']}/execute")
             assert execute_response.status_code == 400
 
-            approve_response = client.post(f"/actions/{summary['actions'][0]['id']}/approve")
+            notes_move = actions_by_name["notes.md"]
+            approve_move_first = client.post(f"/actions/{notes_move['id']}/approve")
+            assert approve_move_first.status_code == 200
+            blocked_move = client.post(f"/actions/{notes_move['id']}/execute")
+            assert blocked_move.status_code == 400
+            assert (scan_folder / "notes.md").exists()
+
+            notes_mkdir = next(
+                action
+                for action in mkdir_actions
+                if action["id"] == notes_move["metadata"]["depends_on_action_id"]
+            )
+            approve_response = client.post(f"/actions/{notes_mkdir['id']}/approve")
             assert approve_response.status_code == 200
             assert approve_response.json()["status"] == "approved"
+            mkdir_executed = client.post(f"/actions/{notes_mkdir['id']}/execute")
+            assert mkdir_executed.status_code == 200
+            assert mkdir_executed.json()["result"]["created"] is True
+            assert (target_root / "Notes").is_dir()
+
+            move_executed = client.post(f"/actions/{notes_move['id']}/execute")
+            assert move_executed.status_code == 200
+            assert not (scan_folder / "notes.md").exists()
+            assert (target_root / "Notes" / "notes.md").read_text(encoding="utf-8") == "# Notes\n"
+
+            move_undone = client.post(f"/actions/{notes_move['id']}/undo")
+            assert move_undone.status_code == 200
+            assert (scan_folder / "notes.md").read_text(encoding="utf-8") == "# Notes\n"
+            assert not (target_root / "Notes" / "notes.md").exists()
+
+            mkdir_undone = client.post(f"/actions/{notes_mkdir['id']}/undo")
+            assert mkdir_undone.status_code == 200
+            assert not (target_root / "Notes").exists()
 
             list_response = client.get(f"/cases/{case_id}/actions")
             assert list_response.status_code == 200

@@ -17,11 +17,34 @@ class ChangedFile:
 
 
 @dataclass(frozen=True)
+class UntrackedFilePolicyNote:
+    path: str
+    reason: str
+    size_bytes: int | None = None
+    cap_bytes: int | None = None
+    truncated: bool = False
+
+
+@dataclass(frozen=True)
 class GitSnapshot:
     repo_root: Path
     base_ref: str
     changed_files: list[ChangedFile]
     diff_text: str
+    untracked_policy_notes: list[UntrackedFilePolicyNote]
+
+
+SENSITIVE_UNTRACKED_EXACT_NAMES = {".env", ".env.local", ".env.production"}
+SENSITIVE_UNTRACKED_SUFFIXES = {
+    ".pem",
+    ".key",
+    ".p12",
+    ".pfx",
+    ".db",
+    ".sqlite",
+    ".sqlite3",
+}
+UNTRACKED_TEXT_DIFF_SIZE_CAP_BYTES = 256 * 1024
 
 
 def inspect_working_tree(
@@ -35,9 +58,13 @@ def inspect_working_tree(
 
     untracked_files: list[ChangedFile] = []
     untracked_diff = ""
+    untracked_policy_notes: list[UntrackedFilePolicyNote] = []
     if include_untracked:
         untracked_files = _untracked_files(repo_root)
-        untracked_diff = _synthetic_untracked_diff(repo_root, untracked_files)
+        untracked_diff, untracked_policy_notes = _synthetic_untracked_diff(
+            repo_root,
+            untracked_files,
+        )
 
     diff_parts = [part for part in (tracked_diff.strip(), untracked_diff.strip()) if part]
     return GitSnapshot(
@@ -45,6 +72,7 @@ def inspect_working_tree(
         base_ref=base_ref,
         changed_files=tracked_files + untracked_files,
         diff_text="\n\n".join(diff_parts),
+        untracked_policy_notes=untracked_policy_notes,
     )
 
 
@@ -90,25 +118,74 @@ def _untracked_files(repo_root: Path) -> list[ChangedFile]:
     ]
 
 
-def _synthetic_untracked_diff(repo_root: Path, files: list[ChangedFile]) -> str:
+def _synthetic_untracked_diff(
+    repo_root: Path,
+    files: list[ChangedFile],
+) -> tuple[str, list[UntrackedFilePolicyNote]]:
     chunks: list[str] = []
+    notes: list[UntrackedFilePolicyNote] = []
     for changed_file in files:
         path = repo_root / changed_file.path
+        size_bytes = _safe_file_size(path)
+
+        if _is_sensitive_untracked_path(changed_file.path):
+            notes.append(
+                UntrackedFilePolicyNote(
+                    path=changed_file.path,
+                    reason="sensitive_untracked_file",
+                    size_bytes=size_bytes,
+                )
+            )
+            continue
+
+        if size_bytes is not None and size_bytes > UNTRACKED_TEXT_DIFF_SIZE_CAP_BYTES:
+            placeholder = (
+                "[ProofFlow omitted untracked file content: "
+                f"file exceeds {UNTRACKED_TEXT_DIFF_SIZE_CAP_BYTES} bytes]"
+            )
+            notes.append(
+                UntrackedFilePolicyNote(
+                    path=changed_file.path,
+                    reason="untracked_file_exceeds_diff_cap",
+                    size_bytes=size_bytes,
+                    cap_bytes=UNTRACKED_TEXT_DIFF_SIZE_CAP_BYTES,
+                    truncated=True,
+                )
+            )
+            chunks.append(_new_file_diff(changed_file.path, [placeholder]))
+            continue
+
         content = _read_text_file_for_diff(path)
         if content is None:
             continue
 
-        lines = content.splitlines()
-        header = [
-            f"diff --git a/{changed_file.path} b/{changed_file.path}",
-            "new file mode 100644",
-            "--- /dev/null",
-            f"+++ b/{changed_file.path}",
-            f"@@ -0,0 +1,{len(lines)} @@",
-        ]
-        body = [f"+{line}" for line in lines]
-        chunks.append("\n".join(header + body))
-    return "\n\n".join(chunks)
+        chunks.append(_new_file_diff(changed_file.path, content.splitlines()))
+    return "\n\n".join(chunks), notes
+
+
+def _new_file_diff(path: str, lines: list[str]) -> str:
+    header = [
+        f"diff --git a/{path} b/{path}",
+        "new file mode 100644",
+        "--- /dev/null",
+        f"+++ b/{path}",
+        f"@@ -0,0 +1,{len(lines)} @@",
+    ]
+    body = [f"+{line}" for line in lines]
+    return "\n".join(header + body)
+
+
+def _safe_file_size(path: Path) -> int | None:
+    try:
+        return path.stat().st_size
+    except OSError:
+        return None
+
+
+def _is_sensitive_untracked_path(path: str) -> bool:
+    name = Path(path).name.lower()
+    suffix = Path(path).suffix.lower()
+    return name in SENSITIVE_UNTRACKED_EXACT_NAMES or suffix in SENSITIVE_UNTRACKED_SUFFIXES
 
 
 def _read_text_file_for_diff(path: Path) -> str | None:
