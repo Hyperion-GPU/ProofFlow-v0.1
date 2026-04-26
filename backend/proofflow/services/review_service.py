@@ -13,7 +13,12 @@ from proofflow.models.schemas import (
     AgentGuardReviewRequest,
     AgentGuardReviewResponse,
 )
-from proofflow.services.git_service import ChangedFile, GitSnapshot, inspect_working_tree
+from proofflow.services.git_service import (
+    ChangedFile,
+    GitSnapshot,
+    UntrackedFilePolicyNote,
+    inspect_working_tree,
+)
 from proofflow.services.json_utils import dumps_metadata
 
 TEXT_CHUNK_LINES = 200
@@ -81,6 +86,9 @@ def review_repository(payload: AgentGuardReviewRequest) -> AgentGuardReviewRespo
                 "base_ref": payload.base_ref,
                 "changed_files": _changed_file_metadata(snapshot.changed_files),
                 "diff_line_count": len(snapshot.diff_text.splitlines()),
+                "untracked_policy_notes": _untracked_policy_note_metadata(
+                    snapshot.untracked_policy_notes
+                ),
             },
         )
 
@@ -157,6 +165,9 @@ def _insert_case(
                     "include_untracked": payload.include_untracked,
                     "risk_level": risk_level,
                     "changed_file_count": len(snapshot.changed_files),
+                    "untracked_policy_notes": _untracked_policy_note_metadata(
+                        snapshot.untracked_policy_notes
+                    ),
                 }
             ),
             now,
@@ -454,6 +465,48 @@ def _build_claim_specs(
             )
         )
 
+    sensitive_untracked_notes = [
+        note
+        for note in snapshot.untracked_policy_notes
+        if note.reason == "sensitive_untracked_file"
+    ]
+    if sensitive_untracked_notes:
+        claims.append(
+            ClaimSpec(
+                severity="medium",
+                text=(
+                    "Sensitive untracked files were omitted from AgentGuard diff "
+                    f"content: {_join_note_paths(sensitive_untracked_notes)}"
+                ),
+                evidence_type="git_diff",
+                evidence_content=_format_untracked_policy_evidence(
+                    sensitive_untracked_notes
+                ),
+                source_ref=sensitive_untracked_notes[0].path,
+            )
+        )
+
+    oversized_untracked_notes = [
+        note
+        for note in snapshot.untracked_policy_notes
+        if note.reason == "untracked_file_exceeds_diff_cap"
+    ]
+    if oversized_untracked_notes:
+        claims.append(
+            ClaimSpec(
+                severity="info",
+                text=(
+                    "Oversized untracked files were omitted from AgentGuard diff "
+                    f"content: {_join_note_paths(oversized_untracked_notes)}"
+                ),
+                evidence_type="git_diff",
+                evidence_content=_format_untracked_policy_evidence(
+                    oversized_untracked_notes
+                ),
+                source_ref=oversized_untracked_notes[0].path,
+            )
+        )
+
     if _file_operation_code_changed(changed_files, snapshot.diff_text) and not _tests_changed(changed_files):
         file_paths = [item.path for item in changed_files]
         claims.append(
@@ -563,6 +616,42 @@ def _changed_file_metadata(changed_files: list[ChangedFile]) -> list[dict[str, s
         {"path": item.path, "status": item.status, "source": item.source}
         for item in changed_files
     ]
+
+
+def _untracked_policy_note_metadata(
+    notes: list[UntrackedFilePolicyNote],
+) -> list[dict[str, Any]]:
+    metadata: list[dict[str, Any]] = []
+    for note in notes:
+        item: dict[str, Any] = {
+            "path": note.path,
+            "reason": note.reason,
+            "truncated": note.truncated,
+        }
+        if note.size_bytes is not None:
+            item["size_bytes"] = note.size_bytes
+        if note.cap_bytes is not None:
+            item["cap_bytes"] = note.cap_bytes
+        metadata.append(item)
+    return metadata
+
+
+def _join_note_paths(notes: list[UntrackedFilePolicyNote]) -> str:
+    return ", ".join(note.path for note in notes)
+
+
+def _format_untracked_policy_evidence(notes: list[UntrackedFilePolicyNote]) -> str:
+    lines: list[str] = []
+    for note in notes:
+        parts = [f"{note.path}: {note.reason}"]
+        if note.size_bytes is not None:
+            parts.append(f"size_bytes={note.size_bytes}")
+        if note.cap_bytes is not None:
+            parts.append(f"cap_bytes={note.cap_bytes}")
+        if note.truncated:
+            parts.append("truncated=true")
+        lines.append("; ".join(parts))
+    return "\n".join(lines)
 
 
 def _changed_files_summary(changed_files: list[ChangedFile]) -> str:

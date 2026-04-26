@@ -39,6 +39,15 @@ These rules apply to coding agents working in this repository.
 - Do not implement business features in scaffolding commits unless the milestone
   specifically calls for them.
 
+## ProofFlow product invariants
+
+- No Case, no workflow.
+- No Evidence, no trusted Claim.
+- No Preview, no Action.
+- No Undo, no destructive Action.
+- No Test, no accepted code workflow.
+- No Source, no Artifact.
+
 ## Delivery
 
 Final reports should include:
@@ -48,4 +57,3 @@ Final reports should include:
 3. how to verify or reproduce,
 4. what was intentionally not done,
 5. the recommended next step.
-

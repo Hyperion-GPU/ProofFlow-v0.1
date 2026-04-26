@@ -335,7 +335,7 @@ export function CaseDetail() {
                         </div>
                         <div>
                           <dt>Return Code</dt>
-                          <dd>{metadataText(run.metadata, "return_code")}</dd>
+                          <dd>{metadataTextFallback(run.metadata, "test_returncode", "return_code")}</dd>
                         </div>
                       </dl>
                     </li>
@@ -401,4 +401,12 @@ function metadataText(metadata: JsonObject, key: string): string {
   if (typeof value === "string") return value;
   if (typeof value === "number" || typeof value === "boolean") return String(value);
   return JSON.stringify(value);
+}
+
+function metadataTextFallback(metadata: JsonObject, primaryKey: string, fallbackKey: string): string {
+  const primaryValue = metadata[primaryKey];
+  if (primaryValue !== null && primaryValue !== undefined) {
+    return metadataText(metadata, primaryKey);
+  }
+  return metadataText(metadata, fallbackKey);
 }

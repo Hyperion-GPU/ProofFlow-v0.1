@@ -165,7 +165,7 @@ def _remove_tree(path: Path) -> None:
         except OSError:
             raise exc_info[1]
 
-    shutil.rmtree(path, onexc=retry_readonly)
+    shutil.rmtree(path, onerror=retry_readonly)
 
 
 def _ensure_sample_fixtures(sample_files_dir: Path) -> None:

@@ -116,9 +116,39 @@ def execute_action(action_id: str) -> ActionResponse:
             connection.commit()
         return get_action(action_id)
 
+    if kind == "mkdir_dir":
+        preview = _loads_required_json(row["preview_json"])
+        dir_path = _validate_dir_preview(preview)
+        created = _execute_mkdir_dir(dir_path)
+        result = {
+            "operation": "mkdir_dir",
+            "dir_path": str(dir_path),
+            "created": created,
+            "already_exists": not created,
+            "executed_at": now,
+        }
+        undo = {
+            "operation": "remove_dir",
+            "dir_path": str(dir_path),
+            "created_by_action": created,
+            "created_at": now,
+        }
+        with connect() as connection:
+            connection.execute(
+                """
+                UPDATE actions
+                SET status = ?, result_json = ?, undo_json = ?, updated_at = ?
+                WHERE id = ?
+                """,
+                ("executed", dumps_metadata(result), dumps_metadata(undo), now, action_id),
+            )
+            connection.commit()
+        return get_action(action_id)
+
     if kind not in {"move_file", "rename_file"}:
         raise ActionError(f"unsupported action kind: {kind}")
 
+    _ensure_dependency_executed(row)
     preview = _loads_required_json(row["preview_json"])
     source_path, destination_path = _validate_file_preview(preview)
     if kind == "rename_file" and source_path.parent != destination_path.parent:
@@ -160,6 +190,22 @@ def undo_action(action_id: str) -> ActionResponse:
         raise ActionError("manual_check actions do not have file undo operations")
 
     undo = _loads_required_json(row["undo_json"])
+    if row["action_type"] == "mkdir_dir":
+        _undo_mkdir_dir(undo)
+        now = utc_now_iso()
+        undo["undone_at"] = now
+        with connect() as connection:
+            connection.execute(
+                """
+                UPDATE actions
+                SET status = ?, undo_json = ?, updated_at = ?
+                WHERE id = ?
+                """,
+                ("undone", dumps_metadata(undo), now, action_id),
+            )
+            connection.commit()
+        return get_action(action_id)
+
     source_path = _resolve_user_path(undo.get("from_path"))
     destination_path = _resolve_user_path(undo.get("to_path"))
 
@@ -277,6 +323,70 @@ def _validate_file_preview(preview: dict[str, Any]) -> tuple[Path, Path]:
     return source_path, destination_path
 
 
+def _validate_dir_preview(preview: dict[str, Any]) -> Path:
+    dir_path = _resolve_user_path(preview.get("dir_path"))
+    if dir_path.exists():
+        if dir_path.is_symlink():
+            raise ActionError("directory path cannot be a symlink")
+        if not dir_path.is_dir():
+            raise ActionError("directory path exists but is not a directory")
+    return dir_path
+
+
+def _ensure_dependency_executed(row: Any) -> None:
+    metadata = loads_metadata(row["metadata_json"])
+    dependency_id = metadata.get("depends_on_action_id")
+    if not isinstance(dependency_id, str) or not dependency_id:
+        return
+
+    with connect() as connection:
+        dependency = connection.execute(
+            """
+            SELECT case_id, status
+            FROM actions
+            WHERE id = ?
+            """,
+            (dependency_id,),
+        ).fetchone()
+    if dependency is None or dependency["case_id"] != row["case_id"]:
+        raise ActionError("dependent action was not found in this case")
+    if dependency["status"] != "executed":
+        raise ActionError("dependent action must be executed first")
+
+
+def _execute_mkdir_dir(dir_path: Path) -> bool:
+    if dir_path.exists():
+        if dir_path.is_symlink():
+            raise ActionError("directory path cannot be a symlink")
+        if not dir_path.is_dir():
+            raise ActionError("directory path exists but is not a directory")
+        return False
+    try:
+        dir_path.mkdir(parents=True, exist_ok=False)
+    except OSError as error:
+        raise ActionError(f"directory create failed: {error}") from error
+    return True
+
+
+def _undo_mkdir_dir(undo: dict[str, Any]) -> None:
+    dir_path = _resolve_user_path(undo.get("dir_path"))
+    if undo.get("created_by_action") is not True:
+        undo["removed"] = False
+        undo["skipped_reason"] = "directory_not_created_by_action"
+        return
+    if dir_path.is_symlink():
+        raise ActionError("undo directory cannot be a symlink")
+    if not dir_path.exists():
+        raise ActionError("directory created by action no longer exists")
+    if not dir_path.is_dir():
+        raise ActionError("undo path is not a directory")
+    try:
+        dir_path.rmdir()
+    except OSError as error:
+        raise ActionError(f"directory undo failed: {error}") from error
+    undo["removed"] = True
+
+
 def _execute_file_move(source_path: Path, destination_path: Path) -> None:
     try:
         shutil.move(str(source_path), str(destination_path))
@@ -303,5 +413,5 @@ def _undo_file_move(source_path: Path, destination_path: Path) -> None:
 
 def _resolve_user_path(value: Any) -> Path:
     if not isinstance(value, str) or not value:
-        raise ActionError("file action requires from_path and to_path")
+        raise ActionError("action path must be a non-empty string")
     return Path(value).expanduser()

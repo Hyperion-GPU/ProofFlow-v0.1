@@ -25,6 +25,7 @@ class SuggestActionsError(ValueError):
 def suggest_actions(request: LocalProofSuggestActionsRequest) -> LocalProofSuggestActionsSummary:
     target_root = _validate_target_root(request.target_root)
     used_destinations: set[str] = set()
+    mkdir_action_ids: dict[str, str] = {}
     skipped_items: list[LocalProofSuggestSkippedItem] = []
     action_ids: list[str] = []
 
@@ -65,6 +66,19 @@ def suggest_actions(request: LocalProofSuggestActionsRequest) -> LocalProofSugge
                 used_destinations,
             )
             _ensure_inside_target_root(destination, target_root)
+            depends_on_action_id = None
+            destination_dir = target_root / category
+            if not destination_dir.exists():
+                depends_on_action_id = mkdir_action_ids.get(category)
+                if depends_on_action_id is None:
+                    depends_on_action_id = _insert_pending_mkdir_action(
+                        connection=connection,
+                        case_id=request.case_id,
+                        dir_path=destination_dir,
+                        category=category,
+                    )
+                    mkdir_action_ids[category] = depends_on_action_id
+                    action_ids.append(depends_on_action_id)
 
             action_ids.append(
                 _insert_pending_move_action(
@@ -75,6 +89,7 @@ def suggest_actions(request: LocalProofSuggestActionsRequest) -> LocalProofSugge
                     destination_path=destination,
                     category=category,
                     rule=rule,
+                    depends_on_action_id=depends_on_action_id,
                 )
             )
 
@@ -178,6 +193,7 @@ def _insert_pending_move_action(
     destination_path: Path,
     category: str,
     rule: str,
+    depends_on_action_id: str | None,
 ) -> str:
     now = utc_now_iso()
     action_id = new_uuid()
@@ -193,6 +209,9 @@ def _insert_pending_move_action(
         "category": category,
         "rule": rule,
     }
+    if depends_on_action_id is not None:
+        metadata["depends_on_action_id"] = depends_on_action_id
+        metadata["depends_on_dir_path"] = str(destination_path.parent)
 
     connection.execute(
         """
@@ -207,6 +226,54 @@ def _insert_pending_move_action(
             case_id,
             None,
             "move_file",
+            "pending",
+            title,
+            title,
+            reason,
+            dumps_metadata(preview),
+            None,
+            None,
+            dumps_metadata(metadata),
+            now,
+            now,
+        ),
+    )
+    return action_id
+
+
+def _insert_pending_mkdir_action(
+    *,
+    connection: Any,
+    case_id: str,
+    dir_path: Path,
+    category: str,
+) -> str:
+    now = utc_now_iso()
+    action_id = new_uuid()
+    title = f"Create {category} directory"
+    reason = "Deterministic LocalProof prerequisite: destination directory"
+    preview = {
+        "dir_path": str(dir_path.resolve(strict=False)),
+    }
+    metadata = {
+        "source": "localproof_suggest_actions",
+        "category": category,
+        "rule": "missing_destination_directory",
+    }
+
+    connection.execute(
+        """
+        INSERT INTO actions (
+            id, case_id, run_id, action_type, status, description, title, reason,
+            preview_json, result_json, undo_json, metadata_json, created_at, updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            action_id,
+            case_id,
+            None,
+            "mkdir_dir",
             "pending",
             title,
             title,

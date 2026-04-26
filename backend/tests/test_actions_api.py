@@ -44,6 +44,23 @@ def _create_file_action(
     return response.json()
 
 
+def _create_mkdir_action(client: TestClient, case_id: str, directory: Path) -> dict:
+    response = client.post(
+        "/actions",
+        json={
+            "case_id": case_id,
+            "kind": "mkdir_dir",
+            "title": "Create directory",
+            "reason": "test safe directory operation",
+            "preview": {
+                "dir_path": str(directory),
+            },
+        },
+    )
+    assert response.status_code == 201
+    return response.json()
+
+
 def test_move_file_lifecycle(monkeypatch):
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_root = Path(temp_dir)
@@ -81,6 +98,123 @@ def test_move_file_lifecycle(monkeypatch):
             assert undone.json()["status"] == "undone"
             assert source.read_text(encoding="utf-8") == "move me"
             assert not destination.exists()
+
+
+def test_mkdir_dir_lifecycle(monkeypatch):
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_root = Path(temp_dir)
+        directory = temp_root / "sorted" / "Notes"
+
+        with _client(monkeypatch, temp_root) as client:
+            case_id = _create_case(client)
+            action = _create_mkdir_action(client, case_id, directory)
+            assert action["status"] == "previewed"
+            assert not directory.exists()
+
+            approved = client.post(f"/actions/{action['id']}/approve")
+            assert approved.status_code == 200
+
+            executed = client.post(f"/actions/{action['id']}/execute")
+            assert executed.status_code == 200
+            executed_payload = executed.json()
+            assert executed_payload["status"] == "executed"
+            assert executed_payload["result"]["created"] is True
+            assert executed_payload["result"]["already_exists"] is False
+            assert executed_payload["undo"]["created_by_action"] is True
+            assert directory.is_dir()
+
+            undone = client.post(f"/actions/{action['id']}/undo")
+            assert undone.status_code == 200
+            assert undone.json()["status"] == "undone"
+            assert undone.json()["undo"]["removed"] is True
+            assert not directory.exists()
+
+
+def test_mkdir_dir_execute_accepts_existing_directory_without_undo_delete(monkeypatch):
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_root = Path(temp_dir)
+        directory = temp_root / "existing"
+        directory.mkdir()
+
+        with _client(monkeypatch, temp_root) as client:
+            case_id = _create_case(client)
+            action = _create_mkdir_action(client, case_id, directory)
+            client.post(f"/actions/{action['id']}/approve")
+
+            executed = client.post(f"/actions/{action['id']}/execute")
+            assert executed.status_code == 200
+            assert executed.json()["result"]["created"] is False
+            assert executed.json()["result"]["already_exists"] is True
+
+            undone = client.post(f"/actions/{action['id']}/undo")
+            assert undone.status_code == 200
+            assert undone.json()["undo"]["removed"] is False
+            assert directory.is_dir()
+
+
+def test_mkdir_dir_undo_refuses_non_empty_directory(monkeypatch):
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_root = Path(temp_dir)
+        directory = temp_root / "sorted" / "Logs"
+
+        with _client(monkeypatch, temp_root) as client:
+            case_id = _create_case(client)
+            action = _create_mkdir_action(client, case_id, directory)
+            client.post(f"/actions/{action['id']}/approve")
+            executed = client.post(f"/actions/{action['id']}/execute")
+            assert executed.status_code == 200
+
+            marker = directory / "keep.log"
+            marker.write_text("keep me", encoding="utf-8")
+            undo = client.post(f"/actions/{action['id']}/undo")
+            assert undo.status_code == 400
+            assert marker.read_text(encoding="utf-8") == "keep me"
+            assert directory.is_dir()
+
+
+def test_create_action_rejects_preview_shape_that_does_not_match_kind(monkeypatch):
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_root = Path(temp_dir)
+
+        with _client(monkeypatch, temp_root) as client:
+            case_id = _create_case(client)
+            move_with_dir_preview = client.post(
+                "/actions",
+                json={
+                    "case_id": case_id,
+                    "kind": "move_file",
+                    "title": "Bad move",
+                    "reason": "dir preview does not describe a file move",
+                    "preview": {"dir_path": str(temp_root / "Notes")},
+                },
+            )
+            mkdir_with_file_preview = client.post(
+                "/actions",
+                json={
+                    "case_id": case_id,
+                    "kind": "mkdir_dir",
+                    "title": "Bad mkdir",
+                    "reason": "file preview does not describe a directory create",
+                    "preview": {
+                        "from_path": str(temp_root / "source.txt"),
+                        "to_path": str(temp_root / "target.txt"),
+                    },
+                },
+            )
+            manual_with_preview = client.post(
+                "/actions",
+                json={
+                    "case_id": case_id,
+                    "kind": "manual_check",
+                    "title": "Bad manual check",
+                    "reason": "manual checks do not execute a previewed operation",
+                    "preview": {"dir_path": str(temp_root / "Notes")},
+                },
+            )
+
+        assert move_with_dir_preview.status_code == 422
+        assert mkdir_with_file_preview.status_code == 422
+        assert manual_with_preview.status_code == 422
 
 
 def test_rename_file_lifecycle(monkeypatch):
