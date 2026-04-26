@@ -172,6 +172,51 @@ def test_mkdir_dir_undo_refuses_non_empty_directory(monkeypatch):
             assert directory.is_dir()
 
 
+def test_create_action_rejects_preview_shape_that_does_not_match_kind(monkeypatch):
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_root = Path(temp_dir)
+
+        with _client(monkeypatch, temp_root) as client:
+            case_id = _create_case(client)
+            move_with_dir_preview = client.post(
+                "/actions",
+                json={
+                    "case_id": case_id,
+                    "kind": "move_file",
+                    "title": "Bad move",
+                    "reason": "dir preview does not describe a file move",
+                    "preview": {"dir_path": str(temp_root / "Notes")},
+                },
+            )
+            mkdir_with_file_preview = client.post(
+                "/actions",
+                json={
+                    "case_id": case_id,
+                    "kind": "mkdir_dir",
+                    "title": "Bad mkdir",
+                    "reason": "file preview does not describe a directory create",
+                    "preview": {
+                        "from_path": str(temp_root / "source.txt"),
+                        "to_path": str(temp_root / "target.txt"),
+                    },
+                },
+            )
+            manual_with_preview = client.post(
+                "/actions",
+                json={
+                    "case_id": case_id,
+                    "kind": "manual_check",
+                    "title": "Bad manual check",
+                    "reason": "manual checks do not execute a previewed operation",
+                    "preview": {"dir_path": str(temp_root / "Notes")},
+                },
+            )
+
+        assert move_with_dir_preview.status_code == 422
+        assert mkdir_with_file_preview.status_code == 422
+        assert manual_with_preview.status_code == 422
+
+
 def test_rename_file_lifecycle(monkeypatch):
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_root = Path(temp_dir)
