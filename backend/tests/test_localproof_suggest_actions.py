@@ -8,6 +8,7 @@ from proofflow.main import app
 
 def _client(monkeypatch, temp_root: Path) -> TestClient:
     monkeypatch.setenv("PROOFFLOW_DB_PATH", str(temp_root / "suggestions.db"))
+    monkeypatch.setenv("PROOFFLOW_DATA_DIR", str(temp_root / "data"))
     return TestClient(app)
 
 
@@ -82,10 +83,27 @@ def test_suggest_actions_creates_pending_moves_for_common_file_types(monkeypatch
                 assert action["result"] is None
                 assert action["undo"] is None
                 assert action["metadata"]["source"] == "localproof_suggest_actions"
+                assert action["metadata"]["scope_kind"] == "localproof_file_cleanup"
+                assert action["metadata"]["source_root"] == str(scan_folder.resolve())
+                assert action["metadata"]["target_root"] == str(target_root.resolve(strict=False))
+                assert set(action["metadata"]["allowed_roots"]) == {
+                    str(scan_folder.resolve()),
+                    str(target_root.resolve(strict=False)),
+                }
                 assert action["metadata"]["depends_on_action_id"]
                 assert action["metadata"]["depends_on_dir_path"]
                 assert Path(action["preview"]["from_path"]).exists()
                 assert not Path(action["preview"]["to_path"]).exists()
+
+            for action in mkdir_actions:
+                assert action["metadata"]["source"] == "localproof_suggest_actions"
+                assert action["metadata"]["scope_kind"] == "localproof_file_cleanup"
+                assert action["metadata"]["source_root"] == str(scan_folder.resolve())
+                assert action["metadata"]["target_root"] == str(target_root.resolve(strict=False))
+                assert set(action["metadata"]["allowed_roots"]) == {
+                    str(scan_folder.resolve()),
+                    str(target_root.resolve(strict=False)),
+                }
 
             execute_response = client.post(f"/actions/{summary['actions'][0]['id']}/execute")
             assert execute_response.status_code == 400
@@ -203,3 +221,22 @@ def test_suggest_actions_rejects_target_root_file(monkeypatch):
             )
 
         assert response.status_code == 400
+
+
+def test_suggest_actions_rejects_proofflow_data_target_root(monkeypatch):
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_root = Path(temp_dir)
+        scan_folder = temp_root / "scan"
+        scan_folder.mkdir()
+        (scan_folder / "notes.md").write_text("# Notes\n", encoding="utf-8")
+        target_root = temp_root / "data" / "proof_packets" / "sorted"
+
+        with _client(monkeypatch, temp_root) as client:
+            case_id = _scan(client, scan_folder)
+            response = client.post(
+                "/localproof/suggest-actions",
+                json={"case_id": case_id, "target_root": str(target_root)},
+            )
+
+    assert response.status_code == 400
+    assert "ProofFlow proof_packets directory" in response.json()["detail"]

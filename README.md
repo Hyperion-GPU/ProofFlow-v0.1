@@ -81,6 +81,10 @@ prints backend/frontend commands for that seeded database.
 Use [docs/V0_1_DOGFOOD.md](docs/V0_1_DOGFOOD.md) for the local demo and smoke
 gate path from demo seed through LocalProof, AgentGuard, and Proof Packet export.
 
+For the RC safety baseline, use [docs/action_safety.md](docs/action_safety.md)
+for filesystem action scope rules and [docs/reset_backup.md](docs/reset_backup.md)
+for local reset and backup commands.
+
 ## Make targets
 
 This repository includes placeholder targets for common workflows:
@@ -108,6 +112,8 @@ PowerShell commands above are the primary run path for now.
 - ProofFlow stores local workflow data in SQLite by default.
 - The backend database defaults to `backend\data\proofflow.db`; set
   `PROOFFLOW_DB_PATH` to override it.
+- Filesystem actions require explicit local `allowed_roots` metadata and cannot
+  operate on ProofFlow's own database, data directory, or proof packet directory.
 
 ## Known limitations
 

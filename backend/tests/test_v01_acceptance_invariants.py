@@ -11,6 +11,13 @@ def _client(monkeypatch, tmp_path: Path) -> TestClient:
     return TestClient(app)
 
 
+def _scope_metadata(*roots: Path) -> dict:
+    return {
+        "scope_kind": "acceptance_file_action",
+        "allowed_roots": [str(root.resolve(strict=False)) for root in roots],
+    }
+
+
 def test_v01_action_lifecycle_is_reflected_in_case_packet(monkeypatch, tmp_path):
     source_dir = tmp_path / "inbox"
     source_dir.mkdir()
@@ -39,6 +46,7 @@ def test_v01_action_lifecycle_is_reflected_in_case_packet(monkeypatch, tmp_path)
                 "title": "Create Notes directory",
                 "reason": "Previewable directory prerequisite.",
                 "preview": {"dir_path": str(target_dir)},
+                "metadata": _scope_metadata(target_dir.parent),
             },
         )
         assert mkdir_response.status_code == 201
@@ -56,6 +64,7 @@ def test_v01_action_lifecycle_is_reflected_in_case_packet(monkeypatch, tmp_path)
                     "to_path": str(destination),
                 },
                 "metadata": {
+                    **_scope_metadata(source_dir, target_dir),
                     "depends_on_action_id": mkdir_action["id"],
                     "depends_on_dir_path": str(target_dir),
                 },

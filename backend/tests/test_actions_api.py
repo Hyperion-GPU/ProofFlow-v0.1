@@ -8,6 +8,7 @@ from proofflow.main import app
 
 def _client(monkeypatch, temp_root: Path) -> TestClient:
     monkeypatch.setenv("PROOFFLOW_DB_PATH", str(temp_root / "actions.db"))
+    monkeypatch.setenv("PROOFFLOW_DATA_DIR", str(temp_root / "data"))
     return TestClient(app)
 
 
@@ -38,6 +39,7 @@ def _create_file_action(
                 "from_path": str(source),
                 "to_path": str(destination),
             },
+            "metadata": _scope_metadata(source.parent, destination.parent),
         },
     )
     assert response.status_code == 201
@@ -55,10 +57,18 @@ def _create_mkdir_action(client: TestClient, case_id: str, directory: Path) -> d
             "preview": {
                 "dir_path": str(directory),
             },
+            "metadata": _scope_metadata(directory.parent),
         },
     )
     assert response.status_code == 201
     return response.json()
+
+
+def _scope_metadata(*roots: Path) -> dict:
+    return {
+        "scope_kind": "test_file_action",
+        "allowed_roots": [str(root.resolve(strict=False)) for root in roots],
+    }
 
 
 def test_move_file_lifecycle(monkeypatch):
@@ -217,6 +227,61 @@ def test_create_action_rejects_preview_shape_that_does_not_match_kind(monkeypatc
         assert manual_with_preview.status_code == 422
 
 
+def test_filesystem_action_requires_scope_metadata(monkeypatch):
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_root = Path(temp_dir)
+        source = temp_root / "source.txt"
+        destination = temp_root / "moved.txt"
+        source.write_text("scope me", encoding="utf-8")
+
+        with _client(monkeypatch, temp_root) as client:
+            case_id = _create_case(client)
+            response = client.post(
+                "/actions",
+                json={
+                    "case_id": case_id,
+                    "kind": "move_file",
+                    "title": "Missing scope",
+                    "reason": "filesystem actions need explicit roots",
+                    "preview": {
+                        "from_path": str(source),
+                        "to_path": str(destination),
+                    },
+                },
+            )
+
+        assert response.status_code == 400
+        assert "metadata.allowed_roots" in response.json()["detail"]
+
+
+def test_filesystem_action_refuses_proofflow_data_paths(monkeypatch):
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_root = Path(temp_dir)
+        source = temp_root / "source.txt"
+        protected_destination = temp_root / "data" / "proof_packets" / "packet.md"
+        source.write_text("do not move into data", encoding="utf-8")
+
+        with _client(monkeypatch, temp_root) as client:
+            case_id = _create_case(client)
+            response = client.post(
+                "/actions",
+                json={
+                    "case_id": case_id,
+                    "kind": "move_file",
+                    "title": "Protected destination",
+                    "reason": "ProofFlow data is not an action target",
+                    "preview": {
+                        "from_path": str(source),
+                        "to_path": str(protected_destination),
+                    },
+                    "metadata": _scope_metadata(temp_root),
+                },
+            )
+
+        assert response.status_code == 400
+        assert "ProofFlow proof_packets directory" in response.json()["detail"]
+
+
 def test_rename_file_lifecycle(monkeypatch):
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_root = Path(temp_dir)
@@ -281,6 +346,32 @@ def test_execute_refuses_overwrite(monkeypatch):
             assert destination.read_text(encoding="utf-8") == "destination"
 
 
+def test_execute_returns_400_when_hash_read_fails(monkeypatch):
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_root = Path(temp_dir)
+        source = temp_root / "source.txt"
+        destination = temp_root / "moved.txt"
+        source.write_text("source", encoding="utf-8")
+        original_open = Path.open
+
+        def failing_open(path: Path, *args, **kwargs):
+            if path == source:
+                raise OSError("simulated hash read failure")
+            return original_open(path, *args, **kwargs)
+
+        with _client(monkeypatch, temp_root) as client:
+            case_id = _create_case(client)
+            action = _create_file_action(client, case_id, "move_file", source, destination)
+            client.post(f"/actions/{action['id']}/approve")
+            monkeypatch.setattr(Path, "open", failing_open)
+
+            execute = client.post(f"/actions/{action['id']}/execute")
+            assert execute.status_code == 400
+            assert "file hash read failed" in execute.json()["detail"]
+            assert source.exists()
+            assert not destination.exists()
+
+
 def test_undo_refuses_when_original_source_path_is_occupied(monkeypatch):
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_root = Path(temp_dir)
@@ -301,6 +392,28 @@ def test_undo_refuses_when_original_source_path_is_occupied(monkeypatch):
             assert undo.status_code == 400
             assert source.read_text(encoding="utf-8") == "occupier"
             assert destination.read_text(encoding="utf-8") == "source"
+
+
+def test_undo_refuses_when_moved_file_hash_changed(monkeypatch):
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_root = Path(temp_dir)
+        source = temp_root / "source.txt"
+        destination = temp_root / "moved.txt"
+        source.write_text("source", encoding="utf-8")
+
+        with _client(monkeypatch, temp_root) as client:
+            case_id = _create_case(client)
+            action = _create_file_action(client, case_id, "move_file", source, destination)
+            client.post(f"/actions/{action['id']}/approve")
+
+            execute = client.post(f"/actions/{action['id']}/execute")
+            assert execute.status_code == 200
+            destination.write_text("changed after execution", encoding="utf-8")
+
+            undo = client.post(f"/actions/{action['id']}/undo")
+            assert undo.status_code == 400
+            assert not source.exists()
+            assert destination.read_text(encoding="utf-8") == "changed after execution"
 
 
 def test_manual_check_never_touches_files(monkeypatch):
