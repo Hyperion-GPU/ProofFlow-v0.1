@@ -3,25 +3,39 @@
 This checklist keeps the release candidate local, repeatable, and evidence
 backed. Run these checks before tagging or presenting v0.1 RC output.
 
+For the post-release RC1 dogfood log, use
+[releases/V0_1_0_RC1_BUG_BASH.md](releases/V0_1_0_RC1_BUG_BASH.md).
+`scripts/rc_api_smoke.py` is a post-RC1 `main` helper; include it in a
+published tag only by cutting a later RC such as `v0.1.0-rc2`. Do not move the
+existing `v0.1.0-rc1` tag.
+
 ## Local commands
+
+Run each block from the repository root. Blocks that finish return to the root;
+run long-lived dev servers in separate PowerShell windows when needed.
 
 Backend:
 
 ```powershell
-cd .\backend
+Push-Location .\backend
 python -m pip install -r requirements.txt
 python -m pytest
+Pop-Location
+
+Push-Location .\backend
 python -m uvicorn proofflow.main:app --host 127.0.0.1 --port 8787 --reload
+Pop-Location
 ```
 
 Frontend:
 
 ```powershell
-cd .\frontend
+Push-Location .\frontend
 npm ci
 npm run test
 npm run build
 npm run dev
+Pop-Location
 ```
 
 Combined local release check:

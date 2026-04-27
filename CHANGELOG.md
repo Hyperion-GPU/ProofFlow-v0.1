@@ -7,6 +7,21 @@ All notable changes for ProofFlow v0.1 are tracked here.
 - Keep v0.1 scoped to localhost, SQLite, deterministic checks, and human-reviewed
   actions.
 
+### Dogfood / Smoke Checks
+
+- Added `scripts/rc_api_smoke.py` for in-process RC API dogfood against temp
+  DB/data paths.
+- Added smoke coverage for health release identity, LocalProof action lifecycle,
+  AgentGuard packet export, and sensitive untracked file omission.
+- Preserved RC smoke temp artifacts on failure for debugging.
+
+### Demo / Local Paths
+
+- Fixed `scripts/demo_seed.py` so isolated runs honor `PROOFFLOW_DB_PATH`,
+  `PROOFFLOW_DATA_DIR`, `--db-path`, and `--data-dir`.
+- Kept demo reset safety for repo-local non-demo paths and marker-protected
+  custom temp data dirs.
+
 ## v0.1.0-rc1
 
 ### Core Evidence Graph

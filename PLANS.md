@@ -85,6 +85,14 @@
 - [x] Add release notes draft.
 - [x] Add local release check helper.
 
+## Milestone: v0.1.0-rc1 Dogfood Bug Bash
+
+- [x] Log the post-release RC1 dogfood bug bash path.
+- [x] Archive post-RC1 smoke helper changes in the Unreleased changelog.
+- [x] Keep the `v0.1.0-rc1` tag fixed while documenting post-RC1 `main`
+  changes separately.
+- [x] Link the RC API smoke helper from dogfood and release checklist docs.
+
 ## Future scope
 
 - [ ] Add managed backup and restore workflows.
