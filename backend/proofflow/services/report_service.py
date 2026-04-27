@@ -152,6 +152,7 @@ def _render_markdown(packet: dict[str, Any], created_at: str) -> str:
     ]
 
     lines.extend(_render_artifacts(packet["artifacts"]))
+    lines.extend(_render_untracked_policy(packet["case"], packet["artifacts"]))
     lines.extend(_render_claims_and_evidence(packet["claims"], packet["evidence"]))
     lines.extend(_render_actions(packet["actions"]))
     lines.extend(_render_decisions(packet["decisions"]))
@@ -174,6 +175,33 @@ def _render_artifacts(artifacts: list[Any]) -> list[str]:
                 f"  - Kind: `{artifact['artifact_type']}`; Role: `{artifact['role']}`",
                 f"  - Path: `{path}`",
                 f"  - SHA-256: `{artifact['sha256'] or 'not recorded'}`",
+            ]
+        )
+    return lines + [""]
+
+
+def _render_untracked_policy(case: Any, artifacts: list[Any]) -> list[str]:
+    notes = _collect_untracked_policy_notes(case, artifacts)
+    if not notes:
+        return []
+
+    lines = [
+        "## AgentGuard Untracked Policy",
+        "",
+        (
+            "AgentGuard omitted the following untracked file contents from the "
+            "diff and Proof Packet. Only non-sensitive policy metadata is shown."
+        ),
+        "",
+    ]
+    for note in notes:
+        lines.extend(
+            [
+                f"- `{_md(note['path'])}`",
+                f"  - reason: `{_md(note['reason'])}`",
+                f"  - truncated: `{str(note['truncated']).lower()}`",
+                f"  - size_bytes: `{_metadata_value(note.get('size_bytes'))}`",
+                f"  - cap_bytes: `{_metadata_value(note.get('cap_bytes'))}`",
             ]
         )
     return lines + [""]
@@ -382,6 +410,76 @@ def _evidence_artifact_path(evidence: Any) -> str:
     if isinstance(path, str) and path:
         return path
     return evidence["artifact_uri"] or "not recorded"
+
+
+def _collect_untracked_policy_notes(case: Any, artifacts: list[Any]) -> list[dict[str, Any]]:
+    notes: list[dict[str, Any]] = []
+    seen: set[tuple[Any, ...]] = set()
+
+    case_metadata = loads_metadata(case["metadata_json"])
+    _append_untracked_policy_notes(notes, seen, case_metadata.get("untracked_policy_notes"))
+
+    for artifact in artifacts:
+        metadata = loads_metadata(artifact["metadata_json"])
+        _append_untracked_policy_notes(notes, seen, metadata.get("untracked_policy_notes"))
+
+    return notes
+
+
+def _append_untracked_policy_notes(
+    notes: list[dict[str, Any]],
+    seen: set[tuple[Any, ...]],
+    raw_notes: Any,
+) -> None:
+    if not isinstance(raw_notes, list):
+        return
+
+    for raw_note in raw_notes:
+        note = _sanitize_untracked_policy_note(raw_note)
+        if note is None:
+            continue
+        key = (
+            note["path"],
+            note["reason"],
+            note.get("size_bytes"),
+            note.get("cap_bytes"),
+            note["truncated"],
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        notes.append(note)
+
+
+def _sanitize_untracked_policy_note(raw_note: Any) -> dict[str, Any] | None:
+    if not isinstance(raw_note, dict):
+        return None
+
+    path = raw_note.get("path")
+    reason = raw_note.get("reason")
+    if not isinstance(path, str) or not path:
+        return None
+    if not isinstance(reason, str) or not reason:
+        return None
+
+    note: dict[str, Any] = {
+        "path": path,
+        "reason": reason,
+        "truncated": raw_note.get("truncated") is True,
+    }
+    size_bytes = raw_note.get("size_bytes")
+    if isinstance(size_bytes, int) and size_bytes >= 0:
+        note["size_bytes"] = size_bytes
+    cap_bytes = raw_note.get("cap_bytes")
+    if isinstance(cap_bytes, int) and cap_bytes >= 0:
+        note["cap_bytes"] = cap_bytes
+    return note
+
+
+def _metadata_value(value: Any) -> str:
+    if value is None:
+        return "not recorded"
+    return str(value)
 
 
 def _quote_block(content: str) -> list[str]:

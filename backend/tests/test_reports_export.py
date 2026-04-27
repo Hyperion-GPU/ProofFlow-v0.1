@@ -190,6 +190,93 @@ def _seed_packet_case() -> str:
     return case_id
 
 
+def _seed_agentguard_untracked_policy_case() -> str:
+    case_id = "case-agentguard-policy"
+    artifact_id = "artifact-git-diff-policy"
+    now = "2026-01-01T00:00:00Z"
+    policy_notes = [
+        {
+            "path": ".env",
+            "reason": "sensitive_untracked_file",
+            "truncated": False,
+            "size_bytes": 23,
+            "unsafe_content": "env-secret",
+        },
+        {
+            "path": "large.txt",
+            "reason": "untracked_file_exceeds_diff_cap",
+            "truncated": True,
+            "size_bytes": 262245,
+            "cap_bytes": 262144,
+            "unsafe_content": "large-file-secret-marker",
+        },
+    ]
+
+    with connect(get_db_path()) as connection:
+        connection.execute(
+            """
+            INSERT INTO cases (
+                id, title, case_type, status, summary, metadata_json, created_at, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                case_id,
+                "AgentGuard policy case",
+                "code_review",
+                "open",
+                "Review untracked file policy notes.",
+                dumps_metadata(
+                    {
+                        "source": "agentguard_review",
+                        "untracked_policy_notes": policy_notes,
+                    }
+                ),
+                now,
+                now,
+            ),
+        )
+        connection.execute(
+            """
+            INSERT INTO artifacts (
+                id, artifact_type, uri, name, mime_type, sha256, size_bytes,
+                metadata_json, created_at, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                artifact_id,
+                "git_diff",
+                "agentguard://case-agentguard-policy/git-diff.patch",
+                "git-diff.patch",
+                "text/plain",
+                "sha-git-diff",
+                128,
+                dumps_metadata(
+                    {
+                        "source": "agentguard_review",
+                        "repo_path": "C:/ProofFlow/repo",
+                        "untracked_policy_notes": policy_notes,
+                    }
+                ),
+                now,
+                now,
+            ),
+        )
+        connection.execute(
+            """
+            INSERT INTO case_artifacts (
+                case_id, artifact_id, role, created_at, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (case_id, artifact_id, "primary", now, now),
+        )
+        connection.commit()
+
+    return case_id
+
+
 def test_export_case_proof_packet_writes_markdown_and_report_artifact(monkeypatch, tmp_path):
     with _client(monkeypatch, tmp_path) as client:
         case_id = _seed_packet_case()
@@ -244,6 +331,40 @@ def test_export_case_proof_packet_writes_markdown_and_report_artifact(monkeypatc
     assert artifact["size_bytes"] == len(payload["content"].encode("utf-8"))
     assert '"source":"proof_packet_export"' in artifact["metadata_json"]
     assert link["role"] == "reference"
+
+
+def test_export_case_proof_packet_renders_agentguard_untracked_policy_notes(
+    monkeypatch,
+    tmp_path,
+):
+    with _client(monkeypatch, tmp_path) as client:
+        case_id = _seed_agentguard_untracked_policy_case()
+        response = client.post(
+            f"/reports/cases/{case_id}/export",
+            json={"format": "markdown"},
+        )
+
+    assert response.status_code == 200
+    content = response.json()["content"]
+
+    assert "## AgentGuard Untracked Policy" in content
+    assert (
+        "AgentGuard omitted the following untracked file contents from the "
+        "diff and Proof Packet."
+    ) in content
+    assert content.count("- `.env`") == 1
+    assert content.count("- `large.txt`") == 1
+    assert "reason: `sensitive_untracked_file`" in content
+    assert "reason: `untracked_file_exceeds_diff_cap`" in content
+    assert "truncated: `false`" in content
+    assert "truncated: `true`" in content
+    assert "size_bytes: `23`" in content
+    assert "size_bytes: `262245`" in content
+    assert "cap_bytes: `262144`" in content
+    assert "cap_bytes: `not recorded`" in content
+    assert "env-secret" not in content
+    assert "large-file-secret-marker" not in content
+    assert "unsafe_content" not in content
 
 
 def test_export_case_proof_packet_does_not_overwrite_existing_report(monkeypatch, tmp_path):
