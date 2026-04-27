@@ -2,6 +2,8 @@ from pathlib import Path
 import importlib.util
 import sys
 
+import pytest
+
 
 def _load_rc_api_smoke_module():
     repo_root = Path(__file__).resolve().parents[2]
@@ -89,3 +91,32 @@ def test_rc_api_smoke_cleanup_removes_generated_temp_artifacts(
     assert module.main(["--cleanup"]) == 0
 
     assert not temp_root.exists()
+
+
+def test_rc_api_smoke_cleanup_keeps_temp_artifacts_after_failure(
+    monkeypatch,
+    tmp_path,
+):
+    module = _load_rc_api_smoke_module()
+    temp_root = tmp_path / "proofflow-rc-api-smoke-failure"
+
+    def fake_mkdtemp(prefix: str) -> str:
+        assert prefix == "proofflow-rc-api-smoke-"
+        return str(temp_root)
+
+    def fake_run_smoke(root: Path) -> dict:
+        evidence_path = root / "data" / "failure-evidence.txt"
+        evidence_path.parent.mkdir(parents=True)
+        evidence_path.write_text("keep failure evidence\n", encoding="utf-8")
+        raise RuntimeError("simulated smoke failure")
+
+    monkeypatch.setattr(module.tempfile, "mkdtemp", fake_mkdtemp)
+    monkeypatch.setattr(module, "run_smoke", fake_run_smoke)
+
+    with pytest.raises(RuntimeError, match="simulated smoke failure"):
+        module.main(["--cleanup"])
+
+    assert temp_root.exists()
+    assert (temp_root / "data" / "failure-evidence.txt").read_text(
+        encoding="utf-8"
+    ) == "keep failure evidence\n"

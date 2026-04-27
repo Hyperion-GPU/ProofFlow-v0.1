@@ -272,8 +272,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     temp_root = (args.work_dir or Path(tempfile.mkdtemp(prefix="proofflow-rc-api-smoke-"))).resolve()
     temp_root.mkdir(parents=True, exist_ok=True)
     should_cleanup = args.work_dir is None and args.cleanup
+    smoke_passed = False
     try:
         result = run_smoke(temp_root)
+        smoke_passed = True
         print("ProofFlow v0.1.0-rc1 API smoke passed.")
         print(f"Temp root: {temp_root}")
         print(f"DB path: {result['db_path']}")
@@ -291,7 +293,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             print("Temp root retained for inspection. Re-run with --cleanup to remove it automatically.")
         return 0
     finally:
-        if should_cleanup:
+        if should_cleanup and smoke_passed:
             _remove_tree(temp_root)
 
 
