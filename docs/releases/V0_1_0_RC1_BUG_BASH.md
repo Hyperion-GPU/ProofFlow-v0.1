@@ -30,6 +30,9 @@ a result row explicitly says it was captured on the tag.
 ## Local command checklist
 
 Run these commands from PowerShell.
+Each completed block returns to the repository root. Run long-lived backend and
+frontend dev servers in separate PowerShell windows opened at the repository
+root.
 
 Start from the current `main` branch:
 
@@ -67,19 +70,24 @@ python .\scripts\demo_seed.py
 Backend:
 
 ```powershell
-cd .\backend
+Push-Location .\backend
 python -m pytest
+Pop-Location
+
+Push-Location .\backend
 python -m uvicorn proofflow.main:app --host 127.0.0.1 --port 8787 --reload
+Pop-Location
 ```
 
 Frontend:
 
 ```powershell
-cd .\frontend
+Push-Location .\frontend
 npm ci
 npm run test
 npm run build
 npm run dev
+Pop-Location
 ```
 
 With the backend running, check release identity from another PowerShell:
@@ -150,9 +158,9 @@ was run on the immutable `v0.1.0-rc1` tag.
 
 | Check | Command / flow | Result | Notes |
 | --- | --- | --- | --- |
-| Backend tests | `cd backend; python -m pytest` | TODO | TODO |
-| Frontend tests | `cd frontend; npm run test` | TODO | TODO |
-| Frontend build | `cd frontend; npm run build` | TODO | TODO |
+| Backend tests | `Push-Location backend; python -m pytest; Pop-Location` | TODO | TODO |
+| Frontend tests | `Push-Location frontend; npm run test; Pop-Location` | TODO | TODO |
+| Frontend build | `Push-Location frontend; npm run build; Pop-Location` | TODO | TODO |
 | Release helper | `.\scripts\release_check.ps1` | TODO | TODO |
 | API smoke | `python .\scripts\rc_api_smoke.py` | TODO | TODO |
 | API smoke cleanup | `python .\scripts\rc_api_smoke.py --cleanup` | TODO | TODO |

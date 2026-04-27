@@ -57,3 +57,18 @@ def test_rc1_bug_bash_links_and_changelog_unreleased_scope():
 
     assert unreleased_index < smoke_index < rc1_index
     assert unreleased_index < demo_index < rc1_index
+
+
+def test_rc1_bug_bash_commands_return_to_repo_root():
+    repo_root = Path(__file__).resolve().parents[2]
+    content = (
+        repo_root / "docs" / "releases" / "V0_1_0_RC1_BUG_BASH.md"
+    ).read_text(encoding="utf-8")
+
+    assert "cd .\\backend" not in content
+    assert "cd .\\frontend" not in content
+    assert "cd backend;" not in content
+    assert "cd frontend;" not in content
+    assert "Push-Location .\\backend" in content
+    assert "Push-Location .\\frontend" in content
+    assert content.count("Pop-Location") >= 3
