@@ -24,6 +24,12 @@ npm run build
 npm run dev
 ```
 
+Combined local release check:
+
+```powershell
+.\scripts\release_check.ps1
+```
+
 Demo seed:
 
 ```powershell
@@ -68,6 +74,10 @@ python .\scripts\demo_seed.py
 
 - Backend pytest result is recorded.
 - Frontend test and build result is recorded.
+- `GET /health` shows `version: 0.1.0-rc1`, `release_stage: rc`, and
+  `release_name: ProofFlow v0.1.0-rc1`.
+- Dashboard shows the same RC release stamp.
+- Local release helper result is recorded.
 - Public dogfood Proof Packet example is reviewed for sensitive content.
 - CHANGELOG has a `v0.1.0-rc1` entry.
 - Known limitations are present and honest.

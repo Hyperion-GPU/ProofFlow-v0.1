@@ -16,6 +16,7 @@ from proofflow.routers import (
     reports,
     search,
 )
+from proofflow.version import __version__, release_name
 
 
 @asynccontextmanager
@@ -26,8 +27,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 def create_app() -> FastAPI:
     app = FastAPI(
-        title="ProofFlow",
-        version="0.1.0",
+        title=release_name,
+        version=__version__,
         description="Local-first AI workflow dashboard MVP.",
         lifespan=lifespan,
     )

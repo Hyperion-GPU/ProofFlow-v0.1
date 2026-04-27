@@ -48,12 +48,14 @@ All notable changes for ProofFlow v0.1 are tracked here.
 - Added frontend smoke tests for Dashboard, AgentGuard, LocalProof, and
   CaseDetail.
 - Added backend and frontend CI release gates.
+- Added v0.1.0-rc1 health metadata and Dashboard release visibility.
 
 ### Docs
 
 - Added action safety documentation.
 - Added reset, backup, and restore documentation.
 - Added RC checklist and public dogfood Proof Packet example.
+- Added release notes draft and local release check helper.
 
 ### Known limitations
 

@@ -52,6 +52,18 @@ export function Dashboard() {
               <dd>{health?.service ?? "Loading"}</dd>
             </div>
             <div>
+              <dt>Release</dt>
+              <dd>{health?.release_name ?? "Loading"}</dd>
+            </div>
+            <div>
+              <dt>Version</dt>
+              <dd>{health?.version ?? "Loading"}</dd>
+            </div>
+            <div>
+              <dt>Stage</dt>
+              <dd>{health?.release_stage ?? "Loading"}</dd>
+            </div>
+            <div>
               <dt>Cases</dt>
               <dd>{cases.length}</dd>
             </div>

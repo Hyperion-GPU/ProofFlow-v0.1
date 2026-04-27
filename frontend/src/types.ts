@@ -3,6 +3,9 @@ export type JsonObject = Record<string, unknown>;
 export type HealthResponse = {
   ok: boolean;
   service: string;
+  version: string;
+  release_stage: string;
+  release_name: string;
 };
 
 export type CaseResponse = {

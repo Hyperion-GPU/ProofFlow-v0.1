@@ -21,6 +21,7 @@ heuristic result.
   FTS search, and previewable suggested actions.
 - AgentGuard supports local git diff review, changed-file tracking, optional
   test commands, and evidence-backed claims.
+- Current release candidate stamp: `ProofFlow v0.1.0-rc1`.
 
 ## Stack
 
@@ -47,6 +48,9 @@ Health check:
 ```powershell
 Invoke-RestMethod http://127.0.0.1:8787/health
 ```
+
+The health response includes the release `version`, `release_stage`, and
+`release_name`.
 
 Run backend tests:
 
@@ -92,6 +96,14 @@ For release-candidate checks, use
 [docs/V0_1_RC_CHECKLIST.md](docs/V0_1_RC_CHECKLIST.md), the
 [CHANGELOG.md](CHANGELOG.md), and the public dogfood packet example in
 [docs/examples/V0_1_DOGFOOD_PROOF_PACKET.md](docs/examples/V0_1_DOGFOOD_PROOF_PACKET.md).
+
+For publish prep, use the draft release notes in
+[docs/releases/V0_1_0_RC1_RELEASE_NOTES.md](docs/releases/V0_1_0_RC1_RELEASE_NOTES.md)
+and the local helper:
+
+```powershell
+.\scripts\release_check.ps1
+```
 
 ## Make targets
 
