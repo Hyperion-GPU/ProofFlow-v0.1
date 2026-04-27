@@ -4,10 +4,10 @@ All notable changes for ProofFlow v0.1 are tracked here.
 
 ## Unreleased
 
-- Keep v0.1 scoped to localhost, SQLite, deterministic checks, and human-reviewed
-  actions.
-- Documented the v0.1.0-rc1 dogfood closure decision and cleaned the published
-  pre-release body wording without moving the `v0.1.0-rc1` tag.
+### Added
+
+- RC1 dogfood closure decision and filled bug bash results.
+- Managed Backup / Restore Foundation design and contract tests.
 
 ### Dogfood / Smoke Checks
 
