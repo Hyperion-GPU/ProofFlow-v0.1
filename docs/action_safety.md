@@ -70,3 +70,15 @@ Undo refuses to move the file back if the file at the action destination no
 longer matches the recorded hash. This prevents an undo from overwriting or
 misplacing content that changed after execution.
 
+## Legacy database upgrade
+
+`init_db()` upgrades legacy filesystem actions that were created before action
+safety metadata existed. When the old preview has enough path information, the
+upgrade infers `allowed_roots` from the LocalProof scan folder and target root,
+or from the legacy action paths for non-LocalProof actions.
+
+For legacy executed `move_file` and `rename_file` actions that do not have an
+undo hash guard, the upgrade records the file currently at the undo source as
+the hash baseline and marks it with `hash_guard_migrated_from`. This cannot
+recover a pre-upgrade hash that was never recorded, but it prevents silent
+post-upgrade changes from being undone as if they were the original file.
