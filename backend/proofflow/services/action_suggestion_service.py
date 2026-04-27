@@ -9,6 +9,13 @@ from proofflow.models.schemas import (
     LocalProofSuggestSkippedItem,
 )
 from proofflow.services import action_service
+from proofflow.services.action_safety import (
+    ActionSafetyError,
+    build_localproof_scope_metadata,
+    is_path_at_or_under,
+    resolve_scope_root,
+    validate_filesystem_action_scope,
+)
 from proofflow.services.errors import NotFoundError
 from proofflow.services.json_utils import dumps_metadata, loads_metadata
 
@@ -30,7 +37,9 @@ def suggest_actions(request: LocalProofSuggestActionsRequest) -> LocalProofSugge
     action_ids: list[str] = []
 
     with connect() as connection:
-        _ensure_case_exists(connection, request.case_id)
+        case_metadata = _case_metadata(connection, request.case_id)
+        source_root = _source_root_from_case_metadata(case_metadata)
+        scope_metadata = _build_scope_metadata(source_root, target_root)
         rows = connection.execute(
             """
             SELECT
@@ -52,6 +61,9 @@ def suggest_actions(request: LocalProofSuggestActionsRequest) -> LocalProofSugge
             source_path, skip_reason = _source_path_from_metadata(metadata)
             if skip_reason is not None:
                 skipped_items.append(_skipped(row, metadata.get("path"), skip_reason))
+                continue
+            if not is_path_at_or_under(source_path, source_root):
+                skipped_items.append(_skipped(row, str(source_path), "source_path_outside_scope"))
                 continue
 
             category_rule = _category_for_artifact(row, source_path)
@@ -76,6 +88,7 @@ def suggest_actions(request: LocalProofSuggestActionsRequest) -> LocalProofSugge
                         case_id=request.case_id,
                         dir_path=destination_dir,
                         category=category,
+                        scope_metadata=scope_metadata,
                     )
                     mkdir_action_ids[category] = depends_on_action_id
                     action_ids.append(depends_on_action_id)
@@ -90,6 +103,7 @@ def suggest_actions(request: LocalProofSuggestActionsRequest) -> LocalProofSugge
                     category=category,
                     rule=rule,
                     depends_on_action_id=depends_on_action_id,
+                    scope_metadata=scope_metadata,
                 )
             )
 
@@ -113,10 +127,31 @@ def _validate_target_root(raw_target_root: str) -> Path:
     return target_root.resolve(strict=False)
 
 
-def _ensure_case_exists(connection: Any, case_id: str) -> None:
-    row = connection.execute("SELECT 1 FROM cases WHERE id = ?", (case_id,)).fetchone()
+def _case_metadata(connection: Any, case_id: str) -> dict[str, Any]:
+    row = connection.execute(
+        "SELECT metadata_json FROM cases WHERE id = ?",
+        (case_id,),
+    ).fetchone()
     if row is None:
         raise NotFoundError(f"case not found: {case_id}")
+    return loads_metadata(row["metadata_json"])
+
+
+def _source_root_from_case_metadata(metadata: dict[str, Any]) -> Path:
+    raw_source_root = metadata.get("folder_path")
+    if not isinstance(raw_source_root, str) or not raw_source_root:
+        raise SuggestActionsError("LocalProof suggest-actions requires a scan folder scope")
+    try:
+        return resolve_scope_root(raw_source_root, "source_root")
+    except ActionSafetyError as error:
+        raise SuggestActionsError(str(error)) from error
+
+
+def _build_scope_metadata(source_root: Path, target_root: Path) -> dict[str, Any]:
+    try:
+        return build_localproof_scope_metadata(source_root, target_root)
+    except ActionSafetyError as error:
+        raise SuggestActionsError(str(error)) from error
 
 
 def _source_path_from_metadata(metadata: dict[str, Any]) -> tuple[Path, str | None]:
@@ -194,6 +229,7 @@ def _insert_pending_move_action(
     category: str,
     rule: str,
     depends_on_action_id: str | None,
+    scope_metadata: dict[str, Any],
 ) -> str:
     now = utc_now_iso()
     action_id = new_uuid()
@@ -204,7 +240,7 @@ def _insert_pending_move_action(
         "to_path": str(destination_path),
     }
     metadata = {
-        "source": "localproof_suggest_actions",
+        **scope_metadata,
         "artifact_id": artifact_id,
         "category": category,
         "rule": rule,
@@ -212,6 +248,8 @@ def _insert_pending_move_action(
     if depends_on_action_id is not None:
         metadata["depends_on_action_id"] = depends_on_action_id
         metadata["depends_on_dir_path"] = str(destination_path.parent)
+
+    metadata = _validate_action_scope("move_file", preview, metadata)
 
     connection.execute(
         """
@@ -247,6 +285,7 @@ def _insert_pending_mkdir_action(
     case_id: str,
     dir_path: Path,
     category: str,
+    scope_metadata: dict[str, Any],
 ) -> str:
     now = utc_now_iso()
     action_id = new_uuid()
@@ -256,10 +295,11 @@ def _insert_pending_mkdir_action(
         "dir_path": str(dir_path.resolve(strict=False)),
     }
     metadata = {
-        "source": "localproof_suggest_actions",
+        **scope_metadata,
         "category": category,
         "rule": "missing_destination_directory",
     }
+    metadata = _validate_action_scope("mkdir_dir", preview, metadata)
 
     connection.execute(
         """
@@ -287,6 +327,17 @@ def _insert_pending_mkdir_action(
         ),
     )
     return action_id
+
+
+def _validate_action_scope(
+    kind: str,
+    preview: dict[str, Any],
+    metadata: dict[str, Any],
+) -> dict[str, Any]:
+    try:
+        return validate_filesystem_action_scope(kind, preview, metadata)
+    except ActionSafetyError as error:
+        raise SuggestActionsError(str(error)) from error
 
 
 def _skipped(row: Any, path: Any, reason: str) -> LocalProofSuggestSkippedItem:

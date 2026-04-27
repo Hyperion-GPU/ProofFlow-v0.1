@@ -1,11 +1,16 @@
 from pathlib import Path
 from typing import Any
 
+import hashlib
 import json
 import shutil
 
 from proofflow.db import connect, new_uuid, utc_now_iso
 from proofflow.models.schemas import ActionCreate, ActionResponse
+from proofflow.services.action_safety import (
+    ActionSafetyError,
+    validate_filesystem_action_scope,
+)
 from proofflow.services.errors import NotFoundError
 from proofflow.services.json_utils import dumps_metadata, loads_metadata
 
@@ -38,6 +43,7 @@ def create_action(payload: ActionCreate) -> ActionResponse:
 
     with connect() as connection:
         _ensure_case_exists(connection, payload.case_id)
+        metadata = _validate_filesystem_scope(payload.kind, preview, payload.metadata)
         connection.execute(
             """
             INSERT INTO actions (
@@ -58,7 +64,7 @@ def create_action(payload: ActionCreate) -> ActionResponse:
                 dumps_metadata(preview),
                 None,
                 None,
-                dumps_metadata(payload.metadata),
+                dumps_metadata(metadata),
                 now,
                 now,
             ),
@@ -118,6 +124,8 @@ def execute_action(action_id: str) -> ActionResponse:
 
     if kind == "mkdir_dir":
         preview = _loads_required_json(row["preview_json"])
+        metadata = loads_metadata(row["metadata_json"])
+        _validate_filesystem_scope(kind, preview, metadata)
         dir_path = _validate_dir_preview(preview)
         created = _execute_mkdir_dir(dir_path)
         result = {
@@ -150,22 +158,30 @@ def execute_action(action_id: str) -> ActionResponse:
 
     _ensure_dependency_executed(row)
     preview = _loads_required_json(row["preview_json"])
+    metadata = loads_metadata(row["metadata_json"])
+    _validate_filesystem_scope(kind, preview, metadata)
     source_path, destination_path = _validate_file_preview(preview)
     if kind == "rename_file" and source_path.parent != destination_path.parent:
         raise ActionError("rename_file requires from_path and to_path in the same directory")
 
+    source_sha256 = _sha256_file(source_path)
+    source_size = source_path.stat().st_size
     _execute_file_move(source_path, destination_path)
 
     result = {
         "operation": kind,
         "from_path": str(source_path),
         "to_path": str(destination_path),
+        "sha256": source_sha256,
+        "size_bytes": source_size,
         "executed_at": now,
     }
     undo = {
         "operation": "restore_file",
         "from_path": str(destination_path),
         "to_path": str(source_path),
+        "from_sha256": source_sha256,
+        "from_size_bytes": source_size,
         "created_at": now,
     }
 
@@ -190,7 +206,9 @@ def undo_action(action_id: str) -> ActionResponse:
         raise ActionError("manual_check actions do not have file undo operations")
 
     undo = _loads_required_json(row["undo_json"])
+    metadata = loads_metadata(row["metadata_json"])
     if row["action_type"] == "mkdir_dir":
+        _validate_filesystem_scope(row["action_type"], {"dir_path": undo.get("dir_path")}, metadata)
         _undo_mkdir_dir(undo)
         now = utc_now_iso()
         undo["undone_at"] = now
@@ -206,10 +224,18 @@ def undo_action(action_id: str) -> ActionResponse:
             connection.commit()
         return get_action(action_id)
 
+    _validate_filesystem_scope(
+        row["action_type"],
+        {
+            "from_path": undo.get("from_path"),
+            "to_path": undo.get("to_path"),
+        },
+        metadata,
+    )
     source_path = _resolve_user_path(undo.get("from_path"))
     destination_path = _resolve_user_path(undo.get("to_path"))
 
-    _undo_file_move(source_path, destination_path)
+    _undo_file_move(source_path, destination_path, undo)
 
     now = utc_now_iso()
     undo["undone_at"] = now
@@ -305,6 +331,17 @@ def _loads_required_json(raw_json: str | None) -> dict[str, Any]:
     return decoded
 
 
+def _validate_filesystem_scope(
+    kind: str,
+    preview: dict[str, Any],
+    metadata: dict[str, Any],
+) -> dict[str, Any]:
+    try:
+        return validate_filesystem_action_scope(kind, preview, metadata)
+    except ActionSafetyError as error:
+        raise ActionError(str(error)) from error
+
+
 def _validate_file_preview(preview: dict[str, Any]) -> tuple[Path, Path]:
     source_path = _resolve_user_path(preview.get("from_path"))
     destination_path = _resolve_user_path(preview.get("to_path"))
@@ -320,7 +357,7 @@ def _validate_file_preview(preview: dict[str, Any]) -> tuple[Path, Path]:
     if not destination_path.parent.exists() or not destination_path.parent.is_dir():
         raise ActionError("destination parent directory does not exist")
 
-    return source_path, destination_path
+    return source_path.resolve(strict=False), destination_path.resolve(strict=False)
 
 
 def _validate_dir_preview(preview: dict[str, Any]) -> Path:
@@ -330,7 +367,7 @@ def _validate_dir_preview(preview: dict[str, Any]) -> Path:
             raise ActionError("directory path cannot be a symlink")
         if not dir_path.is_dir():
             raise ActionError("directory path exists but is not a directory")
-    return dir_path
+    return dir_path.resolve(strict=False)
 
 
 def _ensure_dependency_executed(row: Any) -> None:
@@ -394,7 +431,7 @@ def _execute_file_move(source_path: Path, destination_path: Path) -> None:
         raise ActionError(f"file move failed: {error}") from error
 
 
-def _undo_file_move(source_path: Path, destination_path: Path) -> None:
+def _undo_file_move(source_path: Path, destination_path: Path, undo: dict[str, Any]) -> None:
     if source_path.is_symlink():
         raise ActionError("undo source cannot be a symlink")
     if not source_path.exists():
@@ -405,6 +442,12 @@ def _undo_file_move(source_path: Path, destination_path: Path) -> None:
         raise ActionError("original source path is occupied")
     if not destination_path.parent.exists() or not destination_path.parent.is_dir():
         raise ActionError("original source parent directory does not exist")
+    expected_sha256 = undo.get("from_sha256")
+    if not isinstance(expected_sha256, str) or not expected_sha256:
+        raise ActionError("undo is missing file hash guard")
+    current_sha256 = _sha256_file(source_path)
+    if current_sha256 != expected_sha256:
+        raise ActionError("undo source changed since action execution")
     try:
         shutil.move(str(source_path), str(destination_path))
     except OSError as error:
@@ -415,3 +458,11 @@ def _resolve_user_path(value: Any) -> Path:
     if not isinstance(value, str) or not value:
         raise ActionError("action path must be a non-empty string")
     return Path(value).expanduser()
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
