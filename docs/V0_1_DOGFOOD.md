@@ -17,6 +17,10 @@ export:
 - run AgentGuard against a local git repo,
 - export a Proof Packet.
 
+For release-candidate verification, also use
+[V0_1_RC_CHECKLIST.md](V0_1_RC_CHECKLIST.md). A public-safe packet example is
+available at [examples/V0_1_DOGFOOD_PROOF_PACKET.md](examples/V0_1_DOGFOOD_PROOF_PACKET.md).
+
 ## Commands
 
 Seed demo data:
@@ -44,7 +48,7 @@ Start and verify the frontend:
 
 ```powershell
 cd "D:\ProofFlow v0.1\frontend"
-npm install
+npm ci
 npm run test
 npm run build
 npm run dev

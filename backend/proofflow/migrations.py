@@ -442,11 +442,34 @@ def _ensure_legacy_undo_hash_guard(
         return undo, result
 
     source_path = _path_from_metadata(undo, "from_path")
-    if source_path is None or source_path.is_symlink() or not source_path.is_file():
-        return undo, result
+    if source_path is None:
+        return _mark_hash_guard_migration_failure(
+            undo,
+            result,
+            "undo.from_path is missing or invalid",
+        )
+    try:
+        if source_path.is_symlink():
+            return _mark_hash_guard_migration_failure(
+                undo,
+                result,
+                f"undo source is a symlink: {source_path}",
+            )
+        if not source_path.is_file():
+            return _mark_hash_guard_migration_failure(
+                undo,
+                result,
+                f"undo source is missing or not a regular file: {source_path}",
+            )
+        sha256 = _sha256_file(source_path)
+        size_bytes = source_path.stat().st_size
+    except OSError as error:
+        return _mark_hash_guard_migration_failure(
+            undo,
+            result,
+            f"file hash read failed: {error}",
+        )
 
-    sha256 = _sha256_file(source_path)
-    size_bytes = source_path.stat().st_size
     undo = {
         **undo,
         "from_sha256": sha256,
@@ -459,6 +482,25 @@ def _ensure_legacy_undo_hash_guard(
             "sha256": result.get("sha256", sha256),
             "size_bytes": result.get("size_bytes", size_bytes),
             "hash_guard_migrated_from": "legacy_action_safety_v0",
+        }
+    return undo, result
+
+
+def _mark_hash_guard_migration_failure(
+    undo: dict[str, Any],
+    result: dict[str, Any] | None,
+    error: str,
+) -> tuple[dict[str, Any], dict[str, Any] | None]:
+    undo = {
+        **undo,
+        "hash_guard_migration_failed": True,
+        "hash_guard_migration_error": error,
+    }
+    if result is not None:
+        result = {
+            **result,
+            "hash_guard_migration_failed": True,
+            "hash_guard_migration_error": error,
         }
     return undo, result
 

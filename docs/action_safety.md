@@ -89,3 +89,9 @@ undo hash guard, the upgrade records the file currently at the undo source as
 the hash baseline and marks it with `hash_guard_migrated_from`. This cannot
 recover a pre-upgrade hash that was never recorded, but it prevents silent
 post-upgrade changes from being undone as if they were the original file.
+
+If the upgrade cannot read that legacy undo source, it leaves the action in the
+database and records `hash_guard_migration_failed` plus
+`hash_guard_migration_error` in the result and undo payload. It does not invent
+a hash guard. A later undo still fails as a recoverable action error because the
+trusted hash guard is missing.
