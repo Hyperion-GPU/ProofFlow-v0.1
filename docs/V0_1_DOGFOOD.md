@@ -30,6 +30,14 @@ cd "D:\ProofFlow v0.1"
 python .\scripts\demo_seed.py
 ```
 
+Run the API smoke helper with temporary DB/data paths:
+
+```powershell
+python .\scripts\rc_api_smoke.py
+```
+
+The helper keeps its temp packet for inspection unless you pass `--cleanup`.
+
 Run backend checks:
 
 ```powershell

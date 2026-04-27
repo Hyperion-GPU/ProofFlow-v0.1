@@ -123,6 +123,62 @@ def test_demo_seed_rejects_reset_outside_demo_data(monkeypatch, tmp_path):
     assert marker.read_text(encoding="utf-8") == "do not delete\n"
 
 
+def test_demo_seed_cli_honors_env_output_paths(monkeypatch, tmp_path):
+    module = _load_demo_seed_module()
+    source_repo_root = Path(__file__).resolve().parents[2]
+    repo_root = tmp_path / "prooflow-demo-root"
+    repo_root.mkdir()
+    _copy_sample_fixtures(source_repo_root, repo_root)
+
+    data_dir = tmp_path / "isolated-smoke" / "data"
+    db_path = data_dir / "proofflow.db"
+    monkeypatch.setattr(module, "REPO_ROOT", repo_root)
+    monkeypatch.setenv("PROOFFLOW_DB_PATH", str(db_path))
+    monkeypatch.setenv("PROOFFLOW_DATA_DIR", str(data_dir))
+
+    module.main(["--no-agentguard"])
+
+    assert db_path.exists()
+    assert data_dir.exists()
+    assert (data_dir / module.DEMO_DATA_MARKER).exists()
+    assert (repo_root / "sample_data" / "work" / "files").exists()
+    assert not (repo_root / "backend" / "data" / "demo" / "proofflow.db").exists()
+
+    with connect(db_path) as connection:
+        case_count = connection.execute("SELECT COUNT(*) FROM cases").fetchone()[0]
+        proof_packets = connection.execute(
+            "SELECT COUNT(*) FROM artifacts WHERE artifact_type = 'proof_packet'"
+        ).fetchone()[0]
+
+    assert case_count == 2
+    assert proof_packets >= 1
+
+
+def test_demo_seed_rejects_non_empty_custom_temp_data_dir_without_marker(
+    tmp_path,
+):
+    module = _load_demo_seed_module()
+    source_repo_root = Path(__file__).resolve().parents[2]
+    repo_root = tmp_path / "prooflow-demo-root"
+    repo_root.mkdir()
+    _copy_sample_fixtures(source_repo_root, repo_root)
+
+    data_dir = tmp_path / "preexisting-data"
+    data_dir.mkdir()
+    marker = data_dir / "keep.txt"
+    marker.write_text("keep me\n", encoding="utf-8")
+
+    with pytest.raises(RuntimeError, match="custom demo data directory"):
+        module.seed_demo(
+            repo_root=repo_root,
+            db_path=data_dir / "proofflow.db",
+            data_dir=data_dir,
+            include_agentguard=False,
+        )
+
+    assert marker.read_text(encoding="utf-8") == "keep me\n"
+
+
 def test_demo_seed_remove_tree_retries_readonly_paths(tmp_path):
     module = _load_demo_seed_module()
     target = tmp_path / "readonly-tree"
