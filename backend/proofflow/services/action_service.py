@@ -462,7 +462,10 @@ def _resolve_user_path(value: Any) -> Path:
 
 def _sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for block in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(block)
+    try:
+        with path.open("rb") as handle:
+            for block in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(block)
+    except OSError as error:
+        raise ActionError(f"file hash read failed: {error}") from error
     return digest.hexdigest()

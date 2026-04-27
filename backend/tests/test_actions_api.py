@@ -346,6 +346,32 @@ def test_execute_refuses_overwrite(monkeypatch):
             assert destination.read_text(encoding="utf-8") == "destination"
 
 
+def test_execute_returns_400_when_hash_read_fails(monkeypatch):
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_root = Path(temp_dir)
+        source = temp_root / "source.txt"
+        destination = temp_root / "moved.txt"
+        source.write_text("source", encoding="utf-8")
+        original_open = Path.open
+
+        def failing_open(path: Path, *args, **kwargs):
+            if path == source:
+                raise OSError("simulated hash read failure")
+            return original_open(path, *args, **kwargs)
+
+        with _client(monkeypatch, temp_root) as client:
+            case_id = _create_case(client)
+            action = _create_file_action(client, case_id, "move_file", source, destination)
+            client.post(f"/actions/{action['id']}/approve")
+            monkeypatch.setattr(Path, "open", failing_open)
+
+            execute = client.post(f"/actions/{action['id']}/execute")
+            assert execute.status_code == 400
+            assert "file hash read failed" in execute.json()["detail"]
+            assert source.exists()
+            assert not destination.exists()
+
+
 def test_undo_refuses_when_original_source_path_is_occupied(monkeypatch):
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_root = Path(temp_dir)
