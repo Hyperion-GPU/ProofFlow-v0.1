@@ -21,6 +21,5 @@ itself. It must be linked to evidence or clearly marked as an assumption.
 
 ## v0.1 export direction
 
-The first export can be a local Markdown or JSON file. It should favor clarity
-and reproducibility over presentation.
-
+The v0.1 export is local Markdown. It should favor clarity and reproducibility
+over presentation.

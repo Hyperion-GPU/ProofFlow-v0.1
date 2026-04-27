@@ -265,7 +265,7 @@ export function CaseDetail() {
                             type="button"
                             disabled={
                               busyAction !== null ||
-                              !canRunAction(action.status, operation) ||
+                              !canRunAction(action, operation) ||
                               busyAction === `${action.id}:${operation}`
                             }
                             onClick={() => runAction(action.id, operation)}
@@ -359,12 +359,14 @@ function JsonBlock({ label, value }: { label: string; value: unknown }) {
   );
 }
 
-function canRunAction(status: string, operation: ActionOperation): boolean {
-  if (operation === "approve") return status === "pending" || status === "previewed";
-  if (operation === "execute") return status === "approved";
-  if (operation === "undo") return status === "executed";
+function canRunAction(action: ActionResponse, operation: ActionOperation): boolean {
+  if (operation === "approve") return action.status === "pending" || action.status === "previewed";
+  if (operation === "execute") return action.status === "approved";
+  if (operation === "undo") {
+    return action.status === "executed" && action.kind !== "manual_check";
+  }
   if (operation === "reject") {
-    return status === "pending" || status === "previewed" || status === "approved";
+    return action.status === "pending" || action.status === "previewed" || action.status === "approved";
   }
   return false;
 }

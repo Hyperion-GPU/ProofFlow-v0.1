@@ -47,9 +47,21 @@
 - [x] Align CaseDetail run metadata display with backend `test_returncode`.
 - [x] Refresh README and agent invariants for the current v0.1 trust baseline.
 
+## Milestone: Dogfood v0.1
+
+- [x] Align `make dev-backend` with the documented backend port `8787`.
+- [x] Add full LocalProof action lifecycle controls in the page: approve,
+  execute, undo, and reject.
+- [x] Show LocalProof action preview, result, undo, metadata, and dependency
+  context for dogfood review.
+- [x] Add focused frontend smoke checks for Dashboard, AgentGuard, LocalProof,
+  and CaseDetail.
+- [x] Add a backend v0.1 action lifecycle and packet invariant acceptance test.
+- [x] Add a local dogfood guide for demo seed, backend/frontend startup, smoke
+  checks, LocalProof, AgentGuard, and Proof Packet export.
+
 ## Future scope
 
-- [ ] Add focused frontend smoke checks for key MVP screens.
 - [ ] Document reset and backup workflows beyond the demo seed.
 - [ ] Review destructive-action safeguards before expanding file operations.
 - [ ] Explore multi-user, cloud sync, vector RAG, ComfyUI, or AI-assisted code
