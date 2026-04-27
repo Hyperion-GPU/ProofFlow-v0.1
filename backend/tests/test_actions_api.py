@@ -1,8 +1,10 @@
 from pathlib import Path
+import json
 import tempfile
 
 from fastapi.testclient import TestClient
 
+from proofflow.db import connect
 from proofflow.main import app
 
 
@@ -414,6 +416,56 @@ def test_undo_refuses_when_moved_file_hash_changed(monkeypatch):
             assert undo.status_code == 400
             assert not source.exists()
             assert destination.read_text(encoding="utf-8") == "changed after execution"
+
+
+def test_undo_missing_legacy_hash_guard_returns_400_without_moving_file(monkeypatch):
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_root = Path(temp_dir)
+        source = temp_root / "legacy-source.txt"
+        destination = temp_root / "legacy-moved.txt"
+        source.write_text("legacy content", encoding="utf-8")
+
+        with _client(monkeypatch, temp_root) as client:
+            case_id = _create_case(client)
+            action = _create_file_action(client, case_id, "move_file", source, destination)
+            client.post(f"/actions/{action['id']}/approve")
+
+            executed = client.post(f"/actions/{action['id']}/execute")
+            assert executed.status_code == 200
+            executed_payload = executed.json()
+
+            result_payload = dict(executed_payload["result"])
+            undo_payload = dict(executed_payload["undo"])
+            result_payload.pop("sha256", None)
+            result_payload.pop("size_bytes", None)
+            undo_payload.pop("from_sha256", None)
+            undo_payload.pop("from_size_bytes", None)
+
+            with connect() as connection:
+                connection.execute(
+                    """
+                    UPDATE actions
+                    SET result_json = ?, undo_json = ?
+                    WHERE id = ?
+                    """,
+                    (
+                        json.dumps(result_payload),
+                        json.dumps(undo_payload),
+                        action["id"],
+                    ),
+                )
+                connection.commit()
+
+            undo = client.post(f"/actions/{action['id']}/undo")
+            assert undo.status_code == 400
+            assert "undo is missing file hash guard" in undo.json()["detail"]
+            assert not source.exists()
+            assert destination.read_text(encoding="utf-8") == "legacy content"
+
+            actions = client.get(f"/cases/{case_id}/actions").json()
+            updated_action = next(item for item in actions if item["id"] == action["id"])
+            assert updated_action["status"] == "executed"
+            assert "from_sha256" not in updated_action["undo"]
 
 
 def test_manual_check_never_touches_files(monkeypatch):
