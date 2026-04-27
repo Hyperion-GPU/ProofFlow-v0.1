@@ -48,6 +48,16 @@ These rules apply to coding agents working in this repository.
 - No Test, no accepted code workflow.
 - No Source, no Artifact.
 
+## Managed backup / restore invariants
+
+- No Manifest, no Backup.
+- No Verify, no trusted Backup.
+- No Preview, no Restore.
+- No Pre-restore Backup, no destructive Restore.
+- No Hash Match, no Restore.
+- No Source Version, no Restore Trust.
+- No Restore to live DB in foundation phase.
+
 ## Delivery
 
 Final reports should include:

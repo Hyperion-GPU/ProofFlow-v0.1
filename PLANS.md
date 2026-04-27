@@ -93,9 +93,18 @@
   changes separately.
 - [x] Link the RC API smoke helper from dogfood and release checklist docs.
 
+## Milestone: Managed Backup / Restore Foundation
+
+- [x] Define the managed backup / restore design, invariants, manifest shape,
+  API contract, and contract tests.
+- [ ] Implement backend backup preview, create, list, detail, and verify.
+- [ ] Implement restore preview and restore to a new location.
+- [ ] Add a thin UI only after backend contracts are proven.
+- [ ] Defer live DB restore until stricter pre-restore backup and confirmation
+  gates exist.
+
 ## Future scope
 
-- [ ] Add managed backup and restore workflows.
 - [ ] Add richer destructive action types only after a new preview/undo review.
 - [ ] Explore vector RAG after v0.1 local trust boundaries are accepted.
 - [ ] Explore ComfyUI execution after v0.1 local trust boundaries are accepted.
