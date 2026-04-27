@@ -125,6 +125,48 @@ describe("LocalProof", () => {
     await userEvent.click(buttonInAction("Create Notes directory", "Undo"));
     expect(await statusInAction("Create Notes directory", "undone")).toBeInTheDocument();
   });
+
+  it("does not offer undo for executed manual check actions", async () => {
+    const actions = [manualCheckAction("executed")];
+    mockApiPost.mockImplementation((path: string) => {
+      if (path === "/localproof/scan") {
+        return Promise.resolve({
+          case_id: "case-localproof",
+          files_seen: 1,
+          artifacts_created: 1,
+          artifacts_updated: 0,
+          text_chunks_created: 1,
+          skipped: 0,
+          skipped_items: [],
+        });
+      }
+      if (path === "/localproof/suggest-actions") {
+        return Promise.resolve({
+          case_id: "case-localproof",
+          target_root: "D:/sorted",
+          actions_created: 1,
+          skipped: 0,
+          skipped_items: [],
+          actions,
+        });
+      }
+      return Promise.reject(new Error(`unexpected post: ${path}`));
+    });
+
+    render(
+      <MemoryRouter>
+        <LocalProof />
+      </MemoryRouter>,
+    );
+
+    await userEvent.type(screen.getByLabelText("Folder path"), "D:/inbox");
+    await userEvent.click(screen.getByRole("button", { name: "Scan" }));
+    await userEvent.type(screen.getByLabelText("Target root"), "D:/sorted");
+    await userEvent.click(screen.getByRole("button", { name: "Suggest actions" }));
+
+    expect(await screen.findByText("Confirm receipt")).toBeInTheDocument();
+    expect(buttonInAction("Confirm receipt", "Undo")).toBeDisabled();
+  });
 });
 
 function buttonInAction(title: string, name: string): HTMLButtonElement {
@@ -202,6 +244,25 @@ function moveAction(status: string): ActionResponse {
       depends_on_action_id: "mkdir-1",
       depends_on_dir_path: "D:/sorted/Notes",
     },
+    created_at: "2026-01-01T00:00:00Z",
+    updated_at: "2026-01-01T00:00:00Z",
+  };
+}
+
+function manualCheckAction(status: string): ActionResponse {
+  return {
+    id: "manual-1",
+    case_id: "case-localproof",
+    kind: "manual_check",
+    status,
+    title: "Confirm receipt",
+    reason: "Human confirmation only",
+    preview: {},
+    result: status === "executed" || status === "undone"
+      ? { operation: "manual_check", message: "manual check recorded" }
+      : null,
+    undo: null,
+    metadata: { source: "operator" },
     created_at: "2026-01-01T00:00:00Z",
     updated_at: "2026-01-01T00:00:00Z",
   };
