@@ -9,11 +9,12 @@ import type {
   LocalProofSuggestActionsSummary,
 } from "../types";
 
-type ActionOperation = "approve" | "execute" | "reject";
+type ActionOperation = "approve" | "execute" | "undo" | "reject";
 
 const ACTION_LABELS: Record<ActionOperation, string> = {
   approve: "Approve",
   execute: "Execute",
+  undo: "Undo",
   reject: "Reject",
 };
 
@@ -252,16 +253,17 @@ export function LocalProof() {
                   <span className="status-pill">{action.status}</span>
                 </div>
                 <div className="path-preview-grid">
-                  <PathPreview label="From" value={previewText(action.preview, "from_path")} />
-                  <PathPreview label="To" value={previewText(action.preview, "to_path")} />
+                  <ActionPathPreview action={action} />
                 </div>
                 <div className="json-grid">
                   <JsonBlock label="Preview" value={action.preview} />
                   <JsonBlock label="Result" value={action.result} />
                   <JsonBlock label="Undo" value={action.undo} />
+                  <JsonBlock label="Metadata" value={action.metadata} />
                 </div>
+                <ActionDependencyMetadata metadata={action.metadata} />
                 <div className="action-buttons">
-                  {(["approve", "execute", "reject"] as ActionOperation[]).map((operation) => (
+                  {(["approve", "execute", "undo", "reject"] as ActionOperation[]).map((operation) => (
                     <button
                       key={operation}
                       type="button"
@@ -329,6 +331,35 @@ function SkippedItemsTable({
   );
 }
 
+function ActionPathPreview({ action }: { action: ActionResponse }) {
+  if (action.kind === "mkdir_dir") {
+    return <PathPreview label="Directory" value={previewText(action.preview, "dir_path")} />;
+  }
+  if (action.kind === "move_file" || action.kind === "rename_file") {
+    return (
+      <>
+        <PathPreview label="From" value={previewText(action.preview, "from_path")} />
+        <PathPreview label="To" value={previewText(action.preview, "to_path")} />
+      </>
+    );
+  }
+  return <PathPreview label="Preview" value={formatJson(action.preview)} />;
+}
+
+function ActionDependencyMetadata({ metadata }: { metadata: JsonObject }) {
+  const dependsOnActionId = metadataText(metadata, "depends_on_action_id");
+  const dependsOnDirPath = metadataText(metadata, "depends_on_dir_path");
+  if (dependsOnActionId === "not recorded" && dependsOnDirPath === "not recorded") {
+    return null;
+  }
+  return (
+    <div className="path-preview-grid">
+      <PathPreview label="Depends on action" value={dependsOnActionId} />
+      <PathPreview label="Depends on directory" value={dependsOnDirPath} />
+    </div>
+  );
+}
+
 function PathPreview({ label, value }: { label: string; value: string }) {
   return (
     <div className="path-preview">
@@ -350,6 +381,7 @@ function JsonBlock({ label, value }: { label: string; value: unknown }) {
 function canRunAction(status: string, operation: ActionOperation): boolean {
   if (operation === "approve") return status === "pending" || status === "previewed";
   if (operation === "execute") return status === "approved";
+  if (operation === "undo") return status === "executed";
   if (operation === "reject") {
     return status === "pending" || status === "previewed" || status === "approved";
   }
@@ -359,6 +391,14 @@ function canRunAction(status: string, operation: ActionOperation): boolean {
 function previewText(preview: JsonObject, key: string): string {
   const value = preview[key];
   return typeof value === "string" && value ? value : "not recorded";
+}
+
+function metadataText(metadata: JsonObject, key: string): string {
+  const value = metadata[key];
+  if (value === null || value === undefined) return "not recorded";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  return JSON.stringify(value);
 }
 
 function formatJson(value: unknown): string {

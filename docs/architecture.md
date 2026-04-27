@@ -30,11 +30,12 @@ or be marked as an assumption.
 
 - `proofflow/main.py` creates the FastAPI application and initializes SQLite on startup.
 - `proofflow/routers/` owns HTTP routes.
-- `proofflow/services/` will own workflow behavior.
+- `proofflow/services/` owns workflow behavior.
 - `proofflow/db.py` owns SQLite connection helpers.
 - `proofflow/migrations.py` owns first-run database initialization.
 
-The current skeleton only exposes `/health`.
+The current v0.1 backend exposes health, cases, artifacts, search, actions,
+decisions, reports, LocalProof, and AgentGuard routes.
 
 ## Frontend shape
 

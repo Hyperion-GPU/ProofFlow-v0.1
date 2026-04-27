@@ -9,7 +9,7 @@ test:
 	cd backend && python -m pytest
 
 dev-backend:
-	cd backend && python -m uvicorn proofflow.main:app --reload
+	cd backend && python -m uvicorn proofflow.main:app --host 127.0.0.1 --port 8787 --reload
 
 dev-frontend:
 	cd frontend && npm run dev

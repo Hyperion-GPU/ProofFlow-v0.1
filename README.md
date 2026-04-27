@@ -76,6 +76,11 @@ python .\scripts\demo_seed.py
 The demo seed creates local sample data under the repository demo roots and
 prints backend/frontend commands for that seeded database.
 
+## Dogfood v0.1
+
+Use [docs/V0_1_DOGFOOD.md](docs/V0_1_DOGFOOD.md) for the local demo and smoke
+gate path from demo seed through LocalProof, AgentGuard, and Proof Packet export.
+
 ## Make targets
 
 This repository includes placeholder targets for common workflows:
