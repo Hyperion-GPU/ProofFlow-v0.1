@@ -158,14 +158,14 @@ was run on the immutable `v0.1.0-rc1` tag.
 
 | Check | Command / flow | Result | Notes |
 | --- | --- | --- | --- |
-| Backend tests | `Push-Location backend; python -m pytest; Pop-Location` | TODO | TODO |
-| Frontend tests | `Push-Location frontend; npm run test; Pop-Location` | TODO | TODO |
-| Frontend build | `Push-Location frontend; npm run build; Pop-Location` | TODO | TODO |
-| Release helper | `.\scripts\release_check.ps1` | TODO | TODO |
-| API smoke | `python .\scripts\rc_api_smoke.py` | TODO | TODO |
-| API smoke cleanup | `python .\scripts\rc_api_smoke.py --cleanup` | TODO | TODO |
-| Demo seed | `python .\scripts\demo_seed.py` | TODO | TODO |
-| Manual UI dogfood | Dashboard / LocalProof / AgentGuard / export | TODO | TODO |
+| Backend tests | `Push-Location backend; python -m pytest; Pop-Location` | PASS | Run on `chore/rc1-dogfood-closure` at `96854fdbf2f5ef572fd989647423084f3787e7ef`, branched from synced post-RC1 `main`; no immutable tag check was run. Exit 0; 66 passed. Warnings: pytest could not write `backend\.pytest_cache` and emitted an atexit temp cleanup `PermissionError`, but pytest still exited 0. |
+| Frontend tests | `Push-Location frontend; npm run test; Pop-Location` | PASS | Run after `Push-Location frontend; npm ci; Pop-Location` exited 0. `npm ci` reported 5 moderate audit findings and `whatwg-encoding@3.1.1` deprecation warning. Vitest exit 0; 4 test files and 5 tests passed. |
+| Frontend build | `Push-Location frontend; npm run build; Pop-Location` | PASS | Exit 0; `tsc -b && vite build` completed, Vite transformed 51 modules and built `dist/`. |
+| Release helper | `.\scripts\release_check.ps1` | PASS | Exit 0; PowerShell helper ran backend pytest, frontend `npm ci`, frontend tests, and frontend build, then printed `ProofFlow v0.1.0-rc1 release check passed.` Same pytest cache/temp cleanup warnings and npm audit/deprecation warnings were observed. |
+| API smoke | `python .\scripts\rc_api_smoke.py` | PASS | Exit 0; health release identity passed, LocalProof created 4 actions, AgentGuard case and Proof Packet were created. Temp output was preserved at `%TEMP%\proofflow-rc-api-smoke-co6aozlq` with DB `proofflow-smoke.db` and data dir `data`. |
+| API smoke cleanup | `python .\scripts\rc_api_smoke.py --cleanup` | PASS | Exit 0; cleanup run passed and reported temp root `%TEMP%\proofflow-rc-api-smoke-l9b6g_xj`. Follow-up `Test-Path` returned `False`, confirming the temp root was removed after success. |
+| Demo seed | `python .\scripts\demo_seed.py` | PASS | Exit 0; generated demo DB `D:\ProofFlow v0.1\backend\data\demo\proofflow.db`, data dir `D:\ProofFlow v0.1\backend\data\demo`, manual case `fe948fc4-abab-4b85-87b2-61ba58d972c2`, LocalProof case `e5a24d7c-a60f-455e-92b0-f98e5dbe8084`, AgentGuard case `717529ef-4b3e-4992-a1db-c4c72e97394d`, and Proof Packet `D:\ProofFlow v0.1\backend\data\demo\proof_packets\fe948fc4-abab-4b85-87b2-61ba58d972c2.md`. |
+| Manual UI dogfood | Dashboard / LocalProof / AgentGuard / export | PASS | Ran with backend on `127.0.0.1:8787`, frontend on `127.0.0.1:5173`, demo DB/data from `scripts/demo_seed.py`, and an isolated Playwright runner under `%TEMP%`. Verified Dashboard release identity, Cases list, LocalProof scan/suggest, previewable `mkdir_dir` and `move_file`, approve/execute/undo for both action types, changed destination content blocking undo, visible `source_root`/`target_root`/`allowed_roots`, AgentGuard review on a temp git repo, claims/evidence, sensitive untracked content omission, CaseDetail sections including run return code, and Proof Packet markdown export. Exported packet: `D:\ProofFlow v0.1\backend\data\demo\proof_packets\8329aad3-86c7-423f-847b-cc0f4a65ae57.md`. |
 
 ## Recorded post-RC1 findings
 
