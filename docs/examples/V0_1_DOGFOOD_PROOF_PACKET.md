@@ -11,6 +11,7 @@ content, secrets, or user data.
 - Workflow type: `local_proof`, `file_cleanup`, and `code_review`
 - Status: `accepted`
 - Generated: `2026-04-27`
+- Release: `ProofFlow v0.1.0-rc1`
 - Trust boundary: localhost, local SQLite, local files
 
 ## Inputs
@@ -103,6 +104,7 @@ Proof Packet.
 - Backend pytest passes.
 - Frontend tests pass.
 - Frontend build passes.
+- Health metadata and Dashboard release stamp show `ProofFlow v0.1.0-rc1`.
 - LocalProof scan creates artifacts and text chunks.
 - Suggested actions show preview before approval.
 - Filesystem action metadata includes allowed roots.

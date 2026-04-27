@@ -77,6 +77,14 @@
 - [x] Add changelog.
 - [x] Add dogfood Proof Packet example.
 
+## Milestone: v0.1.0-rc1 Version Stamp & Publish Prep
+
+- [x] Centralize backend release metadata.
+- [x] Expose version, stage, and release name from `/health`.
+- [x] Show the RC release stamp on the Dashboard.
+- [x] Add release notes draft.
+- [x] Add local release check helper.
+
 ## Future scope
 
 - [ ] Add managed backup and restore workflows.

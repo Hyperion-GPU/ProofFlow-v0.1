@@ -74,6 +74,7 @@ Open `http://127.0.0.1:5173`.
 ## Acceptance Checklist
 
 - Backend health is ok.
+- Dashboard shows `ProofFlow v0.1.0-rc1` from backend health metadata.
 - Dashboard loads cases.
 - LocalProof scan creates or updates artifacts and text chunks.
 - LocalProof suggested actions show preview before execution.
