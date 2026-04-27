@@ -30,6 +30,14 @@ Combined local release check:
 .\scripts\release_check.ps1
 ```
 
+API dogfood smoke with temp DB/data paths:
+
+```powershell
+python .\scripts\rc_api_smoke.py
+```
+
+Use `--cleanup` only when you do not need to inspect the generated temp packet.
+
 Demo seed:
 
 ```powershell
@@ -78,6 +86,7 @@ python .\scripts\demo_seed.py
   `release_name: ProofFlow v0.1.0-rc1`.
 - Dashboard shows the same RC release stamp.
 - Local release helper result is recorded.
+- API dogfood smoke helper result is recorded.
 - Public dogfood Proof Packet example is reviewed for sensitive content.
 - CHANGELOG has a `v0.1.0-rc1` entry.
 - Known limitations are present and honest.

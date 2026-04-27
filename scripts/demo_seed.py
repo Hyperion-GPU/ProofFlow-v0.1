@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import argparse
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Sequence
 
 import hashlib
 import os
@@ -10,6 +11,7 @@ import shutil
 import stat
 import subprocess
 import sys
+import tempfile
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 BACKEND_ROOT = REPO_ROOT / "backend"
@@ -45,6 +47,7 @@ DEMO_DATA_ROOT = Path("backend") / "data" / "demo"
 SAMPLE_FILES_ROOT = Path("sample_data") / "files"
 SAMPLE_WORK_ROOT = Path("sample_data") / "work"
 DEMO_AGENT_REPO_ROOT = Path("sample_data") / "repos" / "demo-agentguard"
+DEMO_DATA_MARKER = ".proofflow_demo_seed"
 
 
 @dataclass(frozen=True)
@@ -74,6 +77,7 @@ def seed_demo(
 
     db_path = (db_path or demo_data_root / "proofflow.db").resolve()
     data_dir = (data_dir or demo_data_root).resolve()
+    data_allowed_root = _demo_data_allowed_root(data_dir, demo_data_root, repo_root)
 
     sample_files_dir = (repo_root / SAMPLE_FILES_ROOT).resolve()
     work_dir = sample_work_root
@@ -81,22 +85,24 @@ def seed_demo(
     sorted_dir = work_dir / "sorted"
     agent_repo = demo_agent_repo_root
 
-    _assert_at_or_under(data_dir, demo_data_root, "PROOFFLOW_DATA_DIR")
+    _assert_at_or_under(data_dir, data_allowed_root, "PROOFFLOW_DATA_DIR")
     _assert_at_or_under(db_path, data_dir, "PROOFFLOW_DB_PATH")
     _assert_at_or_under(work_dir, sample_work_root, "LocalProof work directory")
     _assert_at_or_under(agent_repo, demo_agent_repo_root, "AgentGuard demo repository")
     _ensure_sample_fixtures(sample_files_dir)
+    _assert_custom_data_dir_safe(data_dir, demo_data_root)
 
     os.environ["PROOFFLOW_DB_PATH"] = str(db_path)
     os.environ["PROOFFLOW_DATA_DIR"] = str(data_dir)
 
     if reset:
         _reset_demo_paths(
-            (data_dir, demo_data_root, "demo data directory"),
+            (data_dir, data_allowed_root, "demo data directory"),
             (work_dir, sample_work_root, "LocalProof work directory"),
             (agent_repo, demo_agent_repo_root, "AgentGuard demo repository"),
         )
 
+    _write_custom_data_dir_marker(data_dir, demo_data_root)
     _copy_sample_files(sample_files_dir, work_files_dir)
     _prepare_sorted_dirs(sorted_dir)
     init_db(db_path)
@@ -149,12 +155,71 @@ def _reset_demo_paths(*targets: tuple[Path, Path, str]) -> None:
 def _assert_at_or_under(path: Path, allowed_root: Path, label: str) -> None:
     resolved_path = path.resolve(strict=False)
     resolved_root = allowed_root.resolve(strict=False)
-    try:
-        resolved_path.relative_to(resolved_root)
-    except ValueError as error:
+    if not _is_at_or_under(resolved_path, resolved_root):
         raise RuntimeError(
             f"refusing to use {label} outside allowed demo root: {resolved_path}"
-        ) from error
+        )
+
+
+def _is_at_or_under(path: Path, root: Path) -> bool:
+    try:
+        path.resolve(strict=False).relative_to(root.resolve(strict=False))
+    except ValueError:
+        return False
+    return True
+
+
+def _demo_data_allowed_root(
+    data_dir: Path,
+    demo_data_root: Path,
+    repo_root: Path,
+) -> Path:
+    resolved_data_dir = data_dir.resolve(strict=False)
+    resolved_demo_root = demo_data_root.resolve(strict=False)
+    if _is_at_or_under(resolved_data_dir, resolved_demo_root):
+        return resolved_demo_root
+
+    resolved_repo_root = repo_root.resolve(strict=False)
+    if _is_at_or_under(resolved_data_dir, resolved_repo_root):
+        raise RuntimeError(
+            "refusing to use PROOFFLOW_DATA_DIR outside allowed demo root: "
+            f"{resolved_data_dir}"
+        )
+
+    temp_root = Path(tempfile.gettempdir()).resolve(strict=False)
+    if _is_at_or_under(resolved_data_dir, temp_root) and resolved_data_dir != temp_root:
+        return temp_root
+
+    raise RuntimeError(
+        "refusing to use PROOFFLOW_DATA_DIR outside the repository demo root "
+        f"or system temp directory: {resolved_data_dir}"
+    )
+
+
+def _assert_custom_data_dir_safe(data_dir: Path, demo_data_root: Path) -> None:
+    if _is_at_or_under(data_dir, demo_data_root):
+        return
+    if not data_dir.exists():
+        return
+    marker = data_dir / DEMO_DATA_MARKER
+    if data_dir.is_dir() and marker.exists():
+        return
+    if data_dir.is_dir() and not any(data_dir.iterdir()):
+        return
+    raise RuntimeError(
+        "refusing to use non-empty custom demo data directory without "
+        f"{DEMO_DATA_MARKER}: {data_dir.resolve(strict=False)}"
+    )
+
+
+def _write_custom_data_dir_marker(data_dir: Path, demo_data_root: Path) -> None:
+    if _is_at_or_under(data_dir, demo_data_root):
+        return
+    data_dir.mkdir(parents=True, exist_ok=True)
+    (data_dir / DEMO_DATA_MARKER).write_text(
+        "ProofFlow demo seed output directory.\n",
+        encoding="utf-8",
+    )
 
 
 def _remove_tree(path: Path) -> None:
@@ -408,8 +473,51 @@ def _print_next_steps(result: DemoSeedResult, repo_root: Path) -> None:
     print(f'cd "{frontend_dir}"; npm run dev')
 
 
-def main() -> None:
-    result = seed_demo()
+def _path_from_env(name: str) -> Path | None:
+    value = os.getenv(name)
+    if not value:
+        return None
+    return Path(value).expanduser()
+
+
+def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Seed local ProofFlow demo data for v0.1 dogfood runs."
+    )
+    parser.add_argument(
+        "--db-path",
+        type=Path,
+        default=None,
+        help="SQLite DB path. Defaults to PROOFFLOW_DB_PATH or backend/data/demo/proofflow.db.",
+    )
+    parser.add_argument(
+        "--data-dir",
+        type=Path,
+        default=None,
+        help="ProofFlow data directory. Defaults to PROOFFLOW_DATA_DIR or backend/data/demo.",
+    )
+    parser.add_argument(
+        "--no-agentguard",
+        action="store_true",
+        help="Skip the AgentGuard demo repository seed.",
+    )
+    parser.add_argument(
+        "--no-reset",
+        action="store_true",
+        help="Do not reset demo output directories before seeding.",
+    )
+    return parser.parse_args(argv)
+
+
+def main(argv: Sequence[str] | None = None) -> None:
+    args = _parse_args(argv)
+    result = seed_demo(
+        repo_root=REPO_ROOT,
+        db_path=args.db_path or _path_from_env("PROOFFLOW_DB_PATH"),
+        data_dir=args.data_dir or _path_from_env("PROOFFLOW_DATA_DIR"),
+        include_agentguard=not args.no_agentguard,
+        reset=not args.no_reset,
+    )
     _print_next_steps(result, REPO_ROOT)
 
 

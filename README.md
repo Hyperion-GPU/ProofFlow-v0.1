@@ -81,7 +81,8 @@ python .\scripts\demo_seed.py
 ```
 
 The demo seed creates local sample data under the repository demo roots and
-prints backend/frontend commands for that seeded database.
+prints backend/frontend commands for that seeded database. It also honors
+`PROOFFLOW_DB_PATH` and `PROOFFLOW_DATA_DIR` for temp smoke-run output paths.
 
 ## Dogfood v0.1
 
@@ -104,6 +105,16 @@ and the local helper:
 ```powershell
 .\scripts\release_check.ps1
 ```
+
+For a local API dogfood smoke that uses temp DB/data paths without starting
+backend or frontend servers:
+
+```powershell
+python .\scripts\rc_api_smoke.py
+```
+
+The helper keeps its temp output for inspection; pass `--cleanup` to remove it
+after a successful run.
 
 ## Make targets
 
