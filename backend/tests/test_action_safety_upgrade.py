@@ -154,10 +154,145 @@ def test_legacy_filesystem_actions_continue_after_action_safety_upgrade(
         assert not relative_approved_destination.exists()
 
 
-def test_legacy_hash_guard_migration_records_read_failure(
+def test_legacy_hash_guard_migration_records_read_failure_then_clears_on_retry(
     monkeypatch,
     tmp_path: Path,
 ):
+    fixture = _prepare_legacy_action_safety_fixture(tmp_path)
+    db_path = fixture["db_path"]
+    executed_destination = fixture["executed_destination"]
+
+    real_sha256_file = migrations._sha256_file
+
+    def failing_sha256(path: Path) -> str:
+        if path == executed_destination.resolve():
+            raise OSError("simulated migration hash read failure")
+        return "0" * 64
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(migrations, "_sha256_file", failing_sha256)
+
+    migrations.init_db(db_path)
+
+    def read_executed_move():
+        with connect(db_path) as connection:
+            return connection.execute(
+                """
+                SELECT status, result_json, undo_json
+                FROM actions
+                WHERE id = ?
+                """,
+                ("legacy-executed-move",),
+            ).fetchone()
+
+    row = read_executed_move()
+    assert row is not None
+    assert row["status"] == "executed"
+    result = json.loads(row["result_json"])
+    undo = json.loads(row["undo_json"])
+    assert "sha256" not in result
+    assert "from_sha256" not in undo
+    assert undo["hash_guard_migration_failed"] is True
+    assert result["hash_guard_migration_failed"] is True
+    assert "simulated migration hash read failure" in undo["hash_guard_migration_error"]
+
+    monkeypatch.setattr(migrations, "_sha256_file", real_sha256_file)
+    expected_sha256 = real_sha256_file(executed_destination)
+    migrations.init_db(db_path)
+
+    row = read_executed_move()
+    assert row is not None
+    assert row["status"] == "executed"
+    result = json.loads(row["result_json"])
+    undo = json.loads(row["undo_json"])
+    assert undo["from_sha256"] == expected_sha256
+    assert result["sha256"] == expected_sha256
+    assert undo["hash_guard_migrated_from"] == "legacy_action_safety_v0"
+    assert result["hash_guard_migrated_from"] == "legacy_action_safety_v0"
+    assert "hash_guard_migration_failed" not in undo
+    assert "hash_guard_migration_error" not in undo
+    assert "hash_guard_migration_failed" not in result
+    assert "hash_guard_migration_error" not in result
+
+    migrations.init_db(db_path)
+
+    row = read_executed_move()
+    assert row is not None
+    result = json.loads(row["result_json"])
+    undo = json.loads(row["undo_json"])
+    assert undo["from_sha256"] == expected_sha256
+    assert "hash_guard_migration_failed" not in undo
+    assert "hash_guard_migration_error" not in undo
+    assert "hash_guard_migration_failed" not in result
+    assert "hash_guard_migration_error" not in result
+
+
+def test_legacy_hash_guard_migration_clears_stale_failure_with_existing_guard(
+    monkeypatch,
+    tmp_path: Path,
+):
+    fixture = _prepare_legacy_action_safety_fixture(tmp_path)
+    db_path = fixture["db_path"]
+    executed_source = fixture["executed_source"]
+    executed_destination = fixture["executed_destination"]
+
+    expected_sha256 = migrations._sha256_file(executed_destination)
+    with connect(db_path) as connection:
+        connection.execute(
+            """
+            UPDATE actions
+            SET result_json = ?, undo_json = ?
+            WHERE id = ?
+            """,
+            (
+                json.dumps(
+                    {
+                        "operation": "move_file",
+                        "sha256": expected_sha256,
+                        "hash_guard_migration_failed": True,
+                        "hash_guard_migration_error": "stale failure",
+                    }
+                ),
+                json.dumps(
+                    {
+                        "operation": "restore_file",
+                        "from_path": str(executed_destination.resolve()),
+                        "to_path": str(executed_source.resolve()),
+                        "from_sha256": expected_sha256,
+                        "hash_guard_migration_failed": True,
+                        "hash_guard_migration_error": "stale failure",
+                    }
+                ),
+                "legacy-executed-move",
+            ),
+        )
+        connection.commit()
+
+    monkeypatch.chdir(tmp_path)
+    migrations.init_db(db_path)
+
+    with connect(db_path) as connection:
+        row = connection.execute(
+            """
+            SELECT result_json, undo_json
+            FROM actions
+            WHERE id = ?
+            """,
+            ("legacy-executed-move",),
+        ).fetchone()
+
+    assert row is not None
+    result = json.loads(row["result_json"])
+    undo = json.loads(row["undo_json"])
+    assert undo["from_sha256"] == expected_sha256
+    assert result["sha256"] == expected_sha256
+    assert "hash_guard_migration_failed" not in undo
+    assert "hash_guard_migration_error" not in undo
+    assert "hash_guard_migration_failed" not in result
+    assert "hash_guard_migration_error" not in result
+
+
+def _prepare_legacy_action_safety_fixture(tmp_path: Path) -> dict[str, Path]:
     source_root = tmp_path / "legacy-scan"
     target_root = tmp_path / "legacy-sorted"
     target_notes = target_root / "Notes"
@@ -197,35 +332,11 @@ def test_legacy_hash_guard_migration_records_read_failure(
         relative_executed_destination=relative_executed_destination,
     )
 
-    def failing_sha256(path: Path) -> str:
-        if path == executed_destination.resolve():
-            raise OSError("simulated migration hash read failure")
-        return "0" * 64
-
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(migrations, "_sha256_file", failing_sha256)
-
-    migrations.init_db(db_path)
-
-    with connect(db_path) as connection:
-        row = connection.execute(
-            """
-            SELECT status, result_json, undo_json
-            FROM actions
-            WHERE id = ?
-            """,
-            ("legacy-executed-move",),
-        ).fetchone()
-
-    assert row is not None
-    assert row["status"] == "executed"
-    result = json.loads(row["result_json"])
-    undo = json.loads(row["undo_json"])
-    assert "sha256" not in result
-    assert "from_sha256" not in undo
-    assert undo["hash_guard_migration_failed"] is True
-    assert result["hash_guard_migration_failed"] is True
-    assert "simulated migration hash read failure" in undo["hash_guard_migration_error"]
+    return {
+        "db_path": db_path,
+        "executed_source": executed_source,
+        "executed_destination": executed_destination,
+    }
 
 
 def _load_legacy_fixture(

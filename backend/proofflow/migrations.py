@@ -439,7 +439,9 @@ def _ensure_legacy_undo_hash_guard(
     result: dict[str, Any] | None,
 ) -> tuple[dict[str, Any], dict[str, Any] | None]:
     if isinstance(undo.get("from_sha256"), str) and undo["from_sha256"]:
-        return undo, result
+        clean_undo = _clear_hash_guard_migration_failure(undo)
+        clean_result = _clear_hash_guard_migration_failure(result)
+        return clean_undo, clean_result
 
     source_path = _path_from_metadata(undo, "from_path")
     if source_path is None:
@@ -471,19 +473,31 @@ def _ensure_legacy_undo_hash_guard(
         )
 
     undo = {
-        **undo,
+        **_clear_hash_guard_migration_failure(undo),
         "from_sha256": sha256,
         "from_size_bytes": size_bytes,
         "hash_guard_migrated_from": "legacy_action_safety_v0",
     }
     if result is not None:
         result = {
-            **result,
+            **_clear_hash_guard_migration_failure(result),
             "sha256": result.get("sha256", sha256),
             "size_bytes": result.get("size_bytes", size_bytes),
             "hash_guard_migrated_from": "legacy_action_safety_v0",
         }
     return undo, result
+
+
+def _clear_hash_guard_migration_failure(
+    payload: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    if payload is None:
+        return None
+    return {
+        key: value
+        for key, value in payload.items()
+        if key not in {"hash_guard_migration_failed", "hash_guard_migration_error"}
+    }
 
 
 def _mark_hash_guard_migration_failure(
