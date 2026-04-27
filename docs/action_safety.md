@@ -77,6 +77,13 @@ safety metadata existed. When the old preview has enough path information, the
 upgrade infers `allowed_roots` from the LocalProof scan folder and target root,
 or from the legacy action paths for non-LocalProof actions.
 
+If a legacy action stored relative paths, the upgrade resolves those paths
+against the current process working directory, matching the old `Path(value)`
+execution behavior. The migrated action stores absolute preview/result/undo
+paths plus `path_migrated_from` and `legacy_relative_path_base` metadata. If a
+path or scope cannot be inferred, the action is marked with migration failure
+metadata instead of silently pretending it is safe.
+
 For legacy executed `move_file` and `rename_file` actions that do not have an
 undo hash guard, the upgrade records the file currently at the undo source as
 the hash baseline and marks it with `hash_guard_migrated_from`. This cannot

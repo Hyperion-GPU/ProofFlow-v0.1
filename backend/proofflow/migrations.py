@@ -1,4 +1,5 @@
 import hashlib
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +15,16 @@ from proofflow.services.json_utils import dumps_metadata, loads_metadata
 SCHEMA_PATH = Path(__file__).resolve().parent / "storage" / "schema.sql"
 FILESYSTEM_ACTION_KINDS = {"move_file", "rename_file", "mkdir_dir"}
 FILE_MOVE_ACTION_KINDS = {"move_file", "rename_file"}
+
+
+@dataclass(frozen=True)
+class LegacyPathMigration:
+    preview: dict[str, Any]
+    result: dict[str, Any] | None
+    undo: dict[str, Any] | None
+    had_relative_paths: bool
+    failed_paths: list[str]
+    base_dir: Path
 
 
 def init_db(db_path: str | Path | None = None) -> Path:
@@ -100,15 +111,34 @@ def _ensure_action_safety_metadata(connection) -> None:
         """
     ).fetchall()
 
+    legacy_base_dir = Path.cwd().resolve(strict=False)
+
     for row in rows:
         kind = row["action_type"]
         preview = loads_metadata(row["preview_json"])
         metadata = loads_metadata(row["metadata_json"])
         case_metadata = loads_metadata(row["case_metadata_json"])
-
-        updated_metadata = _legacy_action_scope_metadata(kind, preview, metadata, case_metadata)
         updated_result = _loads_optional_metadata(row["result_json"])
         updated_undo = _loads_optional_metadata(row["undo_json"])
+
+        path_migration = _normalize_legacy_action_paths(
+            kind,
+            preview,
+            updated_result,
+            updated_undo,
+            legacy_base_dir,
+        )
+        preview = path_migration.preview
+        updated_result = path_migration.result
+        updated_undo = path_migration.undo
+        metadata = _mark_legacy_path_migration(metadata, path_migration)
+        updated_metadata = _legacy_action_scope_metadata(
+            kind,
+            preview,
+            metadata,
+            case_metadata,
+            legacy_base_dir,
+        )
 
         if row["status"] == "executed" and kind in FILE_MOVE_ACTION_KINDS and updated_undo is not None:
             updated_undo, updated_result = _ensure_legacy_undo_hash_guard(
@@ -119,10 +149,11 @@ def _ensure_action_safety_metadata(connection) -> None:
         connection.execute(
             """
             UPDATE actions
-            SET metadata_json = ?, result_json = ?, undo_json = ?
+            SET preview_json = ?, metadata_json = ?, result_json = ?, undo_json = ?
             WHERE id = ?
             """,
             (
+                dumps_metadata(preview),
                 dumps_metadata(updated_metadata),
                 dumps_metadata(updated_result) if updated_result is not None else row["result_json"],
                 dumps_metadata(updated_undo) if updated_undo is not None else row["undo_json"],
@@ -136,19 +167,28 @@ def _legacy_action_scope_metadata(
     preview: dict[str, Any],
     metadata: dict[str, Any],
     case_metadata: dict[str, Any],
+    legacy_base_dir: Path,
 ) -> dict[str, Any]:
-    if kind not in FILESYSTEM_ACTION_KINDS or _has_allowed_roots(metadata):
+    if kind not in FILESYSTEM_ACTION_KINDS:
         return metadata
 
-    if metadata.get("source") == LOCALPROOF_METADATA_SOURCE:
-        scoped_metadata = _legacy_localproof_scope_metadata(kind, preview, metadata, case_metadata)
+    if _has_allowed_roots(metadata):
+        scoped_metadata = metadata
+    elif metadata.get("source") == LOCALPROOF_METADATA_SOURCE:
+        scoped_metadata = _legacy_localproof_scope_metadata(
+            kind,
+            preview,
+            metadata,
+            case_metadata,
+            legacy_base_dir,
+        )
     else:
         scoped_metadata = _legacy_generic_scope_metadata(kind, preview, metadata)
 
     try:
         return validate_filesystem_action_scope(kind, preview, scoped_metadata)
-    except ActionSafetyError:
-        return metadata
+    except ActionSafetyError as error:
+        return _mark_scope_migration_failure(scoped_metadata, str(error))
 
 
 def _legacy_localproof_scope_metadata(
@@ -156,11 +196,12 @@ def _legacy_localproof_scope_metadata(
     preview: dict[str, Any],
     metadata: dict[str, Any],
     case_metadata: dict[str, Any],
+    legacy_base_dir: Path,
 ) -> dict[str, Any]:
-    source_root = _path_from_metadata(case_metadata, "folder_path")
+    source_root = _path_from_metadata(case_metadata, "folder_path", legacy_base_dir)
     target_root = _infer_localproof_target_root(kind, preview, metadata)
     if source_root is None or target_root is None:
-        return metadata
+        return _mark_scope_migration_failure(metadata, "could not infer LocalProof action scope")
 
     return {
         **metadata,
@@ -179,7 +220,7 @@ def _legacy_generic_scope_metadata(
 ) -> dict[str, Any]:
     allowed_roots = _infer_generic_allowed_roots(kind, preview)
     if not allowed_roots:
-        return metadata
+        return _mark_scope_migration_failure(metadata, "could not infer action allowed_roots")
     return {
         **metadata,
         "scope_kind": metadata.get("scope_kind", "legacy_filesystem_action"),
@@ -193,13 +234,19 @@ def _has_allowed_roots(metadata: dict[str, Any]) -> bool:
     return isinstance(roots, list) and bool(roots)
 
 
-def _path_from_metadata(metadata: dict[str, Any], key: str) -> Path | None:
+def _path_from_metadata(
+    metadata: dict[str, Any],
+    key: str,
+    legacy_base_dir: Path | None = None,
+) -> Path | None:
     raw_path = metadata.get(key)
     if not isinstance(raw_path, str) or not raw_path:
         return None
     path = Path(raw_path).expanduser()
     if not path.is_absolute():
-        return None
+        if legacy_base_dir is None:
+            return None
+        path = legacy_base_dir / path
     return path.resolve(strict=False)
 
 
@@ -248,6 +295,126 @@ def _preview_path(preview: dict[str, Any], key: str) -> Path | None:
     if not path.is_absolute():
         return None
     return path.resolve(strict=False)
+
+
+def _normalize_legacy_action_paths(
+    kind: str,
+    preview: dict[str, Any],
+    result: dict[str, Any] | None,
+    undo: dict[str, Any] | None,
+    legacy_base_dir: Path,
+) -> LegacyPathMigration:
+    failed_paths: list[str] = []
+    had_relative_paths = False
+    updated_preview = dict(preview)
+
+    for key in _preview_path_keys(kind):
+        normalized, was_relative = _normalize_legacy_path(
+            updated_preview.get(key),
+            legacy_base_dir,
+            f"preview.{key}",
+            failed_paths,
+        )
+        if normalized is not None:
+            updated_preview[key] = normalized
+            had_relative_paths = had_relative_paths or was_relative
+
+    updated_result, result_had_relative = _normalize_optional_payload_paths(
+        result,
+        legacy_base_dir,
+        "result",
+        failed_paths,
+    )
+    updated_undo, undo_had_relative = _normalize_optional_payload_paths(
+        undo,
+        legacy_base_dir,
+        "undo",
+        failed_paths,
+    )
+
+    return LegacyPathMigration(
+        preview=updated_preview,
+        result=updated_result,
+        undo=updated_undo,
+        had_relative_paths=had_relative_paths or result_had_relative or undo_had_relative,
+        failed_paths=failed_paths,
+        base_dir=legacy_base_dir,
+    )
+
+
+def _preview_path_keys(kind: str) -> tuple[str, ...]:
+    if kind in FILE_MOVE_ACTION_KINDS:
+        return ("from_path", "to_path")
+    if kind == "mkdir_dir":
+        return ("dir_path",)
+    return ()
+
+
+def _normalize_optional_payload_paths(
+    payload: dict[str, Any] | None,
+    legacy_base_dir: Path,
+    label: str,
+    failed_paths: list[str],
+) -> tuple[dict[str, Any] | None, bool]:
+    if payload is None:
+        return None, False
+
+    updated_payload = dict(payload)
+    had_relative_paths = False
+    for key in ("from_path", "to_path", "dir_path"):
+        if key not in updated_payload:
+            continue
+        normalized, was_relative = _normalize_legacy_path(
+            updated_payload.get(key),
+            legacy_base_dir,
+            f"{label}.{key}",
+            failed_paths,
+        )
+        if normalized is not None:
+            updated_payload[key] = normalized
+            had_relative_paths = had_relative_paths or was_relative
+    return updated_payload, had_relative_paths
+
+
+def _normalize_legacy_path(
+    value: Any,
+    legacy_base_dir: Path,
+    label: str,
+    failed_paths: list[str],
+) -> tuple[str | None, bool]:
+    if not isinstance(value, str) or not value:
+        failed_paths.append(label)
+        return None, False
+
+    path = Path(value).expanduser()
+    was_relative = not path.is_absolute()
+    if was_relative:
+        path = legacy_base_dir / path
+    return str(path.resolve(strict=False)), was_relative
+
+
+def _mark_legacy_path_migration(
+    metadata: dict[str, Any],
+    path_migration: LegacyPathMigration,
+) -> dict[str, Any]:
+    if not path_migration.had_relative_paths and not path_migration.failed_paths:
+        return metadata
+
+    updated_metadata = dict(metadata)
+    if path_migration.had_relative_paths:
+        updated_metadata["path_migrated_from"] = "legacy_relative_action_paths"
+        updated_metadata["legacy_relative_path_base"] = str(path_migration.base_dir)
+    if path_migration.failed_paths:
+        updated_metadata["path_migration_failed"] = path_migration.failed_paths
+    return updated_metadata
+
+
+def _mark_scope_migration_failure(metadata: dict[str, Any], reason: str) -> dict[str, Any]:
+    return {
+        **metadata,
+        "scope_migration_failed": True,
+        "scope_migration_error": reason,
+    }
 
 
 def _dedupe_paths(paths: list[Path]) -> list[Path]:
