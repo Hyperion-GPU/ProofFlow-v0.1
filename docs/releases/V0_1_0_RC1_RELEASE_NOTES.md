@@ -1,6 +1,6 @@
 # ProofFlow v0.1.0-rc1 Release Notes Draft
 
-Status: release candidate draft
+Status: GitHub pre-release published
 
 ProofFlow v0.1.0-rc1 is a localhost-first release candidate for evidence-backed
 local workflows. It keeps the v0.1 boundary on FastAPI, SQLite, React, local
@@ -13,6 +13,9 @@ files, deterministic checks, and human-reviewed actions.
 - Stage: `rc`
 - Runtime check: `GET /health`
 - Local release check: `.\scripts\release_check.ps1`
+
+Post-release dogfood notes are tracked separately in
+[V0_1_0_RC1_BUG_BASH.md](V0_1_0_RC1_BUG_BASH.md).
 
 ## Highlights
 

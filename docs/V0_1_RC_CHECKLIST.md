@@ -3,6 +3,12 @@
 This checklist keeps the release candidate local, repeatable, and evidence
 backed. Run these checks before tagging or presenting v0.1 RC output.
 
+For the post-release RC1 dogfood log, use
+[releases/V0_1_0_RC1_BUG_BASH.md](releases/V0_1_0_RC1_BUG_BASH.md).
+`scripts/rc_api_smoke.py` is a post-RC1 `main` helper; include it in a
+published tag only by cutting a later RC such as `v0.1.0-rc2`. Do not move the
+existing `v0.1.0-rc1` tag.
+
 ## Local commands
 
 Backend:

@@ -20,6 +20,8 @@ export:
 For release-candidate verification, also use
 [V0_1_RC_CHECKLIST.md](V0_1_RC_CHECKLIST.md). A public-safe packet example is
 available at [examples/V0_1_DOGFOOD_PROOF_PACKET.md](examples/V0_1_DOGFOOD_PROOF_PACKET.md).
+The post-release RC1 bug bash log is tracked in
+[releases/V0_1_0_RC1_BUG_BASH.md](releases/V0_1_0_RC1_BUG_BASH.md).
 
 ## Commands
 

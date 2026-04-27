@@ -116,6 +116,9 @@ python .\scripts\rc_api_smoke.py
 The helper keeps its temp output for inspection; pass `--cleanup` to remove it
 after a successful run.
 
+For the post-release RC1 bug bash log, use
+[docs/releases/V0_1_0_RC1_BUG_BASH.md](docs/releases/V0_1_0_RC1_BUG_BASH.md).
+
 ## Make targets
 
 This repository includes placeholder targets for common workflows:
