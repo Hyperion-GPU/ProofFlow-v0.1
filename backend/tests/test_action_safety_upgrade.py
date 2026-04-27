@@ -3,6 +3,7 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
+from proofflow import migrations
 from proofflow.db import connect
 from proofflow.main import app
 
@@ -151,6 +152,191 @@ def test_legacy_filesystem_actions_continue_after_action_safety_upgrade(
             "# Relative approved legacy note\n"
         )
         assert not relative_approved_destination.exists()
+
+
+def test_legacy_hash_guard_migration_records_read_failure_then_clears_on_retry(
+    monkeypatch,
+    tmp_path: Path,
+):
+    fixture = _prepare_legacy_action_safety_fixture(tmp_path)
+    db_path = fixture["db_path"]
+    executed_destination = fixture["executed_destination"]
+
+    real_sha256_file = migrations._sha256_file
+
+    def failing_sha256(path: Path) -> str:
+        if path == executed_destination.resolve():
+            raise OSError("simulated migration hash read failure")
+        return "0" * 64
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(migrations, "_sha256_file", failing_sha256)
+
+    migrations.init_db(db_path)
+
+    def read_executed_move():
+        with connect(db_path) as connection:
+            return connection.execute(
+                """
+                SELECT status, result_json, undo_json
+                FROM actions
+                WHERE id = ?
+                """,
+                ("legacy-executed-move",),
+            ).fetchone()
+
+    row = read_executed_move()
+    assert row is not None
+    assert row["status"] == "executed"
+    result = json.loads(row["result_json"])
+    undo = json.loads(row["undo_json"])
+    assert "sha256" not in result
+    assert "from_sha256" not in undo
+    assert undo["hash_guard_migration_failed"] is True
+    assert result["hash_guard_migration_failed"] is True
+    assert "simulated migration hash read failure" in undo["hash_guard_migration_error"]
+
+    monkeypatch.setattr(migrations, "_sha256_file", real_sha256_file)
+    expected_sha256 = real_sha256_file(executed_destination)
+    migrations.init_db(db_path)
+
+    row = read_executed_move()
+    assert row is not None
+    assert row["status"] == "executed"
+    result = json.loads(row["result_json"])
+    undo = json.loads(row["undo_json"])
+    assert undo["from_sha256"] == expected_sha256
+    assert result["sha256"] == expected_sha256
+    assert undo["hash_guard_migrated_from"] == "legacy_action_safety_v0"
+    assert result["hash_guard_migrated_from"] == "legacy_action_safety_v0"
+    assert "hash_guard_migration_failed" not in undo
+    assert "hash_guard_migration_error" not in undo
+    assert "hash_guard_migration_failed" not in result
+    assert "hash_guard_migration_error" not in result
+
+    migrations.init_db(db_path)
+
+    row = read_executed_move()
+    assert row is not None
+    result = json.loads(row["result_json"])
+    undo = json.loads(row["undo_json"])
+    assert undo["from_sha256"] == expected_sha256
+    assert "hash_guard_migration_failed" not in undo
+    assert "hash_guard_migration_error" not in undo
+    assert "hash_guard_migration_failed" not in result
+    assert "hash_guard_migration_error" not in result
+
+
+def test_legacy_hash_guard_migration_clears_stale_failure_with_existing_guard(
+    monkeypatch,
+    tmp_path: Path,
+):
+    fixture = _prepare_legacy_action_safety_fixture(tmp_path)
+    db_path = fixture["db_path"]
+    executed_source = fixture["executed_source"]
+    executed_destination = fixture["executed_destination"]
+
+    expected_sha256 = migrations._sha256_file(executed_destination)
+    with connect(db_path) as connection:
+        connection.execute(
+            """
+            UPDATE actions
+            SET result_json = ?, undo_json = ?
+            WHERE id = ?
+            """,
+            (
+                json.dumps(
+                    {
+                        "operation": "move_file",
+                        "sha256": expected_sha256,
+                        "hash_guard_migration_failed": True,
+                        "hash_guard_migration_error": "stale failure",
+                    }
+                ),
+                json.dumps(
+                    {
+                        "operation": "restore_file",
+                        "from_path": str(executed_destination.resolve()),
+                        "to_path": str(executed_source.resolve()),
+                        "from_sha256": expected_sha256,
+                        "hash_guard_migration_failed": True,
+                        "hash_guard_migration_error": "stale failure",
+                    }
+                ),
+                "legacy-executed-move",
+            ),
+        )
+        connection.commit()
+
+    monkeypatch.chdir(tmp_path)
+    migrations.init_db(db_path)
+
+    with connect(db_path) as connection:
+        row = connection.execute(
+            """
+            SELECT result_json, undo_json
+            FROM actions
+            WHERE id = ?
+            """,
+            ("legacy-executed-move",),
+        ).fetchone()
+
+    assert row is not None
+    result = json.loads(row["result_json"])
+    undo = json.loads(row["undo_json"])
+    assert undo["from_sha256"] == expected_sha256
+    assert result["sha256"] == expected_sha256
+    assert "hash_guard_migration_failed" not in undo
+    assert "hash_guard_migration_error" not in undo
+    assert "hash_guard_migration_failed" not in result
+    assert "hash_guard_migration_error" not in result
+
+
+def _prepare_legacy_action_safety_fixture(tmp_path: Path) -> dict[str, Path]:
+    source_root = tmp_path / "legacy-scan"
+    target_root = tmp_path / "legacy-sorted"
+    target_notes = target_root / "Notes"
+    source_root.mkdir()
+    target_notes.mkdir(parents=True)
+
+    approved_source = source_root / "approved-note.md"
+    approved_destination = target_notes / "approved-note.md"
+    approved_source.write_text("# Approved legacy note\n", encoding="utf-8")
+
+    executed_source = source_root / "executed-note.md"
+    executed_destination = target_notes / "executed-note.md"
+    executed_destination.write_text("# Executed legacy note\n", encoding="utf-8")
+
+    relative_approved_source = source_root / "relative-approved-note.md"
+    relative_approved_destination = target_notes / "relative-approved-note.md"
+    relative_approved_source.write_text("# Relative approved legacy note\n", encoding="utf-8")
+
+    relative_executed_source = source_root / "relative-executed-note.md"
+    relative_executed_destination = target_notes / "relative-executed-note.md"
+    relative_executed_destination.write_text(
+        "# Relative executed legacy note\n",
+        encoding="utf-8",
+    )
+
+    db_path = tmp_path / "db" / "legacy-action-safety.db"
+    _load_legacy_fixture(
+        db_path=db_path,
+        source_root=source_root,
+        approved_source=approved_source,
+        approved_destination=approved_destination,
+        executed_source=executed_source,
+        executed_destination=executed_destination,
+        relative_approved_source=relative_approved_source,
+        relative_approved_destination=relative_approved_destination,
+        relative_executed_source=relative_executed_source,
+        relative_executed_destination=relative_executed_destination,
+    )
+
+    return {
+        "db_path": db_path,
+        "executed_source": executed_source,
+        "executed_destination": executed_destination,
+    }
 
 
 def _load_legacy_fixture(

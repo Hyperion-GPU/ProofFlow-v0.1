@@ -23,3 +23,6 @@ itself. It must be linked to evidence or clearly marked as an assumption.
 
 The v0.1 export is local Markdown. It should favor clarity and reproducibility
 over presentation.
+
+See [examples/V0_1_DOGFOOD_PROOF_PACKET.md](examples/V0_1_DOGFOOD_PROOF_PACKET.md)
+for a public-safe dogfood packet shape.

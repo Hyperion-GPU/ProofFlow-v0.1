@@ -1,5 +1,8 @@
 # ProofFlow v0.1
 
+[![Backend CI](https://github.com/Hyperion-GPU/ProofFlow-v0.1/actions/workflows/backend.yml/badge.svg)](https://github.com/Hyperion-GPU/ProofFlow-v0.1/actions/workflows/backend.yml)
+[![Frontend CI](https://github.com/Hyperion-GPU/ProofFlow-v0.1/actions/workflows/frontend.yml/badge.svg)](https://github.com/Hyperion-GPU/ProofFlow-v0.1/actions/workflows/frontend.yml)
+
 ProofFlow is a local-first workflow dashboard for evidence-backed work. It keeps
 cases, artifacts, claims, evidence, actions, decisions, runs, and reports on
 localhost so a human can inspect what happened before trusting an AI or
@@ -58,7 +61,7 @@ PowerShell:
 
 ```powershell
 cd "D:\ProofFlow v0.1\frontend"
-npm install
+npm ci
 npm run dev
 ```
 
@@ -84,6 +87,11 @@ gate path from demo seed through LocalProof, AgentGuard, and Proof Packet export
 For the RC safety baseline, use [docs/action_safety.md](docs/action_safety.md)
 for filesystem action scope rules and [docs/reset_backup.md](docs/reset_backup.md)
 for local reset and backup commands.
+
+For release-candidate checks, use
+[docs/V0_1_RC_CHECKLIST.md](docs/V0_1_RC_CHECKLIST.md), the
+[CHANGELOG.md](CHANGELOG.md), and the public dogfood packet example in
+[docs/examples/V0_1_DOGFOOD_PROOF_PACKET.md](docs/examples/V0_1_DOGFOOD_PROOF_PACKET.md).
 
 ## Make targets
 

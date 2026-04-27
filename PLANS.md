@@ -60,9 +60,30 @@
 - [x] Add a local dogfood guide for demo seed, backend/frontend startup, smoke
   checks, LocalProof, AgentGuard, and Proof Packet export.
 
+## Milestone: v0.1 RC Action Safety Gate
+
+- [x] Add scoped filesystem action validation.
+- [x] Add LocalProof `source_root` / `target_root` / `allowed_roots` metadata.
+- [x] Add hash-guarded undo for `move_file` and `rename_file`.
+- [x] Block ProofFlow DB/data/proof_packets paths from filesystem actions.
+- [x] Add legacy action safety upgrade coverage.
+- [x] Document action safety, reset, backup, and restore behavior.
+
+## Milestone: v0.1 RC Release Gate
+
+- [x] Add backend CI matrix.
+- [x] Add frontend CI for tests and build.
+- [x] Add RC checklist.
+- [x] Add changelog.
+- [x] Add dogfood Proof Packet example.
+
 ## Future scope
 
-- [ ] Document reset and backup workflows beyond the demo seed.
-- [ ] Review destructive-action safeguards before expanding file operations.
-- [ ] Explore multi-user, cloud sync, vector RAG, ComfyUI, or AI-assisted code
-  edits only after v0.1 local trust boundaries are accepted.
+- [ ] Add managed backup and restore workflows.
+- [ ] Add richer destructive action types only after a new preview/undo review.
+- [ ] Explore vector RAG after v0.1 local trust boundaries are accepted.
+- [ ] Explore ComfyUI execution after v0.1 local trust boundaries are accepted.
+- [ ] Explore multi-user workflows after localhost v0.1 is stable.
+- [ ] Explore cloud sync after local-first recovery paths are stable.
+- [ ] Explore AI-assisted code edits only after evidence and action review gates
+  are stricter than the current v0.1 baseline.
