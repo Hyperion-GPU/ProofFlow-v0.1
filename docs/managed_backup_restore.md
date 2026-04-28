@@ -428,6 +428,28 @@ A human Decision should accept the preview before this endpoint is called.
 - Restore-to-new-location output is Evidence for inspection, not proof that a
   live restore is safe.
 
+## Smoke check
+
+Use the isolated API smoke helper after backend backup and restore contracts
+change:
+
+```powershell
+python scripts/backup_restore_api_smoke.py
+python scripts/backup_restore_api_smoke.py --cleanup
+```
+
+The smoke helper creates temporary `PROOFFLOW_DB_PATH` and
+`PROOFFLOW_DATA_DIR` values outside repo live data, then runs the backend API
+loop in-process: health, backup preview, backup create, backup list/detail,
+backup verify, restore preview, and restore-to-new-location. It opens the
+restored SQLite DB, checks core tables, checks restored managed data and
+`proof_packets` files, and verifies live DB/data sentinels were not overwritten
+by restore.
+
+By default, successful runs keep the temp root for inspection. With
+`--cleanup`, successful runs remove the temp output. Failed runs always keep the
+temp root and print its path as failure evidence.
+
 ## Phase plan
 
 ### Phase 1: design doc and contract tests

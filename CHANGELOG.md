@@ -16,6 +16,8 @@ All notable changes for ProofFlow v0.1 are tracked here.
 
 - Added `scripts/rc_api_smoke.py` for in-process RC API dogfood against temp
   DB/data paths.
+- Added `scripts/backup_restore_api_smoke.py` for isolated managed
+  backup/verify/restore-to-new-location API smoke coverage.
 - Added smoke coverage for health release identity, LocalProof action lifecycle,
   AgentGuard packet export, and sensitive untracked file omission.
 - Preserved RC smoke temp artifacts on failure for debugging.

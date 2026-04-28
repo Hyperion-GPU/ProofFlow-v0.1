@@ -1,3 +1,7 @@
+import sqlite3
+
+import pytest
+
 from proofflow.db import connect
 from proofflow.migrations import init_db
 
@@ -223,3 +227,147 @@ def test_init_db_rebuilds_legacy_decisions_table(tmp_path):
     assert migrated["rationale"] == "Legacy rationale"
     assert migrated["result"] == "Accept legacy action"
     assert migrated["metadata_json"] == '{"legacy":true}'
+
+
+def test_init_db_removes_restore_preview_backup_delete_cascade(tmp_path):
+    db_path = tmp_path / "legacy-restore-preview-cascade.db"
+    with connect(db_path) as connection:
+        connection.execute(
+            """
+            CREATE TABLE cases (
+                id TEXT PRIMARY KEY,
+                title TEXT NOT NULL,
+                case_type TEXT NOT NULL,
+                status TEXT NOT NULL,
+                summary TEXT,
+                metadata_json TEXT NOT NULL DEFAULT '{}',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
+        connection.execute(
+            """
+            CREATE TABLE backups (
+                id TEXT PRIMARY KEY,
+                case_id TEXT,
+                label TEXT,
+                status TEXT NOT NULL,
+                archive_path TEXT NOT NULL,
+                manifest_path TEXT NOT NULL,
+                manifest_sha256 TEXT,
+                archive_sha256 TEXT,
+                archive_size_bytes INTEGER,
+                file_count INTEGER,
+                verified_at TEXT,
+                warnings_json TEXT NOT NULL DEFAULT '[]',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE SET NULL
+            )
+            """
+        )
+        connection.execute(
+            """
+            CREATE TABLE restore_previews (
+                id TEXT PRIMARY KEY,
+                backup_id TEXT NOT NULL,
+                case_id TEXT,
+                target_db_path TEXT NOT NULL,
+                target_data_dir TEXT NOT NULL,
+                plan_hash TEXT NOT NULL,
+                archive_sha256 TEXT,
+                manifest_sha256 TEXT,
+                planned_writes_json TEXT NOT NULL,
+                schema_risks_json TEXT NOT NULL DEFAULT '[]',
+                version_risks_json TEXT NOT NULL DEFAULT '[]',
+                warnings_json TEXT NOT NULL DEFAULT '[]',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (backup_id) REFERENCES backups(id) ON DELETE CASCADE,
+                FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE SET NULL
+            )
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO cases (
+                id, title, case_type, status, summary, metadata_json, created_at, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            ("case-1", "Case", "managed_backup", "open", None, "{}", "now", "now"),
+        )
+        connection.execute(
+            """
+            INSERT INTO backups (
+                id, case_id, label, status, archive_path, manifest_path,
+                manifest_sha256, archive_sha256, archive_size_bytes, file_count,
+                verified_at, warnings_json, created_at, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "backup-1",
+                "case-1",
+                None,
+                "verified",
+                "backup.zip",
+                "manifest.json",
+                "manifest-sha",
+                "archive-sha",
+                1,
+                1,
+                "now",
+                "[]",
+                "now",
+                "now",
+            ),
+        )
+        connection.execute(
+            """
+            INSERT INTO restore_previews (
+                id, backup_id, case_id, target_db_path, target_data_dir,
+                plan_hash, archive_sha256, manifest_sha256, planned_writes_json,
+                schema_risks_json, version_risks_json, warnings_json,
+                created_at, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "preview-1",
+                "backup-1",
+                "case-1",
+                "restore.db",
+                "restore-data",
+                "plan-hash",
+                "archive-sha",
+                "manifest-sha",
+                "[]",
+                "[]",
+                "[]",
+                "[]",
+                "now",
+                "now",
+            ),
+        )
+        connection.commit()
+
+    init_db(str(db_path))
+
+    with connect(db_path) as connection:
+        backup_fk = [
+            row
+            for row in connection.execute("PRAGMA foreign_key_list(restore_previews)")
+            if row["table"] == "backups" and row["from"] == "backup_id"
+        ]
+        preview_count = connection.execute(
+            "SELECT COUNT(*) FROM restore_previews WHERE id = ?",
+            ("preview-1",),
+        ).fetchone()[0]
+        with pytest.raises(sqlite3.IntegrityError):
+            connection.execute("DELETE FROM backups WHERE id = ?", ("backup-1",))
+            connection.commit()
+
+    assert [row["on_delete"] for row in backup_fk] == ["NO ACTION"]
+    assert preview_count == 1
