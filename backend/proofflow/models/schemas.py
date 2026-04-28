@@ -438,3 +438,64 @@ class BackupVerifyResponse(BaseModel):
     hash_mismatches: list[BackupHashMismatch]
     missing_files: list[str]
     warnings: list[str]
+
+
+class RestoreTarget(BaseModel):
+    db_path: str
+    data_dir: str
+
+
+class RestoreRisk(BaseModel):
+    code: str
+    message: str
+    blocking: bool = False
+
+
+class RestoreWarning(BaseModel):
+    message: str
+
+
+class RestorePlannedWrite(BaseModel):
+    archive_relative_path: str
+    target_path: str
+    role: str
+    action: Literal["create", "overwrite", "skip"]
+    size_bytes: int = Field(ge=0)
+    sha256: str
+    would_overwrite: bool
+
+
+class RestorePreviewRequest(StrictRequest):
+    backup_id: str = Field(min_length=1)
+    target_db_path: str = Field(min_length=1)
+    target_data_dir: str = Field(min_length=1)
+
+
+class RestorePreviewResponse(BaseModel):
+    restore_preview_id: str
+    backup_id: str
+    case_id: str | None
+    verified: bool
+    target: RestoreTarget
+    planned_writes: list[RestorePlannedWrite]
+    plan_hash: str
+    schema_risks: list[RestoreRisk]
+    version_risks: list[RestoreRisk]
+    warnings: list[str]
+
+
+class RestoreToNewLocationRequest(StrictRequest):
+    backup_id: str = Field(min_length=1)
+    target_db_path: str = Field(min_length=1)
+    target_data_dir: str = Field(min_length=1)
+    accepted_preview_id: str = Field(min_length=1)
+
+
+class RestoreToNewLocationResponse(BaseModel):
+    backup_id: str
+    restore_preview_id: str
+    case_id: str | None
+    target: RestoreTarget
+    restored_files: int
+    status: Literal["restored_to_new_location"]
+    warnings: list[str]

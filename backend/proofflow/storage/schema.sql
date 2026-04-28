@@ -145,3 +145,22 @@ CREATE TABLE IF NOT EXISTS backups (
     updated_at TEXT NOT NULL,
     FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE SET NULL
 );
+
+CREATE TABLE IF NOT EXISTS restore_previews (
+    id TEXT PRIMARY KEY,
+    backup_id TEXT NOT NULL,
+    case_id TEXT,
+    target_db_path TEXT NOT NULL,
+    target_data_dir TEXT NOT NULL,
+    plan_hash TEXT NOT NULL,
+    archive_sha256 TEXT,
+    manifest_sha256 TEXT,
+    planned_writes_json TEXT NOT NULL,
+    schema_risks_json TEXT NOT NULL DEFAULT '[]',
+    version_risks_json TEXT NOT NULL DEFAULT '[]',
+    warnings_json TEXT NOT NULL DEFAULT '[]',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY (backup_id) REFERENCES backups(id) ON DELETE CASCADE,
+    FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE SET NULL
+);
