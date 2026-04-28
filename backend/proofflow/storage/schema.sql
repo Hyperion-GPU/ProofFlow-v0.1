@@ -161,6 +161,6 @@ CREATE TABLE IF NOT EXISTS restore_previews (
     warnings_json TEXT NOT NULL DEFAULT '[]',
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
-    FOREIGN KEY (backup_id) REFERENCES backups(id) ON DELETE CASCADE,
+    FOREIGN KEY (backup_id) REFERENCES backups(id),
     FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE SET NULL
 );

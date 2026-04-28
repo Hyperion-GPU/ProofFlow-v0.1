@@ -69,6 +69,12 @@ def _ensure_backups_table(connection) -> None:
 
 
 def _ensure_restore_previews_table(connection) -> None:
+    _create_restore_previews_table(connection)
+    if _restore_previews_backup_fk_uses_cascade(connection):
+        _rebuild_restore_previews_without_backup_cascade(connection)
+
+
+def _create_restore_previews_table(connection) -> None:
     connection.execute(
         """
         CREATE TABLE IF NOT EXISTS restore_previews (
@@ -86,11 +92,52 @@ def _ensure_restore_previews_table(connection) -> None:
             warnings_json TEXT NOT NULL DEFAULT '[]',
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
-            FOREIGN KEY (backup_id) REFERENCES backups(id) ON DELETE CASCADE,
+            FOREIGN KEY (backup_id) REFERENCES backups(id),
             FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE SET NULL
         )
         """
     )
+
+
+def _restore_previews_backup_fk_uses_cascade(connection) -> bool:
+    rows = connection.execute("PRAGMA foreign_key_list(restore_previews)").fetchall()
+    return any(
+        row["table"] == "backups"
+        and row["from"] == "backup_id"
+        and str(row["on_delete"]).upper() == "CASCADE"
+        for row in rows
+    )
+
+
+def _rebuild_restore_previews_without_backup_cascade(connection) -> None:
+    columns = [
+        "id",
+        "backup_id",
+        "case_id",
+        "target_db_path",
+        "target_data_dir",
+        "plan_hash",
+        "archive_sha256",
+        "manifest_sha256",
+        "planned_writes_json",
+        "schema_risks_json",
+        "version_risks_json",
+        "warnings_json",
+        "created_at",
+        "updated_at",
+    ]
+    column_list = ", ".join(columns)
+    connection.execute("DROP TABLE IF EXISTS restore_previews_legacy_cascade")
+    connection.execute("ALTER TABLE restore_previews RENAME TO restore_previews_legacy_cascade")
+    _create_restore_previews_table(connection)
+    connection.execute(
+        f"""
+        INSERT INTO restore_previews ({column_list})
+        SELECT {column_list}
+        FROM restore_previews_legacy_cascade
+        """
+    )
+    connection.execute("DROP TABLE restore_previews_legacy_cascade")
 
 
 def _ensure_action_columns(connection) -> None:
