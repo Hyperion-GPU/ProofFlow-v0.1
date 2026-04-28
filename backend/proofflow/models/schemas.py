@@ -2,7 +2,13 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-CaseKind = Literal["local_proof", "agent_guard", "file_cleanup", "code_review"]
+CaseKind = Literal[
+    "local_proof",
+    "agent_guard",
+    "file_cleanup",
+    "code_review",
+    "managed_backup",
+]
 CaseStatus = Literal["open", "active", "closed", "archived"]
 ArtifactKind = Literal[
     "file",
@@ -337,3 +343,98 @@ class CasePacketResponse(BaseModel):
     actions: list[ActionResponse]
     decisions: list[DecisionResponse]
     runs: list[CasePacketRun]
+
+
+class BackupSource(BaseModel):
+    db_path: str
+    data_dir: str
+    proof_packets_dir: str
+
+
+class PlannedBackupFile(BaseModel):
+    role: str
+    relative_path: str
+    size_bytes: int = Field(ge=0)
+    source_path: str
+
+
+class BackupPreviewRequest(StrictRequest):
+    backup_root: str = Field(min_length=1)
+    include_data_dir: bool = True
+    include_proof_packets: bool = True
+
+
+class BackupPreviewResponse(BaseModel):
+    source: BackupSource
+    planned_files: list[PlannedBackupFile]
+    warnings: list[str]
+    would_create_case: bool
+
+
+class BackupCreateRequest(StrictRequest):
+    backup_root: str = Field(min_length=1)
+    label: str | None = Field(default=None, min_length=1)
+
+
+class BackupCreateResponse(BaseModel):
+    backup_id: str
+    case_id: str
+    archive_path: str
+    manifest_path: str
+    manifest_sha256: str
+    archive_sha256: str
+    warnings: list[str]
+
+
+class BackupListItem(BaseModel):
+    backup_id: str
+    created_at: str
+    status: str
+    verified_at: str | None
+    archive_path: str
+
+
+class BackupListResponse(BaseModel):
+    backups: list[BackupListItem]
+
+
+class BackupManifestSummary(BaseModel):
+    manifest_version: str | None = None
+    app_version: str | None = None
+    schema_version: str | None = None
+
+
+class BackupVerificationSummary(BaseModel):
+    status: str
+    verified_at: str | None
+    errors: list[str] = Field(default_factory=list)
+
+
+class BackupDetailResponse(BaseModel):
+    backup_id: str
+    case_id: str | None
+    manifest: BackupManifestSummary | None
+    archive_path: str
+    verification: BackupVerificationSummary
+    warnings: list[str]
+
+
+class BackupVerifyRequest(StrictRequest):
+    recompute_archive_hash: bool = True
+    recompute_file_hashes: bool = True
+
+
+class BackupHashMismatch(BaseModel):
+    relative_path: str
+    expected_sha256: str | None
+    actual_sha256: str | None
+
+
+class BackupVerifyResponse(BaseModel):
+    backup_id: str
+    case_id: str | None
+    status: str
+    checked_files: int
+    hash_mismatches: list[BackupHashMismatch]
+    missing_files: list[str]
+    warnings: list[str]

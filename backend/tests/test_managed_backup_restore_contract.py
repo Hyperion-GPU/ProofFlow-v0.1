@@ -49,6 +49,13 @@ def test_design_doc_includes_proposed_endpoint_names():
         assert endpoint in content
 
 
+def test_design_doc_marks_phase2_backup_endpoints_implemented_and_restore_future_only():
+    content = _doc()
+    assert "Phase 2 implements the backup endpoints" in content
+    assert "Restore endpoints remain proposed only for later phases" in content
+    assert "Status: proposed only. This endpoint is not implemented in Phase 2." in content
+
+
 def test_design_doc_includes_manifest_required_fields():
     content = _doc()
     fields = [
