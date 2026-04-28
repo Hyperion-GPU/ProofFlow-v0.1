@@ -417,8 +417,8 @@ def _create_missing_parent_dirs(parent: Path, created_dirs: list[Path]) -> None:
     while not current.exists():
         missing.append(current)
         current = current.parent
-    if current.is_symlink():
-        raise RestoreError(f"restore target parent contains a symlink: {current}")
+    if _is_link_like(current):
+        raise RestoreError(f"restore target parent contains a symlink or junction: {current}")
     if not current.is_dir():
         raise RestoreError(f"restore target parent is not a directory: {current}")
     for directory in reversed(missing):
@@ -516,8 +516,8 @@ def _assert_restore_write_target(target_path: Path, plan: RestorePlan) -> None:
 def _assert_safe_existing_parent_chain(target_path: Path) -> None:
     current = target_path.parent
     while True:
-        if current.is_symlink():
-            raise RestoreError(f"restore target parent contains a symlink: {current}")
+        if _is_link_like(current):
+            raise RestoreError(f"restore target parent contains a symlink or junction: {current}")
         if current.exists():
             if not current.is_dir():
                 raise RestoreError(f"restore target parent is not a directory: {current}")

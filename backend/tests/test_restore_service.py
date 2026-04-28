@@ -373,6 +373,35 @@ def test_restore_to_new_location_rejects_symlink_parent_after_preview(monkeypatc
         )
 
 
+def test_restore_to_new_location_rechecks_link_like_parent_after_preview(monkeypatch, tmp_path):
+    _db_path, data_dir, backup_root = _init_temp_instance(monkeypatch, tmp_path)
+    _seed_managed_files(data_dir)
+    backup_id = _make_verified_backup(backup_root)
+    target_root = tmp_path / "restore-junction-window"
+    target_db_path = target_root / "proofflow.db"
+    target_data_dir = target_root / "data"
+    preview = preview_restore(_preview_payload(backup_id, target_db_path, target_data_dir))
+
+    original_is_link_like = restore_service._is_link_like
+
+    def _fake_is_link_like(path: Path) -> bool:
+        if path == target_root:
+            return True
+        return original_is_link_like(path)
+
+    monkeypatch.setattr(restore_service, "_is_link_like", _fake_is_link_like)
+
+    with pytest.raises(RestoreError, match="symlink or junction"):
+        restore_to_new_location(
+            RestoreToNewLocationRequest(
+                backup_id=backup_id,
+                target_db_path=str(target_db_path),
+                target_data_dir=str(target_data_dir),
+                accepted_preview_id=preview.restore_preview_id,
+            )
+        )
+
+
 def test_restore_to_new_location_restores_files_records_evidence_and_db_opens(
     monkeypatch,
     tmp_path,
