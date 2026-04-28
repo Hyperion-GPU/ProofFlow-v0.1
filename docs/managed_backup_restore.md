@@ -97,7 +97,7 @@ Example:
   "files": [
     {
       "role": "sqlite_db",
-      "relative_path": "proofflow.db",
+      "relative_path": "db/proofflow.db",
       "size_bytes": 40960,
       "sha256": "example-db-sha256",
       "mtime": "2026-04-27T00:00:00Z"
@@ -136,10 +136,11 @@ Example:
 - Live restore is deferred until a later phase and must require a pre-restore
   backup.
 
-## Proposed API contract
+## API contract and implementation status
 
-These endpoints define the contract only. The foundation PR does not implement
-the product routes.
+Phase 2 implements the backup endpoints: preview, create, list, detail, and
+verify. Restore endpoints remain proposed only for later phases and are not
+exposed by the Phase 2 backend.
 
 ### POST /backups/preview
 
@@ -159,7 +160,6 @@ Response shape:
 
 ```json
 {
-  "case_id": "case-id-or-null",
   "source": {
     "db_path": "<db-path>",
     "data_dir": "<data-dir>",
@@ -168,8 +168,9 @@ Response shape:
   "planned_files": [
     {
       "role": "sqlite_db",
-      "relative_path": "proofflow.db",
-      "size_bytes": 40960
+      "relative_path": "db/proofflow.db",
+      "size_bytes": 40960,
+      "source_path": "<db-path>"
     }
   ],
   "warnings": [],
@@ -181,8 +182,8 @@ Safety notes: preview must not write the archive. It must flag missing DB/data
 paths, symlink escapes, and LocalProof source roots that are outside the managed
 state boundary.
 
-Case / Artifact / Evidence: may create a Case for backup planning if the user
-chooses to persist the preview; otherwise it can remain read-only.
+Case / Artifact / Evidence: Phase 2 keeps preview read-only. It does not create
+a Case, Artifact, Evidence, backup directory, archive, manifest, or DB row.
 
 ### POST /backups
 
@@ -316,6 +317,8 @@ successful hash verification.
 
 ### POST /restore/preview
 
+Status: proposed only. This endpoint is not implemented in Phase 2.
+
 Purpose: inspect a verified backup and show what restore would write before any
 restore action.
 
@@ -360,6 +363,8 @@ Case / Artifact / Evidence: creates Evidence for restore risk review where
 practical. Restore preview is Evidence before any restore Decision.
 
 ### POST /restore/to-new-location
+
+Status: proposed only. This endpoint is not implemented in Phase 2.
 
 Purpose: restore a verified backup into a new DB/data location for inspection.
 
@@ -418,9 +423,10 @@ A human Decision should accept the preview before this endpoint is called.
 
 ### Phase 2: backend backup create/list/verify
 
-- Implement backup preview, creation, list, detail, and verify endpoints.
+- Implemented backup preview, creation, list, detail, and verify endpoints.
 - Create archive and manifest Artifacts.
-- Record verification Evidence.
+- Record backup creation and verification Evidence.
+- Keep restore preview, restore-to-new-location, and live DB restore blocked.
 
 ### Phase 3: restore preview and restore to new location
 

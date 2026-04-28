@@ -127,3 +127,21 @@ CREATE TABLE IF NOT EXISTS decisions (
     updated_at TEXT NOT NULL,
     FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS backups (
+    id TEXT PRIMARY KEY,
+    case_id TEXT,
+    label TEXT,
+    status TEXT NOT NULL,
+    archive_path TEXT NOT NULL,
+    manifest_path TEXT NOT NULL,
+    manifest_sha256 TEXT,
+    archive_sha256 TEXT,
+    archive_size_bytes INTEGER,
+    file_count INTEGER,
+    verified_at TEXT,
+    warnings_json TEXT NOT NULL DEFAULT '[]',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE SET NULL
+);
