@@ -140,7 +140,8 @@ Example:
 
 Phase 2 implements the backup endpoints: preview, create, list, detail, and
 verify. Phase 3 implements restore preview and restore-to-new-location for
-inspection only. Live DB restore remains blocked.
+inspection only. Phase 4 adds a thin frontend control surface for these
+existing APIs. Live DB restore remains blocked.
 
 ### POST /backups/preview
 
@@ -450,6 +451,30 @@ By default, successful runs keep the temp root for inspection. With
 `--cleanup`, successful runs remove the temp output. Failed runs always keep the
 temp root and print its path as failure evidence.
 
+## Thin UI surface
+
+Phase 4 adds a small local UI page for managed backup and restore inspection
+flows. The page exposes the existing backend operations only:
+
+- Backup preview.
+- Backup create.
+- Backup list and detail.
+- Backup verify.
+- Restore preview.
+- Restore to a new inspection location.
+
+The UI keeps restore-to-new-location framed as inspection evidence. It does not
+offer live DB restore, overwrite restore, backup deletion, retention controls,
+cloud backup, scheduled backup, encryption controls, or LocalProof source-root
+bulk restore. The restore-to-new-location action stays disabled until a
+successful restore preview is explicitly accepted for the same backup ID and
+target paths. If the restore request is rejected as stale or unsafe, the UI
+clears the accepted preview and requires a new preview.
+
+The backend smoke gate remains `scripts/backup_restore_api_smoke.py`, which
+proves the backup, verify, restore-preview, and restore-to-new-location API loop
+in isolated temp paths before the UI is trusted as a control surface.
+
 ## Phase plan
 
 ### Phase 1: design doc and contract tests
@@ -476,8 +501,10 @@ temp root and print its path as failure evidence.
 
 ### Phase 4: thin UI
 
-- Add a small UI surface for preview, create, verify, and restore-to-new-location
-  flows after backend contracts are proven.
+- Implemented a small UI surface for preview, create, verify, and
+  restore-to-new-location flows after backend contracts were proven.
+- Keep live DB restore blocked.
+- Keep restore-to-new-location inspection-only.
 
 ### Phase 5: optional future live restore with stricter gates
 

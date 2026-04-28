@@ -11,6 +11,8 @@ All notable changes for ProofFlow v0.1 are tracked here.
 - Managed backup backend preview, create, list, detail, and verify endpoints.
 - Managed restore backend preview and restore-to-new-location endpoints for
   inspection-only recovery.
+- Managed backup/restore thin UI control surface for preview, create, list,
+  detail, verify, restore preview, and restore-to-new-location inspection flows.
 
 ### Dogfood / Smoke Checks
 
