@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  apiPost,
   backupPreview,
   createBackup,
   getBackupDetail,
@@ -74,11 +75,11 @@ describe("managed backup restore API helpers", () => {
     });
   });
 
-  it("preserves non-JSON error response text", async () => {
+  it("preserves non-JSON non-OK response text", async () => {
     mockFetch.mockResolvedValueOnce(
-      new Response("upstream bad gateway", {
-        status: 502,
-        statusText: "Bad Gateway",
+      new Response("restore preview is stale", {
+        status: 400,
+        statusText: "Bad Request",
         headers: { "Content-Type": "text/plain" },
       }),
     );
@@ -90,10 +91,32 @@ describe("managed backup restore API helpers", () => {
         target_data_dir: "D:/restore/data",
       }),
     ).rejects.toMatchObject({
-      status: 502,
-      detail: "upstream bad gateway",
-      message: "upstream bad gateway",
+      status: 400,
+      detail: "restore preview is stale",
+      message: "restore preview is stale",
     });
+  });
+
+  it("rejects non-JSON OK responses with a clean API error", async () => {
+    mockFetch.mockResolvedValueOnce(
+      new Response("<html>proxy fallback</html>", {
+        status: 200,
+        headers: { "Content-Type": "text/html" },
+      }),
+    );
+
+    await expect(listBackups()).rejects.toMatchObject({
+      status: 200,
+      detail: "Malformed API response: expected JSON",
+      message: "Malformed API response: expected JSON",
+    });
+  });
+
+  it("preserves empty OK response behavior for void-style callers", async () => {
+    mockFetch.mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+    await expect(apiPost<void>("/void-style")).resolves.toBeNull();
+    expectLastFetch("/void-style", "POST", {});
   });
 });
 

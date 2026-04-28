@@ -14,6 +14,11 @@ All notable changes for ProofFlow v0.1 are tracked here.
 - Managed backup/restore thin UI control surface for preview, create, list,
   detail, verify, restore preview, and restore-to-new-location inspection flows.
 
+### Fixed
+
+- Fix frontend API handling so non-JSON error bodies remain visible while
+  malformed successful responses fail predictably.
+
 ### Dogfood / Smoke Checks
 
 - Added `scripts/rc_api_smoke.py` for in-process RC API dogfood against temp

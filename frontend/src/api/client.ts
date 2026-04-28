@@ -39,16 +39,26 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   });
 
   const text = await response.text();
-  const data = parseResponseBody(text);
 
   if (!response.ok) {
-    throw new ApiError(response.status, errorDetail(data, response.statusText));
+    const data = parseErrorBody(text);
+    throw new ApiError(response.status, errorDetail(data, defaultErrorMessage(response)));
   }
 
+  const data = parseJsonSuccess(text, response.status);
   return data as T;
 }
 
-function parseResponseBody(text: string): unknown {
+function parseJsonSuccess(text: string, status: number): unknown {
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new ApiError(status, "Malformed API response: expected JSON");
+  }
+}
+
+function parseErrorBody(text: string): unknown {
   if (!text) return null;
   try {
     return JSON.parse(text);
@@ -58,10 +68,17 @@ function parseResponseBody(text: string): unknown {
 }
 
 function errorDetail(data: unknown, fallback: string): unknown {
-  if (data && typeof data === "object" && "detail" in data) {
-    return (data as { detail: unknown }).detail;
+  if (data && typeof data === "object") {
+    const record = data as Record<string, unknown>;
+    return record.detail ?? record.message ?? record.error ?? data;
   }
   return data ?? fallback;
+}
+
+function defaultErrorMessage(response: Response): string {
+  return response.statusText
+    ? `${response.status} ${response.statusText}`
+    : `API request failed with ${response.status}`;
 }
 
 export function apiGet<T>(path: string): Promise<T> {
