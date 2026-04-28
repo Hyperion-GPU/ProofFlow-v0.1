@@ -7,6 +7,7 @@ import { Cases } from "./pages/Cases";
 import { Dashboard } from "./pages/Dashboard";
 import { Decisions } from "./pages/Decisions";
 import { LocalProof } from "./pages/LocalProof";
+import { ManagedBackupRestore } from "./pages/ManagedBackupRestore";
 import { Search } from "./pages/Search";
 
 export default function App() {
@@ -21,6 +22,7 @@ export default function App() {
         <Route path="localproof" element={<LocalProof />} />
         <Route path="agentguard" element={<AgentGuard />} />
         <Route path="decisions" element={<Decisions />} />
+        <Route path="managed-backup-restore" element={<ManagedBackupRestore />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

@@ -191,3 +191,147 @@ export type CasePacketResponse = {
   decisions: DecisionResponse[];
   runs: CasePacketRun[];
 };
+
+export type BackupSource = {
+  db_path: string;
+  data_dir: string;
+  proof_packets_dir: string;
+};
+
+export type PlannedBackupFile = {
+  role: string;
+  relative_path: string;
+  size_bytes: number;
+  source_path: string;
+};
+
+export type BackupPreviewRequest = {
+  backup_root: string;
+  include_data_dir?: boolean;
+  include_proof_packets?: boolean;
+};
+
+export type BackupPreviewResponse = {
+  source: BackupSource;
+  planned_files: PlannedBackupFile[];
+  warnings: string[];
+  would_create_case: boolean;
+};
+
+export type BackupCreateRequest = {
+  backup_root: string;
+  label?: string | null;
+};
+
+export type BackupCreateResponse = {
+  backup_id: string;
+  case_id: string;
+  archive_path: string;
+  manifest_path: string;
+  manifest_sha256: string;
+  archive_sha256: string;
+  warnings: string[];
+};
+
+export type BackupListItem = {
+  backup_id: string;
+  created_at: string;
+  status: string;
+  verified_at: string | null;
+  archive_path: string;
+};
+
+export type BackupListResponse = {
+  backups: BackupListItem[];
+};
+
+export type BackupManifestSummary = {
+  manifest_version: string | null;
+  app_version: string | null;
+  schema_version: string | null;
+};
+
+export type BackupVerificationSummary = {
+  status: string;
+  verified_at: string | null;
+  errors: string[];
+};
+
+export type BackupDetailResponse = {
+  backup_id: string;
+  case_id: string | null;
+  manifest: BackupManifestSummary | null;
+  archive_path: string;
+  verification: BackupVerificationSummary;
+  warnings: string[];
+};
+
+export type BackupHashMismatch = {
+  relative_path: string;
+  expected_sha256: string | null;
+  actual_sha256: string | null;
+};
+
+export type BackupVerifyResponse = {
+  backup_id: string;
+  case_id: string | null;
+  status: string;
+  checked_files: number;
+  hash_mismatches: BackupHashMismatch[];
+  missing_files: string[];
+  warnings: string[];
+};
+
+export type RestoreTarget = {
+  db_path: string;
+  data_dir: string;
+};
+
+export type RestoreRisk = {
+  code: string;
+  message: string;
+  blocking: boolean;
+};
+
+export type RestorePlannedWrite = {
+  archive_relative_path: string;
+  target_path: string;
+  role: string;
+  action: "create" | "overwrite" | "skip";
+  size_bytes: number;
+  sha256: string;
+  would_overwrite: boolean;
+};
+
+export type RestorePreviewRequest = {
+  backup_id: string;
+  target_db_path: string;
+  target_data_dir: string;
+};
+
+export type RestorePreviewResponse = {
+  restore_preview_id: string;
+  backup_id: string;
+  case_id: string | null;
+  verified: boolean;
+  target: RestoreTarget;
+  planned_writes: RestorePlannedWrite[];
+  plan_hash: string;
+  schema_risks: RestoreRisk[];
+  version_risks: RestoreRisk[];
+  warnings: string[];
+};
+
+export type RestoreToNewLocationRequest = RestorePreviewRequest & {
+  accepted_preview_id: string;
+};
+
+export type RestoreToNewLocationResponse = {
+  backup_id: string;
+  restore_preview_id: string;
+  case_id: string | null;
+  target: RestoreTarget;
+  restored_files: number;
+  status: "restored_to_new_location";
+  warnings: string[];
+};

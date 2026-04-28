@@ -481,6 +481,16 @@ pre {
   color: #526071;
 }
 
+.result-block {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.result-block:first-child {
+  margin-top: 0;
+}
+
 .mono-cell {
   color: #475467;
   font-family:

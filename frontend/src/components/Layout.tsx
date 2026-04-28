@@ -8,6 +8,7 @@ const navItems = [
   { to: "/localproof", label: "LocalProof" },
   { to: "/agentguard", label: "AgentGuard" },
   { to: "/decisions", label: "Decisions" },
+  { to: "/managed-backup-restore", label: "Backup / Restore" },
 ];
 
 export function Layout() {

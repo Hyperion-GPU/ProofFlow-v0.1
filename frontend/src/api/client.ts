@@ -1,3 +1,17 @@
+import type {
+  BackupCreateRequest,
+  BackupCreateResponse,
+  BackupDetailResponse,
+  BackupListResponse,
+  BackupPreviewRequest,
+  BackupPreviewResponse,
+  BackupVerifyResponse,
+  RestorePreviewRequest,
+  RestorePreviewResponse,
+  RestoreToNewLocationRequest,
+  RestoreToNewLocationResponse,
+} from "../types";
+
 export const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8787";
 
@@ -13,7 +27,7 @@ export class ApiError extends Error {
   }
 }
 
-type RequestBody = Record<string, unknown> | unknown[] | string | number | boolean | null;
+type RequestBody = object | unknown[] | string | number | boolean | null;
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -25,13 +39,29 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   });
 
   const text = await response.text();
-  const data = text ? JSON.parse(text) : null;
+  const data = parseResponseBody(text);
 
   if (!response.ok) {
-    throw new ApiError(response.status, data?.detail ?? data ?? response.statusText);
+    throw new ApiError(response.status, errorDetail(data, response.statusText));
   }
 
   return data as T;
+}
+
+function parseResponseBody(text: string): unknown {
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
+}
+
+function errorDetail(data: unknown, fallback: string): unknown {
+  if (data && typeof data === "object" && "detail" in data) {
+    return (data as { detail: unknown }).detail;
+  }
+  return data ?? fallback;
 }
 
 export function apiGet<T>(path: string): Promise<T> {
@@ -50,6 +80,44 @@ export function apiPatch<T>(path: string, body: RequestBody): Promise<T> {
     method: "PATCH",
     body: JSON.stringify(body),
   });
+}
+
+export function backupPreview(
+  body: BackupPreviewRequest,
+): Promise<BackupPreviewResponse> {
+  return apiPost<BackupPreviewResponse>("/backups/preview", body);
+}
+
+export function createBackup(
+  body: BackupCreateRequest,
+): Promise<BackupCreateResponse> {
+  return apiPost<BackupCreateResponse>("/backups", body);
+}
+
+export function listBackups(): Promise<BackupListResponse> {
+  return apiGet<BackupListResponse>("/backups");
+}
+
+export function getBackupDetail(backupId: string): Promise<BackupDetailResponse> {
+  return apiGet<BackupDetailResponse>(`/backups/${encodeURIComponent(backupId)}`);
+}
+
+export function verifyBackup(backupId: string): Promise<BackupVerifyResponse> {
+  return apiPost<BackupVerifyResponse>(
+    `/backups/${encodeURIComponent(backupId)}/verify`,
+  );
+}
+
+export function restorePreview(
+  body: RestorePreviewRequest,
+): Promise<RestorePreviewResponse> {
+  return apiPost<RestorePreviewResponse>("/restore/preview", body);
+}
+
+export function restoreToNewLocation(
+  body: RestoreToNewLocationRequest,
+): Promise<RestoreToNewLocationResponse> {
+  return apiPost<RestoreToNewLocationResponse>("/restore/to-new-location", body);
 }
 
 export function formatApiError(error: unknown): string {
