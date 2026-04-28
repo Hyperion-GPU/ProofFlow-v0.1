@@ -9,6 +9,8 @@ All notable changes for ProofFlow v0.1 are tracked here.
 - RC1 dogfood closure decision and filled bug bash results.
 - Managed Backup / Restore Foundation design and contract tests.
 - Managed backup backend preview, create, list, detail, and verify endpoints.
+- Managed restore backend preview and restore-to-new-location endpoints for
+  inspection-only recovery.
 
 ### Dogfood / Smoke Checks
 

@@ -176,8 +176,9 @@ def test_backup_root_that_is_file_returns_400(monkeypatch, tmp_path):
         assert "directory" in response.json()["detail"]
 
 
-def test_restore_endpoints_are_not_exposed_in_phase2(monkeypatch, tmp_path):
+def test_live_restore_endpoints_are_not_exposed(monkeypatch, tmp_path):
     client, _db_path, _data_dir, _backup_root = _client(monkeypatch, tmp_path)
     with client as active_client:
-        assert active_client.post("/restore/preview", json={}).status_code == 404
-        assert active_client.post("/restore/to-new-location", json={}).status_code == 404
+        assert active_client.post("/restore/live", json={}).status_code == 404
+        assert active_client.post("/restore/apply", json={}).status_code == 404
+        assert active_client.post("/restore/current", json={}).status_code == 404

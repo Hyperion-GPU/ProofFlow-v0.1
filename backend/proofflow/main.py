@@ -15,6 +15,7 @@ from proofflow.routers import (
     health,
     localproof,
     reports,
+    restore,
     search,
 )
 from proofflow.version import __version__, release_name
@@ -49,6 +50,7 @@ def create_app() -> FastAPI:
     app.include_router(search.router)
     app.include_router(actions.router)
     app.include_router(backups.router)
+    app.include_router(restore.router)
     app.include_router(health.router)
     return app
 

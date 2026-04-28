@@ -77,6 +77,15 @@ class BackupRecord:
     updated_at: str
 
 
+@dataclass(frozen=True)
+class BackupIntegrityResult:
+    record: BackupRecord
+    manifest: dict[str, Any]
+    manifest_sha256: str
+    archive_sha256: str
+    checked_files: int
+
+
 def preview_backup(payload: BackupPreviewRequest) -> BackupPreviewResponse:
     plan = _build_backup_plan(
         payload.backup_root,
@@ -263,6 +272,83 @@ def get_backup(backup_id: str) -> BackupDetailResponse:
             errors=errors,
         ),
         warnings=warnings,
+    )
+
+
+def verify_backup_integrity_read_only(backup_id: str) -> BackupIntegrityResult:
+    record = _get_backup_record(backup_id)
+    if record.status != "verified":
+        raise BackupError("backup must be verified before restore")
+
+    manifest_path = Path(record.manifest_path)
+    archive_path = Path(record.archive_path)
+    if not manifest_path.exists():
+        raise BackupError(f"manifest file is missing: {manifest_path}")
+    if not archive_path.exists():
+        raise BackupError(f"archive file is missing: {archive_path}")
+
+    warnings: list[str] = []
+    missing_files: list[str] = []
+    hash_mismatches: list[BackupHashMismatch] = []
+    actual_manifest_sha256 = _sha256_file(manifest_path)
+    if record.manifest_sha256 and actual_manifest_sha256 != record.manifest_sha256:
+        hash_mismatches.append(
+            BackupHashMismatch(
+                relative_path="manifest.json",
+                expected_sha256=record.manifest_sha256,
+                actual_sha256=actual_manifest_sha256,
+            )
+        )
+
+    manifest = _read_manifest(manifest_path)
+    actual_archive_sha256 = _sha256_file(archive_path)
+    expected_archive_sha256 = _string_or_none(_archive_field(manifest, "sha256"))
+    if not expected_archive_sha256:
+        warnings.append("manifest archive.sha256 is missing")
+    elif actual_archive_sha256 != expected_archive_sha256:
+        hash_mismatches.append(
+            BackupHashMismatch(
+                relative_path="archive.zip",
+                expected_sha256=expected_archive_sha256,
+                actual_sha256=actual_archive_sha256,
+            )
+        )
+    if record.archive_sha256 and actual_archive_sha256 != record.archive_sha256:
+        hash_mismatches.append(
+            BackupHashMismatch(
+                relative_path="archive.zip",
+                expected_sha256=record.archive_sha256,
+                actual_sha256=actual_archive_sha256,
+            )
+        )
+
+    try:
+        zip_warnings, zip_missing, zip_mismatches, checked_files = _verify_zip_members(
+            archive_path,
+            manifest,
+            recompute_hashes=True,
+        )
+        warnings.extend(zip_warnings)
+        missing_files.extend(zip_missing)
+        hash_mismatches.extend(zip_mismatches)
+    except (OSError, zipfile.BadZipFile) as error:
+        raise BackupError(f"archive could not be read: {error}") from error
+
+    hash_mismatches = _dedupe_hash_mismatches(hash_mismatches)
+    if warnings or missing_files or hash_mismatches:
+        details = {
+            "warnings": warnings,
+            "missing_files": missing_files,
+            "hash_mismatches": [mismatch.model_dump() for mismatch in hash_mismatches],
+        }
+        raise BackupError(f"backup integrity check failed: {json.dumps(details, sort_keys=True)}")
+
+    return BackupIntegrityResult(
+        record=record,
+        manifest=manifest,
+        manifest_sha256=actual_manifest_sha256,
+        archive_sha256=actual_archive_sha256,
+        checked_files=checked_files,
     )
 
 

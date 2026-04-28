@@ -139,8 +139,8 @@ Example:
 ## API contract and implementation status
 
 Phase 2 implements the backup endpoints: preview, create, list, detail, and
-verify. Restore endpoints remain proposed only for later phases and are not
-exposed by the Phase 2 backend.
+verify. Phase 3 implements restore preview and restore-to-new-location for
+inspection only. Live DB restore remains blocked.
 
 ### POST /backups/preview
 
@@ -317,10 +317,12 @@ successful hash verification.
 
 ### POST /restore/preview
 
-Status: proposed only. This endpoint is not implemented in Phase 2.
+Status: implemented in Phase 3.
 
 Purpose: inspect a verified backup and show what restore would write before any
-restore action.
+restore action. It requires the backup to be verified, recomputes the sidecar
+manifest hash, archive hash, and ZIP member hashes, and persists a preview row
+so restore-to-new-location can enforce "No Preview, no Restore."
 
 Request shape:
 
@@ -336,6 +338,7 @@ Response shape:
 
 ```json
 {
+  "restore_preview_id": "restore-preview-id",
   "backup_id": "backup_20260427_000000",
   "case_id": "case-id",
   "verified": true,
@@ -345,28 +348,37 @@ Response shape:
   },
   "planned_writes": [
     {
-      "relative_path": "proofflow.db",
+      "archive_relative_path": "db/proofflow.db",
+      "target_path": "<new-location>/proofflow.db",
+      "role": "sqlite_db",
       "action": "create",
+      "size_bytes": 40960,
+      "sha256": "example-db-sha256",
       "would_overwrite": false
     }
   ],
+  "plan_hash": "restore-plan-sha256",
   "schema_risks": [],
   "version_risks": [],
   "warnings": []
 }
 ```
 
-Safety notes: preview must not write files. It must reject or warn when the
-target is the current live DB or current live data directory.
+Safety notes: preview must not write files or create target directories. It
+must reject the current live DB, current live data directory, and targets inside
+live ProofFlow-managed roots. It reports overwrites, schema risks, and version
+risks before any restore Decision. Missing app/schema version metadata is
+blocking because source version is required for restore trust.
 
 Case / Artifact / Evidence: creates Evidence for restore risk review where
 practical. Restore preview is Evidence before any restore Decision.
 
 ### POST /restore/to-new-location
 
-Status: proposed only. This endpoint is not implemented in Phase 2.
+Status: implemented in Phase 3.
 
 Purpose: restore a verified backup into a new DB/data location for inspection.
+This is not live restore and is not proof that a live restore is safe.
 
 Request shape:
 
@@ -397,7 +409,11 @@ Response shape:
 
 Safety notes: foundation restore writes only to a new location. It must require
 a prior successful verify result, hash matches, source version metadata, and an
-accepted restore preview. It must not restore into the current live DB.
+accepted restore preview. It must not restore into the current live DB or live
+data directory. Because this foundation phase does not implement pre-restore
+backup, overwrite restore is rejected; target files must not already exist. The
+implementation reads and writes only manifest-listed ZIP members and does not
+use ZIP extract-all behavior.
 
 Case / Artifact / Evidence: records the restore target and result as Evidence.
 A human Decision should accept the preview before this endpoint is called.
@@ -430,8 +446,10 @@ A human Decision should accept the preview before this endpoint is called.
 
 ### Phase 3: restore preview and restore to new location
 
-- Implement restore preview.
-- Implement restore to a new location only.
+- Implemented restore preview.
+- Implemented restore to a new location only for inspection.
+- Reject overwrites because no pre-restore backup gate exists in the foundation
+  phase.
 - Keep live DB restore blocked.
 
 ### Phase 4: thin UI
