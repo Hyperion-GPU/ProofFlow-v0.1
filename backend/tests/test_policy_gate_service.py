@@ -1,4 +1,7 @@
 import json
+from dataclasses import FrozenInstanceError
+
+import pytest
 
 from proofflow.services.policy_gate_service import (
     PolicyCategory,
@@ -97,13 +100,62 @@ def test_policy_gate_result_safe_defaults_are_independent_and_explicit():
         reason="Reviewable surface matched.",
     )
 
-    first.affected_paths.append("D:/proof/source")
+    assert first.affected_paths == ()
+    assert second.affected_paths == ()
+    first_payload = first.to_dict()
+    second_payload = second.to_dict()
+    first_payload["affected_paths"].append("D:/proof/source")
 
-    assert second.affected_paths == []
+    assert first.to_dict()["affected_paths"] == []
+    assert second_payload["affected_paths"] == []
     assert first.to_dict()["redaction_status"] == "not_applicable"
     assert first.to_dict()["remaining_risks"] == []
     assert first.to_dict()["matched_surface"] is None
     assert first.to_dict()["related_decision_id"] is None
+
+
+def test_policy_gate_result_collections_are_immutable_and_alias_safe():
+    paths = ["D:/proof/source"]
+    commands = ["managed_restore_to_new_location"]
+    roots = ["D:/proof"]
+    risks = ["Operator still needs to inspect restored files."]
+    result = PolicyGateResult(
+        policy_id="immutable-collections",
+        policy_name="Immutable collections",
+        category=PolicyCategory.BACKUP_RESTORE_TARGET_RISK,
+        severity=PolicySeverity.MEDIUM,
+        outcome=PolicyOutcome.WARN,
+        reason="Collections should not mutate after construction.",
+        affected_paths=paths,
+        affected_commands=commands,
+        allowed_roots_snapshot=roots,
+        remaining_risks=risks,
+    )
+
+    assert result.affected_paths == ("D:/proof/source",)
+    assert result.affected_commands == ("managed_restore_to_new_location",)
+    assert result.allowed_roots_snapshot == ("D:/proof",)
+    assert result.remaining_risks == ("Operator still needs to inspect restored files.",)
+
+    paths.append("D:/proof/other")
+    commands.append("unexpected_command")
+    roots.append("D:/other")
+    risks.append("Unexpected risk")
+
+    assert result.affected_paths == ("D:/proof/source",)
+    assert result.affected_commands == ("managed_restore_to_new_location",)
+    assert result.allowed_roots_snapshot == ("D:/proof",)
+    assert result.remaining_risks == ("Operator still needs to inspect restored files.",)
+
+    payload = result.to_dict()
+    payload["affected_paths"].append("D:/proof/from-payload")
+    payload["remaining_risks"].append("Payload-only risk")
+
+    assert result.affected_paths == ("D:/proof/source",)
+    assert result.remaining_risks == ("Operator still needs to inspect restored files.",)
+
+    with pytest.raises(FrozenInstanceError):
+        result.affected_paths = ("D:/proof/reassigned",)
 
 
 def test_empty_outcome_aggregation_fails_closed():

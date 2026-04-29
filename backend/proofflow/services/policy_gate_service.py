@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Iterable
 
@@ -52,15 +52,21 @@ class PolicyGateResult:
     reason: str
     matched_surface: str | None = None
     redaction_status: str = "not_applicable"
-    affected_paths: list[str] = field(default_factory=list)
-    affected_commands: list[str] = field(default_factory=list)
-    allowed_roots_snapshot: list[str] = field(default_factory=list)
+    affected_paths: tuple[str, ...] = ()
+    affected_commands: tuple[str, ...] = ()
+    allowed_roots_snapshot: tuple[str, ...] = ()
     related_case_id: str | None = None
     related_action_id: str | None = None
     related_decision_id: str | None = None
     related_evidence_id: str | None = None
     transparency_event_id: str | None = None
-    remaining_risks: list[str] = field(default_factory=list)
+    remaining_risks: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "affected_paths", tuple(self.affected_paths))
+        object.__setattr__(self, "affected_commands", tuple(self.affected_commands))
+        object.__setattr__(self, "allowed_roots_snapshot", tuple(self.allowed_roots_snapshot))
+        object.__setattr__(self, "remaining_risks", tuple(self.remaining_risks))
 
     def to_dict(self) -> dict[str, Any]:
         return {
