@@ -16,6 +16,10 @@ All notable changes for ProofFlow v0.1 are tracked here.
 - Agent intermediary tampering threat model covering malicious LLM routers,
   tool-call rewrite risk, current ProofFlow mitigations, and future AgentGuard /
   ActionGuard hardening requirements.
+- Agent Transparency Log Foundation design for future local-first
+  agent/tool-call/action audit trails, including event categories,
+  hashing/redaction expectations, policy-gate integration, and Proof Packet
+  export alignment.
 
 ### Fixed
 
