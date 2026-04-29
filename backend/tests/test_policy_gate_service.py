@@ -222,6 +222,45 @@ def test_policy_gate_evaluation_aggregates_final_outcome():
     )
 
 
+def test_policy_gate_evaluation_caller_cannot_downgrade_blocking_result():
+    evaluation = PolicyGateEvaluation(
+        results=[_policy_result("block", PolicyOutcome.BLOCK)],
+        final_outcome=PolicyOutcome.ALLOW,
+    )
+
+    assert evaluation.final_outcome == PolicyOutcome.BLOCK
+    assert evaluation.is_blocking
+    assert evaluation.to_dict()["final_outcome"] == "block"
+
+
+def test_policy_gate_evaluation_caller_cannot_downgrade_fail_closed_result():
+    evaluation = PolicyGateEvaluation(
+        results=[_policy_result("fail", PolicyOutcome.FAIL_CLOSED)],
+        final_outcome=PolicyOutcome.REQUIRE_DECISION,
+    )
+
+    assert evaluation.final_outcome == PolicyOutcome.FAIL_CLOSED
+    assert evaluation.is_blocking
+    assert evaluation.to_dict()["final_outcome"] == "fail_closed"
+
+
+def test_policy_gate_evaluation_accepts_stricter_caller_final_outcome():
+    evaluation = PolicyGateEvaluation(
+        results=[_policy_result("warn", PolicyOutcome.WARN)],
+        final_outcome=PolicyOutcome.BLOCK,
+    )
+
+    assert evaluation.final_outcome == PolicyOutcome.BLOCK
+    assert evaluation.is_blocking
+
+
+def test_policy_gate_evaluation_empty_results_with_explicit_allow_fail_closed():
+    evaluation = PolicyGateEvaluation(final_outcome=PolicyOutcome.ALLOW)
+
+    assert evaluation.final_outcome == PolicyOutcome.FAIL_CLOSED
+    assert evaluation.is_blocking
+
+
 def test_policy_gate_evaluation_flags_decision_blocking_and_warnings():
     decision = PolicyGateEvaluation(
         results=[_policy_result("decision", PolicyOutcome.REQUIRE_DECISION)]
