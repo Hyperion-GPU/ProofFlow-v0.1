@@ -98,6 +98,9 @@ For release-candidate checks, use
 [CHANGELOG.md](CHANGELOG.md), and the public dogfood packet example in
 [docs/examples/V0_1_DOGFOOD_PROOF_PACKET.md](docs/examples/V0_1_DOGFOOD_PROOF_PACKET.md).
 
+For post-RC1 policy gate readiness, use
+[docs/policy-gate-integration-checkpoints.md](docs/policy-gate-integration-checkpoints.md).
+
 For publish prep, use the draft release notes in
 [docs/releases/V0_1_0_RC1_RELEASE_NOTES.md](docs/releases/V0_1_0_RC1_RELEASE_NOTES.md)
 and the local helper:
