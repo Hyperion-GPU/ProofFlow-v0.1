@@ -25,6 +25,8 @@ All notable changes for ProofFlow v0.1 are tracked here.
   filesystem, package, network, and managed restore workflows.
 - Backend policy gate result foundation types and tests for future local-first
   high-risk action gate outcomes, without wiring them into runtime behavior.
+- Backend policy gate evaluation summary helpers and tests for aggregating
+  future high-risk action outcomes without runtime integration.
 
 ### Fixed
 
