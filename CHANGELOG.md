@@ -20,6 +20,9 @@ All notable changes for ProofFlow v0.1 are tracked here.
   agent/tool-call/action audit trails, including event categories,
   hashing/redaction expectations, policy-gate integration, and Proof Packet
   export alignment.
+- High-risk action policy gate design for future local-first
+  allow/warn/require-decision/block/fail-closed handling across agent, script,
+  filesystem, package, network, and managed restore workflows.
 
 ### Fixed
 
