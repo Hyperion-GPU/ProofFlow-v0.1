@@ -23,6 +23,8 @@ All notable changes for ProofFlow v0.1 are tracked here.
 - High-risk action policy gate design for future local-first
   allow/warn/require-decision/block/fail-closed handling across agent, script,
   filesystem, package, network, and managed restore workflows.
+- Backend policy gate result foundation types and tests for future local-first
+  high-risk action gate outcomes, without wiring them into runtime behavior.
 
 ### Fixed
 
