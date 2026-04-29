@@ -102,6 +102,8 @@ For post-RC1 policy gate readiness, use
 [docs/policy-gate-integration-checkpoints.md](docs/policy-gate-integration-checkpoints.md).
 For Checkpoint A dogfood evidence, use
 [docs/checkpoint-a-dogfood-readiness.md](docs/checkpoint-a-dogfood-readiness.md).
+For Checkpoint C policy gate input/output contract review, use
+[docs/policy-gate-input-output-contract-review.md](docs/policy-gate-input-output-contract-review.md).
 
 For publish prep, use the draft release notes in
 [docs/releases/V0_1_0_RC1_RELEASE_NOTES.md](docs/releases/V0_1_0_RC1_RELEASE_NOTES.md)
