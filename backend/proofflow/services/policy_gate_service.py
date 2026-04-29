@@ -104,3 +104,43 @@ def outcome_precedence(outcome: PolicyOutcome) -> int:
 
 def most_restrictive_outcome(outcomes: Iterable[PolicyOutcome]) -> PolicyOutcome:
     return max(outcomes, key=outcome_precedence, default=PolicyOutcome.FAIL_CLOSED)
+
+
+@dataclass(frozen=True)
+class PolicyGateEvaluation:
+    results: tuple[PolicyGateResult, ...] = ()
+    final_outcome: PolicyOutcome | None = None
+
+    def __post_init__(self) -> None:
+        results = tuple(self.results)
+        object.__setattr__(self, "results", results)
+        if self.final_outcome is None:
+            object.__setattr__(
+                self,
+                "final_outcome",
+                most_restrictive_outcome(result.outcome for result in results),
+            )
+
+    @property
+    def is_blocking(self) -> bool:
+        return is_blocking_outcome(self.final_outcome or PolicyOutcome.FAIL_CLOSED)
+
+    @property
+    def requires_operator_decision(self) -> bool:
+        return requires_operator_decision(self.final_outcome or PolicyOutcome.FAIL_CLOSED)
+
+    @property
+    def has_warnings(self) -> bool:
+        return self.final_outcome == PolicyOutcome.WARN or any(
+            result.outcome == PolicyOutcome.WARN for result in self.results
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        final_outcome = self.final_outcome or PolicyOutcome.FAIL_CLOSED
+        return {
+            "final_outcome": final_outcome.value,
+            "is_blocking": self.is_blocking,
+            "requires_operator_decision": self.requires_operator_decision,
+            "has_warnings": self.has_warnings,
+            "results": [result.to_dict() for result in self.results],
+        }
