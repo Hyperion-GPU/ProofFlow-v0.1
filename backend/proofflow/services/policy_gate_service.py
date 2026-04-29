@@ -114,12 +114,17 @@ class PolicyGateEvaluation:
     def __post_init__(self) -> None:
         results = tuple(self.results)
         object.__setattr__(self, "results", results)
-        if self.final_outcome is None:
-            object.__setattr__(
-                self,
-                "final_outcome",
-                most_restrictive_outcome(result.outcome for result in results),
+
+        aggregated_outcome = most_restrictive_outcome(result.outcome for result in results)
+        requested_outcome = self.final_outcome
+        if requested_outcome is None:
+            final_outcome = aggregated_outcome
+        else:
+            final_outcome = most_restrictive_outcome(
+                [aggregated_outcome, requested_outcome]
             )
+
+        object.__setattr__(self, "final_outcome", final_outcome)
 
     @property
     def is_blocking(self) -> bool:

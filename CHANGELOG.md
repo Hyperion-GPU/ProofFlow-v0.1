@@ -30,6 +30,8 @@ All notable changes for ProofFlow v0.1 are tracked here.
 
 ### Fixed
 
+- Fix policy gate evaluation aggregation so caller-provided final outcomes
+  cannot downgrade stricter result-derived outcomes.
 - Fix frontend API handling so non-JSON error bodies remain visible while
   malformed successful responses fail predictably.
 
