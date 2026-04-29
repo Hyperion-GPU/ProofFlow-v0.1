@@ -54,6 +54,8 @@ It should also align with managed backup and restore invariants:
 - No Verify, no trusted Backup.
 - No Preview, no Restore.
 - No Pre-restore Backup, no destructive Restore.
+- No Hash Match, no Restore.
+- No Source Version, no Restore Trust.
 - No Restore to live DB in foundation phase.
 
 These are existing project principles. A rule such as "No Unlogged Agent
