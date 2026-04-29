@@ -13,6 +13,9 @@ All notable changes for ProofFlow v0.1 are tracked here.
   inspection-only recovery.
 - Managed backup/restore thin UI control surface for preview, create, list,
   detail, verify, restore preview, and restore-to-new-location inspection flows.
+- Agent intermediary tampering threat model covering malicious LLM routers,
+  tool-call rewrite risk, current ProofFlow mitigations, and future AgentGuard /
+  ActionGuard hardening requirements.
 
 ### Fixed
 
