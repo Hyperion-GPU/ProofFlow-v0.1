@@ -109,6 +109,8 @@ For Checkpoint C policy gate input/output contract review, use
 [docs/policy-gate-input-output-contract-review.md](docs/policy-gate-input-output-contract-review.md).
 For Checkpoint D policy gate enforcement boundary review, use
 [docs/policy-gate-enforcement-boundary-review.md](docs/policy-gate-enforcement-boundary-review.md).
+For Checkpoint E dry-run policy evaluation planning, use
+[docs/policy-gate-dry-run-evaluation-plan.md](docs/policy-gate-dry-run-evaluation-plan.md).
 
 For publish prep, use the draft release notes in
 [docs/releases/V0_1_0_RC1_RELEASE_NOTES.md](docs/releases/V0_1_0_RC1_RELEASE_NOTES.md)
