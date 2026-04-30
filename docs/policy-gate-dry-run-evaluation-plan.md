@@ -56,7 +56,7 @@ a policy gate would have concluded for a bound action context, without changing
 action execution, approval, rejection, undo, restore, report, or export
 behavior.
 
-Dry-run mode may say that enforcement would have produced `warn`,
+Dry-run mode may say that enforcement would have produced `allow`, `warn`,
 `require_decision`, `block`, or `fail_closed`.
 
 Dry-run mode must not say that an action was approved, allowed, blocked, or
