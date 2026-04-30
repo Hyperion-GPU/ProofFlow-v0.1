@@ -21,6 +21,9 @@ heuristic result.
   FTS search, and previewable suggested actions.
 - AgentGuard supports local git diff review, changed-file tracking, optional
   test commands, and evidence-backed claims.
+- Latest post-RC1 `main` includes managed backup/restore through the Phase 4
+  thin UI. Checkpoint C policy gate contract review is documented; runtime
+  policy gate enforcement is not wired.
 - Current release candidate stamp: `ProofFlow v0.1.0-rc1`.
 
 ## Stack

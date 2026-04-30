@@ -97,11 +97,9 @@
 
 - [x] Define the managed backup / restore design, invariants, manifest shape,
   API contract, and contract tests.
-- [ ] Implement backend backup preview, create, list, detail, and verify.
-- [ ] Implement restore preview and restore to a new location.
-- [ ] Add a thin UI only after backend contracts are proven.
-- [ ] Defer live DB restore until stricter pre-restore backup and confirmation
-  gates exist.
+- [x] Foundation backup/restore Phase 2-4 complete.
+- [ ] Live DB restore remains deferred/blocked until stricter pre-restore backup
+  and confirmation gates exist.
 
 ## Future scope
 
