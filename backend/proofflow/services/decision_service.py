@@ -42,7 +42,7 @@ def create_decision(case_id: str, payload: DecisionCreate) -> DecisionResponse:
                 payload.status,
                 payload.rationale,
                 payload.result,
-                dumps_metadata({}),
+                dumps_metadata(payload.metadata or {}),
                 now,
                 now,
             ),

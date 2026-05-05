@@ -89,10 +89,10 @@ class TestObservationPresent:
                 assert obs["action_id"] == action["id"]
                 assert obs["action_type"] == "move_file"
                 assert obs["high_risk"] is True
-                assert obs["non_enforcing"] is True
-                assert obs["would_have_outcome"] == "warn"
+                assert obs["non_enforcing"] is False
+                assert obs["would_have_outcome"] == "require_decision"
                 assert "destructive_local_operation" in obs["categories"]
-                assert obs["label"] == "observed_only"
+                assert obs["label"] == "enforced"
                 assert "created_at" in obs
 
 
@@ -123,7 +123,8 @@ class TestObservationFields:
                 ).json()
 
                 client.post(f"/actions/{action['id']}/approve")
-                client.post(f"/actions/{action['id']}/execute")
+                result = client.post(f"/actions/{action['id']}/execute")
+                assert result.json()["status"] == "pending_decision"
 
                 packet = client.get(f"/cases/{case_id}/packet").json()
                 obs = packet["observations"][0]
@@ -187,9 +188,12 @@ class TestMultipleObservations:
                 ).json()
 
                 client.post(f"/actions/{action_a['id']}/approve")
-                client.post(f"/actions/{action_a['id']}/execute")
+                result_a = client.post(f"/actions/{action_a['id']}/execute")
+                assert result_a.json()["status"] == "pending_decision"
+
                 client.post(f"/actions/{action_b['id']}/approve")
-                client.post(f"/actions/{action_b['id']}/execute")
+                result_b = client.post(f"/actions/{action_b['id']}/execute")
+                assert result_b.json()["status"] == "pending_decision"
 
                 packet = client.get(f"/cases/{case_id}/packet").json()
                 observations = packet["observations"]

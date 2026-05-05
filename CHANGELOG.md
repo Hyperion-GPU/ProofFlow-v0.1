@@ -6,6 +6,10 @@ All notable changes for ProofFlow v0.1 are tracked here.
 
 ### Added
 
+- Backend policy gate runtime enforcement: high-risk actions (move_file,
+  rename_file) now pause at `pending_decision` until the owner creates an
+  accepted Decision with matching context. Fail-open on classifier/observer
+  errors; fail-closed once gated. Reuses existing `/execute` endpoint.
 - RC1 dogfood closure decision and filled bug bash results.
 - Managed Backup / Restore Foundation design and contract tests.
 - Managed backup backend preview, create, list, detail, and verify endpoints.

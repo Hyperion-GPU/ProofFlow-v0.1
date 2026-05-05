@@ -28,7 +28,7 @@ ArtifactKind = Literal[
 ]
 CaseArtifactRole = Literal["primary", "supporting", "reference"]
 ActionKind = Literal["move_file", "rename_file", "manual_check", "mkdir_dir"]
-ActionStatus = Literal["pending", "previewed", "approved", "executed", "undone", "rejected"]
+ActionStatus = Literal["pending", "previewed", "approved", "executed", "undone", "rejected", "pending_decision"]
 DecisionStatus = Literal["proposed", "accepted", "rejected", "superseded"]
 
 
@@ -245,6 +245,7 @@ class DecisionCreate(StrictRequest):
     status: DecisionStatus
     rationale: str = Field(min_length=1)
     result: str = Field(min_length=1)
+    metadata: dict[str, Any] | None = None
 
 
 class DecisionUpdate(StrictRequest):

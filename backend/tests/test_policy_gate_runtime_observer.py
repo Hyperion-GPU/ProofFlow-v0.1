@@ -1,4 +1,11 @@
-"""Tests for the policy gate runtime observer."""
+"""Tests for the policy gate runtime observer.
+
+With enforcement active, high-risk actions transition to pending_decision
+instead of executing immediately. These tests verify:
+- High-risk actions produce enforcement evidence and pause
+- Low-risk actions execute immediately with no evidence
+- Observer failures are fail-open (action executes)
+"""
 
 from __future__ import annotations
 
@@ -35,7 +42,7 @@ def _scope_metadata(*roots: Path) -> dict:
     }
 
 
-def _get_observation_evidence(case_id: str) -> list[dict]:
+def _get_enforcement_evidence(case_id: str) -> list[dict]:
     with connect() as connection:
         rows = connection.execute(
             """
@@ -43,13 +50,13 @@ def _get_observation_evidence(case_id: str) -> list[dict]:
             FROM evidence
             WHERE case_id = ? AND evidence_type = ?
             """,
-            (case_id, "policy_gate_dry_run_observation"),
+            (case_id, "policy_gate_enforcement"),
         ).fetchall()
     return [dict(row) for row in rows]
 
 
-class TestHighRiskProducesEvidence:
-    def test_move_file_creates_observation(self, monkeypatch):
+class TestHighRiskTransitionsToPendingDecision:
+    def test_move_file_pauses_at_pending_decision(self, monkeypatch):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_root = Path(temp_dir)
             source = temp_root / "file.txt"
@@ -65,7 +72,7 @@ class TestHighRiskProducesEvidence:
                         "case_id": case_id,
                         "kind": "move_file",
                         "title": "Move file",
-                        "reason": "test observation",
+                        "reason": "test enforcement",
                         "preview": {
                             "from_path": str(source),
                             "to_path": str(destination),
@@ -77,16 +84,48 @@ class TestHighRiskProducesEvidence:
                 client.post(f"/actions/{action['id']}/approve")
                 executed = client.post(f"/actions/{action['id']}/execute")
                 assert executed.status_code == 200
+                assert executed.json()["status"] == "pending_decision"
 
-                evidence = _get_observation_evidence(case_id)
+                # File was NOT moved
+                assert source.exists()
+                assert not destination.exists()
+
+    def test_enforcement_evidence_recorded(self, monkeypatch):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            source = temp_root / "file.txt"
+            destination = temp_root / "moved.txt"
+            source.write_text("content", encoding="utf-8")
+
+            with _client(monkeypatch, temp_root) as client:
+                case_id = _create_case(client)
+
+                action = client.post(
+                    "/actions",
+                    json={
+                        "case_id": case_id,
+                        "kind": "move_file",
+                        "title": "Move file",
+                        "reason": "test evidence",
+                        "preview": {
+                            "from_path": str(source),
+                            "to_path": str(destination),
+                        },
+                        "metadata": _scope_metadata(temp_root),
+                    },
+                ).json()
+
+                client.post(f"/actions/{action['id']}/approve")
+                client.post(f"/actions/{action['id']}/execute")
+
+                evidence = _get_enforcement_evidence(case_id)
                 assert len(evidence) == 1
-
-                content = json.loads(evidence[0]["content"])
-                assert content["non_enforcing"] is True
-                assert content["high_risk"] is True
-                assert content["label"] == "observed_only"
-                assert content["would_have_outcome"] == "warn"
                 assert evidence[0]["source_ref"] == action["id"]
+
+                meta = json.loads(evidence[0]["metadata_json"])
+                assert meta["enforcing"] is True
+                assert meta["high_risk"] is True
+                assert meta["source"] == "policy_gate_runtime_observer"
 
 
 class TestLowRiskNoEvidence:
@@ -113,8 +152,9 @@ class TestLowRiskNoEvidence:
                 client.post(f"/actions/{action['id']}/approve")
                 executed = client.post(f"/actions/{action['id']}/execute")
                 assert executed.status_code == 200
+                assert executed.json()["status"] == "executed"
 
-                evidence = _get_observation_evidence(case_id)
+                evidence = _get_enforcement_evidence(case_id)
                 assert len(evidence) == 0
 
 
@@ -147,7 +187,7 @@ class TestObserverFailureDoesNotBlock:
                 client.post(f"/actions/{action['id']}/approve")
 
                 with patch(
-                    "proofflow.services.policy_gate_runtime_observer._observe_inner",
+                    "proofflow.services.action_service._check_policy_gate_inner",
                     side_effect=RuntimeError("simulated observer crash"),
                 ):
                     executed = client.post(f"/actions/{action['id']}/execute")
@@ -156,48 +196,6 @@ class TestObserverFailureDoesNotBlock:
                 assert executed.json()["status"] == "executed"
                 assert destination.read_text(encoding="utf-8") == "content"
                 assert not source.exists()
-
-
-class TestObserverDoesNotModifyAction:
-    def test_action_state_unchanged_by_observer(self, monkeypatch):
-        with tempfile.TemporaryDirectory() as temp_dir:
-            temp_root = Path(temp_dir)
-            source = temp_root / "file.txt"
-            destination = temp_root / "moved.txt"
-            source.write_text("content", encoding="utf-8")
-
-            with _client(monkeypatch, temp_root) as client:
-                case_id = _create_case(client)
-
-                action = client.post(
-                    "/actions",
-                    json={
-                        "case_id": case_id,
-                        "kind": "move_file",
-                        "title": "Move file",
-                        "reason": "test state preservation",
-                        "preview": {
-                            "from_path": str(source),
-                            "to_path": str(destination),
-                        },
-                        "metadata": _scope_metadata(temp_root),
-                    },
-                ).json()
-
-                client.post(f"/actions/{action['id']}/approve")
-
-                # Check state before execution
-                before = client.get(f"/cases/{case_id}/actions").json()[0]
-                assert before["status"] == "approved"
-                assert before["result"] is None
-
-                executed = client.post(f"/actions/{action['id']}/execute")
-                assert executed.status_code == 200
-
-                # Action transitioned normally
-                after = executed.json()
-                assert after["status"] == "executed"
-                assert after["result"]["from_path"] == str(source)
 
 
 class TestEvidenceContentFields:
@@ -227,29 +225,28 @@ class TestEvidenceContentFields:
                 ).json()
 
                 client.post(f"/actions/{action['id']}/approve")
-                client.post(f"/actions/{action['id']}/execute")
+                result = client.post(f"/actions/{action['id']}/execute")
+                assert result.json()["status"] == "pending_decision"
 
-                evidence = _get_observation_evidence(case_id)
+                evidence = _get_enforcement_evidence(case_id)
                 assert len(evidence) == 1
 
                 content = json.loads(evidence[0]["content"])
                 assert "pipeline_id" in content
                 assert "observation" in content
                 assert "snapshot" in content
-                assert content["observation"]["label"] == "observed_only"
-                assert content["observation"]["non_enforcing"] is True
 
                 meta = json.loads(evidence[0]["metadata_json"])
                 assert meta["source"] == "policy_gate_runtime_observer"
-                assert meta["non_enforcing"] is True
+                assert meta["enforcing"] is True
                 assert meta["high_risk"] is True
                 assert "pipeline_id" in meta
                 assert "observation_id" in meta
 
 
-class TestIntegrationExecuteWithObservation:
-    def test_full_lifecycle_with_observation(self, monkeypatch):
-        """Execute action completes AND observation evidence exists."""
+class TestIntegrationEnforcementPause:
+    def test_full_lifecycle_pauses_high_risk(self, monkeypatch):
+        """High-risk action pauses at pending_decision, file not moved."""
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_root = Path(temp_dir)
             source = temp_root / "file.txt"
@@ -277,20 +274,23 @@ class TestIntegrationExecuteWithObservation:
                 client.post(f"/actions/{action['id']}/approve")
                 executed = client.post(f"/actions/{action['id']}/execute")
 
-                # File move succeeded
+                # Action paused
                 assert executed.status_code == 200
-                assert not source.exists()
-                assert destination.read_text(encoding="utf-8") == "hello"
+                assert executed.json()["status"] == "pending_decision"
 
-                # Observation evidence was recorded
-                evidence = _get_observation_evidence(case_id)
+                # File NOT moved
+                assert source.exists()
+                assert not destination.exists()
+
+                # Enforcement evidence was recorded
+                evidence = _get_enforcement_evidence(case_id)
                 assert len(evidence) == 1
                 assert evidence[0]["source_ref"] == action["id"]
 
 
 class TestIntegrationExecuteWithObserverError:
     def test_execute_succeeds_despite_observer_crash(self, monkeypatch):
-        """Execute action succeeds even when observer raises."""
+        """Execute action succeeds even when policy gate raises."""
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_root = Path(temp_dir)
             source = temp_root / "file.txt"
@@ -318,15 +318,16 @@ class TestIntegrationExecuteWithObserverError:
                 client.post(f"/actions/{action['id']}/approve")
 
                 with patch(
-                    "proofflow.services.policy_gate_runtime_observer._observe_inner",
+                    "proofflow.services.action_service._check_policy_gate_inner",
                     side_effect=Exception("total failure"),
                 ):
                     executed = client.post(f"/actions/{action['id']}/execute")
 
                 assert executed.status_code == 200
+                assert executed.json()["status"] == "executed"
                 assert not source.exists()
                 assert destination.read_text(encoding="utf-8") == "hello"
 
                 # No evidence since observer crashed
-                evidence = _get_observation_evidence(case_id)
+                evidence = _get_enforcement_evidence(case_id)
                 assert len(evidence) == 0

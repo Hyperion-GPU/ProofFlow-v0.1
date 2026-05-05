@@ -13,7 +13,18 @@ from proofflow.services.action_safety import (
 )
 from proofflow.services.errors import NotFoundError
 from proofflow.services.json_utils import dumps_metadata, loads_metadata
-from proofflow.services.policy_gate_runtime_observer import observe_pre_execution
+from proofflow.services.policy_gate_decision_gate import (
+    PolicyGateDecisionBinding,
+    PolicyGateDecisionRequirement,
+)
+from proofflow.services.policy_gate_decision_validator import validate_decision_binding
+from proofflow.services.policy_gate_runtime_observer import (
+    evaluate_policy_gate,
+)
+
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class ActionError(ValueError):
@@ -97,10 +108,15 @@ def approve_action(action_id: str) -> ActionResponse:
 
 def execute_action(action_id: str) -> ActionResponse:
     row = _get_action_row(action_id)
-    if row["status"] != "approved":
-        raise ActionError("only approved actions can execute")
 
-    observe_pre_execution(row)
+    if row["status"] == "pending_decision":
+        _validate_decision_gate(row)
+    elif row["status"] != "approved":
+        raise ActionError("only approved or decision-gated actions can execute")
+    else:
+        gate_result = _check_policy_gate(row)
+        if gate_result == "pending_decision":
+            return get_action(action_id)
 
     kind = row["action_type"]
     now = utc_now_iso()
@@ -257,8 +273,10 @@ def undo_action(action_id: str) -> ActionResponse:
 
 def reject_action(action_id: str) -> ActionResponse:
     row = _get_action_row(action_id)
-    if row["status"] not in {"pending", "previewed", "approved"}:
-        raise ActionError("only pending, previewed, or approved actions can be rejected")
+    if row["status"] not in {"pending", "previewed", "approved", "pending_decision"}:
+        raise ActionError(
+            "only pending, previewed, approved, or pending_decision actions can be rejected"
+        )
 
     now = utc_now_iso()
     result = {"rejected_at": now}
@@ -279,6 +297,124 @@ def _ensure_case_exists(connection: Any, case_id: str) -> None:
     row = connection.execute("SELECT 1 FROM cases WHERE id = ?", (case_id,)).fetchone()
     if row is None:
         raise NotFoundError(f"case not found: {case_id}")
+
+
+def _check_policy_gate(row: Any) -> str | None:
+    """Check if action requires a decision gate. Fail-open on errors."""
+    try:
+        return _check_policy_gate_inner(row)
+    except Exception:
+        logger.warning(
+            "policy_gate: enforcement check failed (fail-open), "
+            "action execution will proceed",
+            exc_info=True,
+        )
+        return None
+
+
+def _check_policy_gate_inner(row: Any) -> str | None:
+    enforcement = evaluate_policy_gate(row)
+    if enforcement is None:
+        return None
+
+    _transition_to_pending_decision(row, enforcement)
+    return "pending_decision"
+
+
+def _transition_to_pending_decision(row: Any, enforcement: Any) -> None:
+    action_id = row["id"]
+    now = utc_now_iso()
+    metadata = loads_metadata(row["metadata_json"])
+    metadata["policy_gate"] = {
+        "status": "pending_decision",
+        "pipeline_id": enforcement.pipeline_id,
+        "observation_id": enforcement.observation_id,
+        "preview_hash": enforcement.preview_hash,
+        "categories": list(enforcement.categories),
+        "reason": enforcement.reason,
+        "required_at": now,
+    }
+
+    with connect() as connection:
+        connection.execute(
+            """
+            UPDATE actions
+            SET status = ?, metadata_json = ?, updated_at = ?
+            WHERE id = ?
+            """,
+            ("pending_decision", dumps_metadata(metadata), now, action_id),
+        )
+        connection.commit()
+
+
+def _validate_decision_gate(row: Any) -> None:
+    """Validate that a pending_decision action has an accepted Decision binding."""
+    action_id = row["id"]
+    case_id = row["case_id"]
+    metadata = loads_metadata(row["metadata_json"])
+
+    gate_meta = metadata.get("policy_gate")
+    if not isinstance(gate_meta, dict):
+        raise ActionError("action is pending_decision but missing policy gate metadata")
+
+    requirement = PolicyGateDecisionRequirement(
+        action_id=action_id,
+        case_id=case_id,
+        policy_evaluation_id=gate_meta.get("pipeline_id", ""),
+        observation_id=gate_meta.get("observation_id", ""),
+        preview_hash=gate_meta.get("preview_hash", ""),
+        categories=(),
+        reason=gate_meta.get("reason", ""),
+        remaining_risks=(),
+        required_at=gate_meta.get("required_at", ""),
+    )
+
+    binding = _find_decision_binding(case_id, action_id, requirement)
+    validation = validate_decision_binding(requirement, binding)
+
+    if not validation.valid:
+        reasons = ", ".join(validation.mismatch_reasons)
+        raise ActionError(f"decision gate validation failed: {reasons}")
+
+    if not validation.accepted:
+        raise ActionError("decision gate: owner decision was not accepted")
+
+
+def _find_decision_binding(
+    case_id: str,
+    action_id: str,
+    requirement: PolicyGateDecisionRequirement,
+) -> PolicyGateDecisionBinding | None:
+    """Find the most recent accepted Decision that binds to this action's gate."""
+    with connect() as connection:
+        rows = connection.execute(
+            """
+            SELECT id, status, rationale, metadata_json, created_at
+            FROM decisions
+            WHERE case_id = ?
+            ORDER BY created_at DESC, id ASC
+            """,
+            (case_id,),
+        ).fetchall()
+
+    for row in rows:
+        decision_metadata = loads_metadata(row["metadata_json"])
+        if decision_metadata.get("decision_kind") != "policy_gate_owner_decision":
+            continue
+        if decision_metadata.get("action_id") != action_id:
+            continue
+
+        return PolicyGateDecisionBinding(
+            decision_id=row["id"],
+            action_id=decision_metadata.get("action_id", ""),
+            policy_evaluation_id=decision_metadata.get("policy_evaluation_id", ""),
+            preview_hash=decision_metadata.get("preview_hash", ""),
+            bound_at=row["created_at"],
+            accepted=row["status"] == "accepted",
+            rationale=row["rationale"],
+        )
+
+    return None
 
 
 def _get_action_row(action_id: str):
