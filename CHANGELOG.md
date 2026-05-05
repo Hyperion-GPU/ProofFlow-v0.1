@@ -27,6 +27,12 @@ All notable changes for ProofFlow v0.1 are tracked here.
   high-risk action gate outcomes, without wiring them into runtime behavior.
 - Backend policy gate evaluation summary helpers and tests for aggregating
   future high-risk action outcomes without runtime integration.
+- Backend policy gate dry-run foundation, context binding, action classifier,
+  observation record, and action snapshot adapter for future non-enforcing
+  observation without runtime wiring.
+- Backend policy gate dry-run pipeline orchestrator composing snapshot, surface,
+  classifier, context, and observation into a single stateless evaluation
+  function, without runtime integration.
 
 ### Fixed
 
