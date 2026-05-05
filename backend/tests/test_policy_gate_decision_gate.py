@@ -175,6 +175,22 @@ class TestImmutability:
         with pytest.raises(AttributeError):
             result.valid = False  # type: ignore[misc]
 
+    def test_requirement_normalizes_list_inputs_to_tuples(self):
+        categories = [PolicyCategory.DESTRUCTIVE_LOCAL_OPERATION]
+        remaining_risks = ["file cannot be recovered without backup"]
+        requirement = _requirement(
+            categories=categories,  # type: ignore[arg-type]
+            remaining_risks=remaining_risks,  # type: ignore[arg-type]
+        )
+
+        assert isinstance(requirement.categories, tuple)
+        assert isinstance(requirement.remaining_risks, tuple)
+
+        categories.append(PolicyCategory.SECRET_ACCESS)
+        remaining_risks.append("accidental data leakage")
+        assert requirement.categories == (PolicyCategory.DESTRUCTIVE_LOCAL_OPERATION,)
+        assert requirement.remaining_risks == ("file cannot be recovered without backup",)
+
 
 class TestNoRuntimeImports:
     def test_decision_gate_module_does_not_import_runtime(self):

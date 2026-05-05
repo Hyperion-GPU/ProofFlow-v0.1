@@ -34,6 +34,11 @@ class PolicyGateDecisionRequirement:
     remaining_risks: tuple[str, ...]
     required_at: str
 
+    def __post_init__(self) -> None:
+        """Normalize sequence fields so frozen instances stay deeply immutable."""
+        object.__setattr__(self, "categories", tuple(self.categories))
+        object.__setattr__(self, "remaining_risks", tuple(self.remaining_risks))
+
 
 @dataclass(frozen=True)
 class PolicyGateDecisionBinding:
