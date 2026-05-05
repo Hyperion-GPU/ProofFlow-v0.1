@@ -235,6 +235,52 @@ export function CaseDetail() {
             )}
           </section>
 
+          {packet.observations.length > 0 && (
+            <section className="panel">
+              <h2>Policy Gate Observations</h2>
+              <p className="muted">
+                Non-enforcing dry-run observations recorded at pre-execution.
+              </p>
+              <ul className="packet-list">
+                {packet.observations.map((obs) => (
+                  <li key={obs.id} className="packet-item">
+                    <div className="section-heading compact">
+                      <div>
+                        <strong>{obs.action_type ?? "unknown"}</strong>
+                        <div className="muted">
+                          {obs.categories.join(", ")} · {obs.would_have_outcome}
+                        </div>
+                      </div>
+                      <span className="status-pill">{obs.label}</span>
+                    </div>
+                    <dl className="detail-list compact-detail">
+                      <div>
+                        <dt>Outcome</dt>
+                        <dd>{obs.would_have_outcome}</dd>
+                      </div>
+                      <div>
+                        <dt>High risk</dt>
+                        <dd>{obs.high_risk ? "yes" : "no"}</dd>
+                      </div>
+                      <div>
+                        <dt>Enforcing</dt>
+                        <dd>{obs.non_enforcing ? "no (observation only)" : "yes"}</dd>
+                      </div>
+                      <div>
+                        <dt>Action</dt>
+                        <dd className="mono-cell">{obs.action_id ?? "n/a"}</dd>
+                      </div>
+                      <div>
+                        <dt>Observed</dt>
+                        <dd>{obs.created_at}</dd>
+                      </div>
+                    </dl>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
           <section className="panel">
             <h2>Actions</h2>
             {packet.actions.length === 0 ? (

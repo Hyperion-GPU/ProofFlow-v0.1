@@ -182,6 +182,18 @@ export type CasePacketRun = {
   updated_at: string;
 };
 
+export type PolicyGateObservationSummary = {
+  id: string;
+  action_id: string | null;
+  action_type: string | null;
+  high_risk: boolean;
+  non_enforcing: boolean;
+  would_have_outcome: string;
+  categories: string[];
+  label: string;
+  created_at: string;
+};
+
 export type CasePacketResponse = {
   case: CaseDetailResponse;
   risk_level: RiskLevel;
@@ -190,6 +202,7 @@ export type CasePacketResponse = {
   actions: ActionResponse[];
   decisions: DecisionResponse[];
   runs: CasePacketRun[];
+  observations: PolicyGateObservationSummary[];
 };
 
 export type BackupSource = {

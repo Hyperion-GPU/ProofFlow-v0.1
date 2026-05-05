@@ -12,6 +12,7 @@ from proofflow.models.schemas import (
     CasePacketResponse,
     CasePacketRun,
     DecisionResponse,
+    PolicyGateObservationSummary,
     RiskLevel,
 )
 from proofflow.services.errors import NotFoundError
@@ -121,6 +122,7 @@ def get_case_packet(case_id: str) -> CasePacketResponse:
     )
     evidence_by_claim = _group_evidence_by_claim(evidence_rows)
     claims = [_claim_from_row(row, evidence_by_claim.get(row["id"], [])) for row in claim_rows]
+    observations = _extract_observations(evidence_rows)
 
     return CasePacketResponse(
         case=case,
@@ -130,6 +132,7 @@ def get_case_packet(case_id: str) -> CasePacketResponse:
         actions=[_action_from_row(row) for row in action_rows],
         decisions=[_decision_from_row(row) for row in decision_rows],
         runs=[_run_from_row(row) for row in run_rows],
+        observations=observations,
     )
 
 
@@ -273,3 +276,33 @@ def _loads_optional_json(raw_json: str | None) -> dict[str, Any] | None:
     if isinstance(decoded, dict):
         return decoded
     return None
+
+
+def _extract_observations(evidence_rows: list[Any]) -> list[PolicyGateObservationSummary]:
+    observations: list[PolicyGateObservationSummary] = []
+    for row in evidence_rows:
+        if row["evidence_type"] != "policy_gate_dry_run_observation":
+            continue
+        content = _loads_optional_json(row["content"])
+        if content is None:
+            continue
+        snapshot = content.get("snapshot", {})
+        obs = content.get("observation", {})
+        classification = obs.get("classification", {})
+        categories = classification.get("categories", [])
+        if not isinstance(categories, list):
+            categories = []
+        observations.append(
+            PolicyGateObservationSummary(
+                id=row["id"],
+                action_id=row["source_ref"],
+                action_type=snapshot.get("action_type"),
+                high_risk=content.get("high_risk", False),
+                non_enforcing=content.get("non_enforcing", True),
+                would_have_outcome=content.get("would_have_outcome", "unknown"),
+                categories=[str(c) for c in categories],
+                label=content.get("label", "unknown"),
+                created_at=row["created_at"],
+            )
+        )
+    return observations

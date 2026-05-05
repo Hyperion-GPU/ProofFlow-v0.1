@@ -122,5 +122,6 @@ function agentGuardPacket(): CasePacketResponse {
         updated_at: now,
       },
     ],
+    observations: [],
   };
 }

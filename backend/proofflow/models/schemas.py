@@ -335,6 +335,18 @@ class CasePacketRun(BaseModel):
     updated_at: str
 
 
+class PolicyGateObservationSummary(BaseModel):
+    id: str
+    action_id: str | None
+    action_type: str | None
+    high_risk: bool
+    non_enforcing: bool
+    would_have_outcome: str
+    categories: list[str]
+    label: str
+    created_at: str
+
+
 class CasePacketResponse(BaseModel):
     case: CaseDetailResponse
     risk_level: RiskLevel
@@ -343,6 +355,7 @@ class CasePacketResponse(BaseModel):
     actions: list[ActionResponse]
     decisions: list[DecisionResponse]
     runs: list[CasePacketRun]
+    observations: list[PolicyGateObservationSummary]
 
 
 class BackupSource(BaseModel):
