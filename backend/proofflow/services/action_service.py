@@ -13,6 +13,7 @@ from proofflow.services.action_safety import (
 )
 from proofflow.services.errors import NotFoundError
 from proofflow.services.json_utils import dumps_metadata, loads_metadata
+from proofflow.services.policy_gate_runtime_observer import observe_pre_execution
 
 
 class ActionError(ValueError):
@@ -98,6 +99,8 @@ def execute_action(action_id: str) -> ActionResponse:
     row = _get_action_row(action_id)
     if row["status"] != "approved":
         raise ActionError("only approved actions can execute")
+
+    observe_pre_execution(row)
 
     kind = row["action_type"]
     now = utc_now_iso()
