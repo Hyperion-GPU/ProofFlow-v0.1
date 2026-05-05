@@ -296,13 +296,21 @@ export function CaseDetail() {
                           {action.kind} · {action.reason}
                         </div>
                       </div>
-                      <span className="status-pill">{action.status}</span>
+                      <span className={`status-pill${action.status === "pending_decision" ? " warn" : ""}`}>{action.status}</span>
                     </div>
                     <div className="json-grid">
                       <JsonBlock label="Preview" value={action.preview} />
                       <JsonBlock label="Result" value={action.result} />
                       <JsonBlock label="Undo" value={action.undo} />
                     </div>
+                    {action.status === "pending_decision" && (
+                      <PolicyGateBanner
+                        action={action}
+                        caseId={caseId!}
+                        onDecisionCreated={() => refreshPacket()}
+                        busy={busyAction !== null}
+                      />
+                    )}
                     <div className="action-buttons">
                       {(["approve", "execute", "undo", "reject"] as ActionOperation[]).map(
                         (operation) => (
@@ -407,12 +415,17 @@ function JsonBlock({ label, value }: { label: string; value: unknown }) {
 
 function canRunAction(action: ActionResponse, operation: ActionOperation): boolean {
   if (operation === "approve") return action.status === "pending" || action.status === "previewed";
-  if (operation === "execute") return action.status === "approved";
+  if (operation === "execute") return action.status === "approved" || action.status === "pending_decision";
   if (operation === "undo") {
     return action.status === "executed" && action.kind !== "manual_check";
   }
   if (operation === "reject") {
-    return action.status === "pending" || action.status === "previewed" || action.status === "approved";
+    return (
+      action.status === "pending" ||
+      action.status === "previewed" ||
+      action.status === "approved" ||
+      action.status === "pending_decision"
+    );
   }
   return false;
 }
@@ -457,4 +470,55 @@ function metadataTextFallback(metadata: JsonObject, primaryKey: string, fallback
     return metadataText(metadata, primaryKey);
   }
   return metadataText(metadata, fallbackKey);
+}
+
+function PolicyGateBanner({
+  action,
+  caseId,
+  onDecisionCreated,
+  busy,
+}: {
+  action: ActionResponse;
+  caseId: string;
+  onDecisionCreated: () => void;
+  busy: boolean;
+}) {
+  const [creating, setCreating] = useState(false);
+  const gate = action.metadata.policy_gate as Record<string, unknown> | undefined;
+  if (!gate) return null;
+
+  const categories = Array.isArray(gate.categories) ? (gate.categories as string[]).join(", ") : "";
+  const reason = typeof gate.reason === "string" ? gate.reason : "";
+  const pipelineId = gate.pipeline_id as string | undefined;
+  const previewHash = gate.preview_hash as string | undefined;
+
+  function createGateDecision() {
+    setCreating(true);
+    apiPost<unknown>(`/cases/${caseId}/decisions`, {
+      title: `Approve gated action: ${action.title}`,
+      status: "accepted",
+      rationale: reason || "Owner approves high-risk action after review.",
+      result: "proceed",
+      metadata: {
+        decision_kind: "policy_gate_owner_decision",
+        action_id: action.id,
+        policy_evaluation_id: pipelineId,
+        preview_hash: previewHash,
+      },
+    })
+      .then(() => onDecisionCreated())
+      .catch(() => {})
+      .finally(() => setCreating(false));
+  }
+
+  return (
+    <div className="gate-banner">
+      <strong>Policy gate — action paused</strong>
+      {reason && <span>{reason}</span>}
+      {categories && <span>Categories: {categories}</span>}
+      <button type="button" onClick={createGateDecision} disabled={busy || creating}>
+        {creating ? "Creating decision..." : "Approve & Resolve Gate"}
+      </button>
+    </div>
+  );
 }

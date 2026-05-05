@@ -112,6 +112,70 @@ describe("CaseDetail", () => {
       screen.queryByRole("heading", { name: "Policy Gate Observations" }),
     ).not.toBeInTheDocument();
   });
+
+  it("renders gate banner for pending_decision actions and creates decision on click", async () => {
+    const packet = casePacket();
+    packet.actions = [
+      {
+        id: "action-gated",
+        case_id: "case-detail",
+        kind: "move_file",
+        status: "pending_decision",
+        title: "Move important file",
+        reason: "cleanup",
+        preview: { from_path: "/a.txt", to_path: "/b.txt" },
+        result: null,
+        undo: null,
+        metadata: {
+          policy_gate: {
+            status: "pending_decision",
+            pipeline_id: "pipe-123",
+            observation_id: "obs-456",
+            preview_hash: "hash-abc",
+            categories: ["destructive_local_operation"],
+            reason: "high-risk action requires owner decision: move_file",
+            required_at: "2026-05-06T00:00:00Z",
+          },
+        },
+        created_at: "2026-01-01T00:00:00Z",
+        updated_at: "2026-01-01T00:00:00Z",
+      },
+    ];
+    mockApiGet.mockResolvedValue(packet);
+    mockApiPost.mockResolvedValue({});
+
+    render(
+      <MemoryRouter initialEntries={["/cases/case-detail"]}>
+        <Routes>
+          <Route path="/cases/:caseId" element={<CaseDetail />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    // Gate banner renders
+    expect(await screen.findByText("Policy gate — action paused")).toBeInTheDocument();
+    expect(screen.getByText(/destructive_local_operation/)).toBeInTheDocument();
+
+    // Status pill has warn class
+    const pill = screen.getByText("pending_decision");
+    expect(pill.className).toContain("warn");
+
+    // Click approve button
+    await userEvent.click(screen.getByRole("button", { name: "Approve & Resolve Gate" }));
+
+    expect(mockApiPost).toHaveBeenCalledWith("/cases/case-detail/decisions", {
+      title: "Approve gated action: Move important file",
+      status: "accepted",
+      rationale: "high-risk action requires owner decision: move_file",
+      result: "proceed",
+      metadata: {
+        decision_kind: "policy_gate_owner_decision",
+        action_id: "action-gated",
+        policy_evaluation_id: "pipe-123",
+        preview_hash: "hash-abc",
+      },
+    });
+  });
 });
 
 function casePacket(): CasePacketResponse {
