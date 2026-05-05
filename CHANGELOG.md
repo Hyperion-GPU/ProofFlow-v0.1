@@ -38,6 +38,8 @@ All notable changes for ProofFlow v0.1 are tracked here.
   on any error — never blocks action execution.
 - Policy gate observation thin UI: read-only display of non-enforcing dry-run
   observations in Case Detail when present.
+- Backend policy gate owner decision gate types and validator for future
+  require_decision enforcement, without runtime wiring.
 
 ### Fixed
 
