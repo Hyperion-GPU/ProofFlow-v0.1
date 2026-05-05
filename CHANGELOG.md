@@ -36,6 +36,8 @@ All notable changes for ProofFlow v0.1 are tracked here.
 - Backend policy gate runtime observer: non-blocking dry-run observation at the
   pre-execution boundary for high-risk actions, recorded as Evidence. Fails open
   on any error — never blocks action execution.
+- Policy gate observation thin UI: read-only display of non-enforcing dry-run
+  observations in Case Detail when present.
 
 ### Fixed
 

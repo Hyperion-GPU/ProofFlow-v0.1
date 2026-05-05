@@ -4,7 +4,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CaseDetail } from "./CaseDetail";
 import { apiGet, apiPost } from "../api/client";
-import type { CasePacketResponse } from "../types";
+import type { CasePacketResponse, PolicyGateObservationSummary } from "../types";
 
 vi.mock("../api/client", () => ({
   apiGet: vi.fn(),
@@ -62,6 +62,55 @@ describe("CaseDetail", () => {
       ),
     ).toBeInTheDocument();
     expect(mockApiGet).toHaveBeenCalledTimes(2);
+  });
+
+  it("renders policy gate observations when present", async () => {
+    const obs: PolicyGateObservationSummary = {
+      id: "obs-1",
+      action_id: "action-1",
+      action_type: "move_file",
+      high_risk: true,
+      non_enforcing: true,
+      would_have_outcome: "warn",
+      categories: ["destructive_local_operation"],
+      label: "observed_only",
+      created_at: "2026-01-01T00:00:00Z",
+    };
+    const packet = casePacket();
+    packet.observations = [obs];
+    mockApiGet.mockResolvedValue(packet);
+
+    render(
+      <MemoryRouter initialEntries={["/cases/case-detail"]}>
+        <Routes>
+          <Route path="/cases/:caseId" element={<CaseDetail />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Policy Gate Observations" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("move_file")).toBeInTheDocument();
+    expect(screen.getByText("observed_only")).toBeInTheDocument();
+    expect(screen.getByText("destructive_local_operation · warn")).toBeInTheDocument();
+  });
+
+  it("does not render observations section when empty", async () => {
+    mockApiGet.mockResolvedValue(casePacket());
+
+    render(
+      <MemoryRouter initialEntries={["/cases/case-detail"]}>
+        <Routes>
+          <Route path="/cases/:caseId" element={<CaseDetail />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("Dogfood packet case")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Policy Gate Observations" }),
+    ).not.toBeInTheDocument();
   });
 });
 
@@ -164,5 +213,6 @@ function casePacket(): CasePacketResponse {
         updated_at: now,
       },
     ],
+    observations: [],
   };
 }
