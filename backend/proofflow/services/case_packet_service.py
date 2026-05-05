@@ -279,9 +279,10 @@ def _loads_optional_json(raw_json: str | None) -> dict[str, Any] | None:
 
 
 def _extract_observations(evidence_rows: list[Any]) -> list[PolicyGateObservationSummary]:
+    observation_types = {"policy_gate_dry_run_observation", "policy_gate_enforcement"}
     observations: list[PolicyGateObservationSummary] = []
     for row in evidence_rows:
-        if row["evidence_type"] != "policy_gate_dry_run_observation":
+        if row["evidence_type"] not in observation_types:
             continue
         content = _loads_optional_json(row["content"])
         if content is None:
@@ -292,16 +293,27 @@ def _extract_observations(evidence_rows: list[Any]) -> list[PolicyGateObservatio
         categories = classification.get("categories", [])
         if not isinstance(categories, list):
             categories = []
+
+        is_enforcing = row["evidence_type"] == "policy_gate_enforcement"
+        if is_enforcing:
+            label = "enforced"
+            would_have_outcome = "require_decision"
+            non_enforcing = False
+        else:
+            label = content.get("label", "unknown")
+            would_have_outcome = content.get("would_have_outcome", "unknown")
+            non_enforcing = content.get("non_enforcing", True)
+
         observations.append(
             PolicyGateObservationSummary(
                 id=row["id"],
                 action_id=row["source_ref"],
                 action_type=snapshot.get("action_type"),
                 high_risk=content.get("high_risk", False),
-                non_enforcing=content.get("non_enforcing", True),
-                would_have_outcome=content.get("would_have_outcome", "unknown"),
+                non_enforcing=non_enforcing,
+                would_have_outcome=would_have_outcome,
                 categories=[str(c) for c in categories],
-                label=content.get("label", "unknown"),
+                label=label,
                 created_at=row["created_at"],
             )
         )
