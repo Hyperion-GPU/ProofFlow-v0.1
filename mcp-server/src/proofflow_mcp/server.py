@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 from typing import Any
 
 from mcp.server import Server
@@ -14,6 +15,8 @@ from proofflow_mcp.client import ProofFlowClient, ProofFlowError
 
 _server = Server("proofflow")
 _client = ProofFlowClient()
+_MAX_CONCURRENT = int(os.getenv("PROOFFLOW_MCP_MAX_CONCURRENT", "5"))
+_semaphore = asyncio.Semaphore(_MAX_CONCURRENT)
 
 
 def _text(content: str) -> list[TextContent]:
@@ -181,6 +184,28 @@ TOOLS: list[Tool] = [
             "required": ["action_id"],
         },
     ),
+    Tool(
+        name="proofflow_decide",
+        description=(
+            "Create a decision on a ProofFlow Case to approve or reject a policy gate. "
+            "Use this when an action is blocked with pending_decision status. "
+            "Requires the case_id and action_id of the blocked action."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "case_id": {"type": "string", "description": "The Case ID."},
+                "action_id": {"type": "string", "description": "The Action ID this decision applies to."},
+                "decision": {
+                    "type": "string",
+                    "enum": ["accepted", "rejected"],
+                    "description": "Accept or reject the gated action.",
+                },
+                "rationale": {"type": "string", "description": "Reason for the decision."},
+            },
+            "required": ["case_id", "action_id", "decision", "rationale"],
+        },
+    ),
 ]
 
 
@@ -194,10 +219,11 @@ async def list_tools() -> list[Tool]:
 
 @_server.call_tool()
 async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
-    try:
-        return await _dispatch(name, arguments)
-    except ProofFlowError as e:
-        return _text(f"Error: {e}")
+    async with _semaphore:
+        try:
+            return await _dispatch(name, arguments)
+        except ProofFlowError as e:
+            return _text(f"Error: {e}")
 
 
 async def _dispatch(name: str, args: dict[str, Any]) -> list[TextContent]:
@@ -223,6 +249,8 @@ async def _dispatch(name: str, args: dict[str, Any]) -> list[TextContent]:
         return await _handle_list_actions(args)
     elif name == "proofflow_undo":
         return await _handle_undo(args)
+    elif name == "proofflow_decide":
+        return await _handle_decide(args)
     else:
         return _text(f"Unknown tool: {name}")
 
@@ -466,6 +494,27 @@ async def _handle_undo(args: dict[str, Any]) -> list[TextContent]:
         f"Kind: {result['kind']}\n"
         f"Status: {result['status']}\n"
         f"Title: {result['title']}"
+    )
+
+
+async def _handle_decide(args: dict[str, Any]) -> list[TextContent]:
+    result = await _client.create_decision(
+        case_id=args["case_id"],
+        title=f"Decision on action {args['action_id']}",
+        status=args["decision"],
+        rationale=args["rationale"],
+        result=args["decision"],
+        metadata={
+            "decision_kind": "policy_gate_owner_decision",
+            "action_id": args["action_id"],
+        },
+    )
+    return _text(
+        f"Decision created.\n"
+        f"ID: {result['id']}\n"
+        f"Case: {result['case_id']}\n"
+        f"Status: {result['status']}\n"
+        f"Rationale: {result['rationale']}"
     )
 
 

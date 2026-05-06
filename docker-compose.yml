@@ -1,0 +1,26 @@
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8787:8787"
+    volumes:
+      - proofflow-data:/app/data
+    environment:
+      - PROOFFLOW_DB_PATH=/app/data/proofflow.db
+      - PROOFFLOW_DATA_DIR=/app/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; r=httpx.get('http://localhost:8787/health'); assert r.status_code==200"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "5173:5173"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  proofflow-data:

@@ -55,5 +55,6 @@ describe("Dashboard", () => {
     expect(screen.getByText("0.1.0")).toBeInTheDocument();
     expect(screen.getByText("stable")).toBeInTheDocument();
     expect(screen.getByText("Dogfood case")).toBeInTheDocument();
+    expect(screen.getByText("MCP Integration")).toBeInTheDocument();
   });
 });

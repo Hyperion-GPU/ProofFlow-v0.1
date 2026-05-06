@@ -6,7 +6,7 @@ from proofflow_mcp.server import TOOLS, _server
 
 
 def test_all_tools_defined():
-    """All 11 MVP tools are registered."""
+    """All 12 MVP tools are registered."""
     names = {t.name for t in TOOLS}
     expected = {
         "proofflow_health",
@@ -20,6 +20,7 @@ def test_all_tools_defined():
         "proofflow_list_cases",
         "proofflow_list_actions",
         "proofflow_undo",
+        "proofflow_decide",
     }
     assert names == expected
 

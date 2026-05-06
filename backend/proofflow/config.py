@@ -18,3 +18,14 @@ def get_data_dir() -> Path:
     if configured_path:
         return Path(configured_path).expanduser().resolve()
     return DEFAULT_DATA_DIR
+
+
+def get_api_key() -> str | None:
+    """Return the API key if PROOFFLOW_API_KEY is set, else None (no auth)."""
+    return os.getenv("PROOFFLOW_API_KEY") or None
+
+
+def get_rate_limit() -> int | None:
+    """Return max requests/minute if PROOFFLOW_RATE_LIMIT is set, else None."""
+    val = os.getenv("PROOFFLOW_RATE_LIMIT")
+    return int(val) if val else None
