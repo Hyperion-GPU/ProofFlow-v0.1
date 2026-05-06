@@ -4,6 +4,8 @@ All notable changes for ProofFlow v0.1 are tracked here.
 
 ## Unreleased
 
+## v0.1.0-rc2
+
 ### Added
 
 - Backend policy gate runtime enforcement: high-risk actions (move_file,
