@@ -82,6 +82,7 @@ def _create_policy_gate_decision(
     action_id: str,
     *,
     policy_evaluation_id: str = "",
+    pipeline_id: str = "",
     preview_hash: str = "",
     accepted: bool = True,
 ) -> dict:
@@ -97,6 +98,7 @@ def _create_policy_gate_decision(
                 "decision_kind": "policy_gate_owner_decision",
                 "action_id": action_id,
                 "policy_evaluation_id": policy_evaluation_id,
+                "pipeline_id": pipeline_id,
                 "preview_hash": preview_hash,
             },
         },
@@ -211,6 +213,38 @@ class TestDecisionGateResolution:
                 assert not source.exists()
                 assert dest.read_text(encoding="utf-8") == "content"
 
+
+    def test_pipeline_id_binding_key_allows_execution(self, monkeypatch):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            source = temp_root / "file.txt"
+            dest = temp_root / "moved.txt"
+            source.write_text("content", encoding="utf-8")
+
+            with _client(monkeypatch, temp_root) as client:
+                case_id = _create_case(client)
+                action = _create_move_action(client, case_id, source, dest)
+
+                client.post(f"/actions/{action['id']}/approve")
+                client.post(f"/actions/{action['id']}/execute")
+
+                metadata = _get_action_metadata(action["id"])
+                gate = metadata["policy_gate"]
+
+                _create_policy_gate_decision(
+                    client,
+                    case_id,
+                    action["id"],
+                    pipeline_id=gate["pipeline_id"],
+                    preview_hash=gate["preview_hash"],
+                    accepted=True,
+                )
+
+                result = client.post(f"/actions/{action['id']}/execute")
+                assert result.status_code == 200
+                assert result.json()["status"] == "executed"
+                assert not source.exists()
+                assert dest.read_text(encoding="utf-8") == "content"
     def test_no_decision_blocks_execution(self, monkeypatch):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_root = Path(temp_dir)
