@@ -23,9 +23,9 @@ describe("Dashboard", () => {
         return Promise.resolve({
           ok: true,
           service: "proofflow-backend",
-          version: "0.1.0-rc1",
+          version: "0.1.0-rc2",
           release_stage: "rc",
-          release_name: "ProofFlow v0.1.0-rc1",
+          release_name: "ProofFlow v0.1.0-rc2",
         });
       }
       if (path === "/cases") {
@@ -51,8 +51,8 @@ describe("Dashboard", () => {
     expect(await screen.findByText("Backend online")).toBeInTheDocument();
     expect(screen.getByText("http://127.0.0.1:8787")).toBeInTheDocument();
     expect(screen.getByText("proofflow-backend")).toBeInTheDocument();
-    expect(screen.getByText("ProofFlow v0.1.0-rc1")).toBeInTheDocument();
-    expect(screen.getByText("0.1.0-rc1")).toBeInTheDocument();
+    expect(screen.getByText("ProofFlow v0.1.0-rc2")).toBeInTheDocument();
+    expect(screen.getByText("0.1.0-rc2")).toBeInTheDocument();
     expect(screen.getByText("rc")).toBeInTheDocument();
     expect(screen.getByText("Dogfood case")).toBeInTheDocument();
   });
