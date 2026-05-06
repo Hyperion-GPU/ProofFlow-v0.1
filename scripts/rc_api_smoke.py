@@ -15,6 +15,8 @@ BACKEND_ROOT = REPO_ROOT / "backend"
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
+from proofflow.version import __version__, release_name, release_stage  # noqa: E402
+
 
 def run_smoke(temp_root: Path) -> dict[str, Any]:
     temp_root = temp_root.resolve()
@@ -172,9 +174,9 @@ def _assert_release_identity(health: dict[str, Any]) -> None:
     expected = {
         "ok": True,
         "service": "proofflow-backend",
-        "version": "0.1.0-rc1",
-        "release_stage": "rc",
-        "release_name": "ProofFlow v0.1.0-rc1",
+        "version": __version__,
+        "release_stage": release_stage,
+        "release_name": release_name,
     }
     for key, value in expected.items():
         if health.get(key) != value:
@@ -251,7 +253,7 @@ def _remove_tree(path: Path) -> None:
 
 def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Run the v0.1.0-rc1 API dogfood smoke check with temp DB/data."
+        description=f"Run the {release_name} API dogfood smoke check with temp DB/data."
     )
     parser.add_argument(
         "--work-dir",
@@ -276,7 +278,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         result = run_smoke(temp_root)
         smoke_passed = True
-        print("ProofFlow v0.1.0-rc1 API smoke passed.")
+        print(f"{release_name} API smoke passed.")
         print(f"Temp root: {temp_root}")
         print(f"DB path: {result['db_path']}")
         print(f"Data dir: {result['data_dir']}")
