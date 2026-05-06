@@ -4,7 +4,7 @@ All notable changes for ProofFlow v0.1 are tracked here.
 
 ## Unreleased
 
-## v0.1.0-rc2
+## v0.1.0
 
 ### Added
 
