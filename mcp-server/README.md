@@ -1,6 +1,6 @@
 # ProofFlow MCP Server
 
-<!-- mcp-name: io.github.hyperion-gpu/proofflow -->
+<!-- mcp-name: io.github.Hyperion-GPU/proofflow -->
 
 MCP (Model Context Protocol) server that exposes ProofFlow's audit capabilities as tools for Claude Code and Codex.
 

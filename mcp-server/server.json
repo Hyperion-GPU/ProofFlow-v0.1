@@ -1,18 +1,18 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.hyperion-gpu/proofflow",
+  "name": "io.github.Hyperion-GPU/proofflow",
   "title": "ProofFlow",
-  "description": "Audit infrastructure for AI coding agents — evidence-backed code review, file audit, policy gates, and proof packets.",
+  "description": "Audit infrastructure for AI coding agents with evidence-backed review and policy gates.",
   "repository": {
     "url": "https://github.com/Hyperion-GPU/ProofFlow-v0.1",
     "source": "github"
   },
-  "version": "0.1.1",
+  "version": "0.1.2",
   "packages": [
     {
       "registryType": "pypi",
       "identifier": "proofflow-mcp",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "transport": {
         "type": "stdio"
       },
