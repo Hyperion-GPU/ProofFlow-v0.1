@@ -1,3 +1,3 @@
-__version__ = "0.1.0-rc2"
-release_stage = "rc"
-release_name = "ProofFlow v0.1.0-rc2"
+__version__ = "0.1.0"
+release_stage = "stable"
+release_name = "ProofFlow v0.1.0"

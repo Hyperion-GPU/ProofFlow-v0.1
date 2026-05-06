@@ -172,9 +172,9 @@ def _assert_release_identity(health: dict[str, Any]) -> None:
     expected = {
         "ok": True,
         "service": "proofflow-backend",
-        "version": "0.1.0-rc1",
-        "release_stage": "rc",
-        "release_name": "ProofFlow v0.1.0-rc1",
+        "version": "0.1.0",
+        "release_stage": "stable",
+        "release_name": "ProofFlow v0.1.0",
     }
     for key, value in expected.items():
         if health.get(key) != value:
@@ -183,7 +183,31 @@ def _assert_release_identity(health: dict[str, Any]) -> None:
 
 def _approve_execute(client: Any, action: dict[str, Any]) -> dict[str, Any]:
     _require_ok(client.post(f"/actions/{action['id']}/approve"), f"approve {action['id']}")
-    return _require_ok(client.post(f"/actions/{action['id']}/execute"), f"execute {action['id']}")
+    result = _require_ok(client.post(f"/actions/{action['id']}/execute"), f"execute {action['id']}")
+    if result.get("status") == "pending_decision":
+        # Policy gate triggered — create decision and re-execute
+        gate_meta = result.get("metadata", {}).get("policy_gate", {})
+        case_id = result["case_id"]
+        _require_ok(
+            client.post(f"/cases/{case_id}/decisions", json={
+                "title": "Auto-approve for smoke",
+                "status": "accepted",
+                "rationale": "RC smoke auto-approval",
+                "result": "approved",
+                "metadata": {
+                    "decision_kind": "policy_gate_owner_decision",
+                    "action_id": action["id"],
+                    "policy_evaluation_id": gate_meta.get("pipeline_id", ""),
+                    "preview_hash": gate_meta.get("preview_hash", ""),
+                },
+            }),
+            f"gate decision for {action['id']}",
+        )
+        result = _require_ok(
+            client.post(f"/actions/{action['id']}/execute"),
+            f"re-execute {action['id']}",
+        )
+    return result
 
 
 def _find_move_action(actions: list[dict[str, Any]], file_name: str) -> dict[str, Any]:
@@ -251,7 +275,7 @@ def _remove_tree(path: Path) -> None:
 
 def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Run the v0.1.0-rc1 API dogfood smoke check with temp DB/data."
+        description="Run the v0.1.0 API dogfood smoke check with temp DB/data."
     )
     parser.add_argument(
         "--work-dir",
@@ -276,7 +300,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         result = run_smoke(temp_root)
         smoke_passed = True
-        print("ProofFlow v0.1.0-rc1 API smoke passed.")
+        print("ProofFlow v0.1.0 API smoke passed.")
         print(f"Temp root: {temp_root}")
         print(f"DB path: {result['db_path']}")
         print(f"Data dir: {result['data_dir']}")
