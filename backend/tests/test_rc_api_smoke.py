@@ -5,6 +5,9 @@ import sys
 import pytest
 
 
+pytestmark = pytest.mark.no_bypass_policy_gate
+
+
 def _load_rc_api_smoke_module():
     repo_root = Path(__file__).resolve().parents[2]
     script_path = repo_root / "scripts" / "rc_api_smoke.py"
@@ -15,6 +18,35 @@ def _load_rc_api_smoke_module():
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
+
+
+def test_rc_api_smoke_release_identity_uses_backend_version():
+    module = _load_rc_api_smoke_module()
+
+    health = {
+        "ok": True,
+        "service": "proofflow-backend",
+        "version": module.__version__,
+        "release_stage": module.release_stage,
+        "release_name": module.release_name,
+    }
+
+    module._assert_release_identity(health)
+
+
+def test_rc_api_smoke_release_identity_rejects_stale_version():
+    module = _load_rc_api_smoke_module()
+
+    health = {
+        "ok": True,
+        "service": "proofflow-backend",
+        "version": "0.1.0-rc1",
+        "release_stage": module.release_stage,
+        "release_name": module.release_name,
+    }
+
+    with pytest.raises(RuntimeError, match="health version mismatch"):
+        module._assert_release_identity(health)
 
 
 def test_rc_api_smoke_main_keeps_default_temp_artifacts(
