@@ -404,10 +404,16 @@ def _find_decision_binding(
         if decision_metadata.get("action_id") != action_id:
             continue
 
+        policy_evaluation_id = decision_metadata.get("policy_evaluation_id")
+        if not policy_evaluation_id:
+            # Backward/interop compatibility: some clients submit pipeline_id
+            # using the policy_gate metadata field name.
+            policy_evaluation_id = decision_metadata.get("pipeline_id", "")
+
         return PolicyGateDecisionBinding(
             decision_id=row["id"],
             action_id=decision_metadata.get("action_id", ""),
-            policy_evaluation_id=decision_metadata.get("policy_evaluation_id", ""),
+            policy_evaluation_id=policy_evaluation_id,
             preview_hash=decision_metadata.get("preview_hash", ""),
             bound_at=row["created_at"],
             accepted=row["status"] == "accepted",
