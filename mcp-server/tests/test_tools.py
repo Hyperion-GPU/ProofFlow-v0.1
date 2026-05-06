@@ -70,7 +70,29 @@ async def test_review_tool():
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_approve_execute_tool():
+async def test_approve_execute_tool_preview_first():
+    """Without confirmed_preview, tool returns preview without executing."""
+    respx.post("http://127.0.0.1:8787/actions/act-1/approve").mock(
+        return_value=httpx.Response(200, json={
+            "id": "act-1", "case_id": "c1", "kind": "move_file",
+            "status": "approved", "title": "Move readme", "reason": "organize",
+            "preview": {"from_path": "/src/readme.md", "to_path": "/docs/readme.md"},
+            "result": None, "undo": None,
+            "metadata": {}, "created_at": "t", "updated_at": "t",
+        })
+    )
+    result = await call_tool("proofflow_approve_execute", {"action_id": "act-1"})
+    text = result[0].text
+    assert "NOT yet executed" in text
+    assert "/src/readme.md" in text
+    assert "/docs/readme.md" in text
+    assert "confirmed_preview=true" in text
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_approve_execute_tool_confirmed():
+    """With confirmed_preview=true, tool approves and executes."""
     respx.post("http://127.0.0.1:8787/actions/act-1/approve").mock(
         return_value=httpx.Response(200, json={
             "id": "act-1", "case_id": "c1", "kind": "move_file",
@@ -87,7 +109,10 @@ async def test_approve_execute_tool():
             "metadata": {}, "created_at": "t", "updated_at": "t",
         })
     )
-    result = await call_tool("proofflow_approve_execute", {"action_id": "act-1"})
+    result = await call_tool(
+        "proofflow_approve_execute",
+        {"action_id": "act-1", "confirmed_preview": True},
+    )
     text = result[0].text
     assert "executed successfully" in text
 
@@ -95,6 +120,7 @@ async def test_approve_execute_tool():
 @pytest.mark.asyncio
 @respx.mock
 async def test_approve_execute_pending_decision():
+    """Policy gate blocks execution even with confirmed_preview."""
     respx.post("http://127.0.0.1:8787/actions/act-2/approve").mock(
         return_value=httpx.Response(200, json={
             "id": "act-2", "case_id": "c1", "kind": "move_file",
@@ -111,7 +137,10 @@ async def test_approve_execute_pending_decision():
             "metadata": {}, "created_at": "t", "updated_at": "t",
         })
     )
-    result = await call_tool("proofflow_approve_execute", {"action_id": "act-2"})
+    result = await call_tool(
+        "proofflow_approve_execute",
+        {"action_id": "act-2", "confirmed_preview": True},
+    )
     text = result[0].text
     assert "policy gate" in text
     assert "pending_decision" in text
