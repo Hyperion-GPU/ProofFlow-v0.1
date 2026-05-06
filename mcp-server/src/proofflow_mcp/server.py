@@ -104,12 +104,19 @@ TOOLS: list[Tool] = [
         name="proofflow_approve_execute",
         description=(
             "Approve and execute a pending ProofFlow action (e.g. move_file, rename_file, mkdir_dir). "
-            "If the action is blocked by a policy gate, reports that owner approval is needed."
+            "IMPORTANT: First call WITHOUT confirmed_preview to see the action preview. "
+            "Then call again WITH confirmed_preview=true after the user has reviewed the paths. "
+            "This enforces 'No Preview, no Action'."
         ),
         inputSchema={
             "type": "object",
             "properties": {
                 "action_id": {"type": "string", "description": "The Action ID to approve and execute."},
+                "confirmed_preview": {
+                    "type": "boolean",
+                    "description": "Set to true ONLY after the user has seen and confirmed the action preview.",
+                    "default": False,
+                },
             },
             "required": ["action_id"],
         },
@@ -329,15 +336,48 @@ async def _handle_status(args: dict[str, Any]) -> list[TextContent]:
 
 async def _handle_approve_execute(args: dict[str, Any]) -> list[TextContent]:
     action_id = args["action_id"]
-    # Try approve first; if already approved, proceed to execute
+    confirmed = args.get("confirmed_preview", False)
+
+    # Step 1: Approve (safe — does not move files, only changes status)
     try:
-        await _client.approve_action(action_id)
+        action_data = await _client.approve_action(action_id)
     except ProofFlowError as e:
         if e.status_code == 400 and "approved" in str(e).lower():
-            pass  # Already approved, continue to execute
+            # Already approved — still need to show preview if not confirmed
+            if not confirmed:
+                return _text(
+                    f"Action {action_id} is already approved but not yet executed.\n"
+                    f"Call again with confirmed_preview=true to execute."
+                )
+            # If confirmed, proceed to execute below
+            action_data = None
         else:
             raise
 
+    # If not confirmed, show preview and stop — enforce "No Preview, no Action"
+    if not confirmed:
+        preview = action_data.get("preview", {}) if action_data else {}
+        kind = action_data.get("kind", "unknown") if action_data else "unknown"
+        lines = [
+            "Action preview (NOT yet executed):",
+            f"  ID: {action_id}",
+            f"  Kind: {kind}",
+            f"  Title: {action_data.get('title', '?')}",
+            f"  Reason: {action_data.get('reason', '?')}",
+        ]
+        if kind in ("move_file", "rename_file"):
+            lines.append(f"  From: {preview.get('from_path', '?')}")
+            lines.append(f"  To:   {preview.get('to_path', '?')}")
+        elif kind == "mkdir_dir":
+            lines.append(f"  Directory: {preview.get('dir_path', '?')}")
+        lines.append("")
+        lines.append(
+            "Review the paths above. To execute, call proofflow_approve_execute "
+            "again with the same action_id and confirmed_preview=true."
+        )
+        return _text("\n".join(lines))
+
+    # Step 2: Execute (destructive — moves/renames files on disk)
     result = await _client.execute_action(action_id)
     status = result.get("status", "unknown")
     if status == "pending_decision":
