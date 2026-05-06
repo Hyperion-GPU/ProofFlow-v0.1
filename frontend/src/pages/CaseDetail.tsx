@@ -307,7 +307,13 @@ export function CaseDetail() {
                       <PolicyGateBanner
                         action={action}
                         caseId={caseId!}
-                        onDecisionCreated={() => refreshPacket()}
+                        onDecisionCreated={() => {
+                          setError(null);
+                          return refreshPacket();
+                        }}
+                        onDecisionError={(requestError: unknown) => {
+                          setError(formatApiError(requestError));
+                        }}
                         busy={busyAction !== null}
                       />
                     )}
@@ -476,11 +482,13 @@ function PolicyGateBanner({
   action,
   caseId,
   onDecisionCreated,
+  onDecisionError,
   busy,
 }: {
   action: ActionResponse;
   caseId: string;
-  onDecisionCreated: () => void;
+  onDecisionCreated: () => void | Promise<void>;
+  onDecisionError: (requestError: unknown) => void;
   busy: boolean;
 }) {
   const [creating, setCreating] = useState(false);
@@ -507,7 +515,9 @@ function PolicyGateBanner({
       },
     })
       .then(() => onDecisionCreated())
-      .catch(() => {})
+      .catch((requestError: unknown) => {
+        onDecisionError(requestError);
+      })
       .finally(() => setCreating(false));
   }
 
