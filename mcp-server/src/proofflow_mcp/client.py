@@ -26,8 +26,12 @@ class ProofFlowClient:
 
     async def _get_http(self) -> httpx.AsyncClient:
         if self._http is None or self._http.is_closed:
+            headers: dict[str, str] = {}
+            api_key = os.getenv("PROOFFLOW_API_KEY")
+            if api_key:
+                headers["X-ProofFlow-Token"] = api_key
             self._http = httpx.AsyncClient(
-                base_url=self._base_url, timeout=self._timeout
+                base_url=self._base_url, timeout=self._timeout, headers=headers
             )
         return self._http
 
@@ -145,4 +149,27 @@ class ProofFlowClient:
     async def search(self, query: str, limit: int = 25) -> dict[str, Any]:
         return await self._request(
             "GET", "/search", params={"q": query, "limit": limit}
+        )
+
+    # --- Decisions ---
+
+    async def create_decision(
+        self,
+        case_id: str,
+        title: str,
+        status: str,
+        rationale: str,
+        result: str,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        body: dict[str, Any] = {
+            "title": title,
+            "status": status,
+            "rationale": rationale,
+            "result": result,
+        }
+        if metadata:
+            body["metadata"] = metadata
+        return await self._request(
+            "POST", f"/cases/{case_id}/decisions", json=body
         )

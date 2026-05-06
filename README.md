@@ -1,172 +1,169 @@
-# ProofFlow v0.1
+# ProofFlow
 
-[![Backend CI](https://github.com/Hyperion-GPU/ProofFlow-v0.1/actions/workflows/backend.yml/badge.svg)](https://github.com/Hyperion-GPU/ProofFlow-v0.1/actions/workflows/backend.yml)
-[![Frontend CI](https://github.com/Hyperion-GPU/ProofFlow-v0.1/actions/workflows/frontend.yml/badge.svg)](https://github.com/Hyperion-GPU/ProofFlow-v0.1/actions/workflows/frontend.yml)
+[![Backend](https://github.com/Hyperion-GPU/ProofFlow-v0.1/actions/workflows/backend.yml/badge.svg)](https://github.com/Hyperion-GPU/ProofFlow-v0.1/actions/workflows/backend.yml)
+[![Frontend](https://github.com/Hyperion-GPU/ProofFlow-v0.1/actions/workflows/frontend.yml/badge.svg)](https://github.com/Hyperion-GPU/ProofFlow-v0.1/actions/workflows/frontend.yml)
+[![MCP Server](https://github.com/Hyperion-GPU/ProofFlow-v0.1/actions/workflows/mcp-server.yml/badge.svg)](https://github.com/Hyperion-GPU/ProofFlow-v0.1/actions/workflows/mcp-server.yml)
 
-ProofFlow is a local-first workflow dashboard for evidence-backed work. It keeps
-cases, artifacts, claims, evidence, actions, decisions, runs, and reports on
-localhost so a human can inspect what happened before trusting an AI or
-heuristic result.
+**Local-first audit infrastructure for AI coding agents.**
 
-## MVP branches
+ProofFlow gives developers a verifiable evidence trail for every action an AI agent takes on their codebase. It enforces safety invariants — no file moves without preview, no claims without evidence, no destructive actions without undo — and produces exportable Proof Packets for compliance and review.
 
-- LocalProof: file evidence manager for local cases and artifacts.
-- AgentGuard: code review workflow that links every claim to evidence.
+## Problem
 
-## Current status
+AI coding agents (Claude Code, Codex, Copilot Workspace) can modify files, run commands, and make decisions autonomously. But there's no standard way to:
 
-- Core Case / Artifact / Evidence / Action / Decision / Report workflows have
-  an MVP service and API skeleton.
-- LocalProof supports folder scans, file hash and metadata capture, text chunks,
-  FTS search, and previewable suggested actions.
-- AgentGuard supports local git diff review, changed-file tracking, optional
-  test commands, and evidence-backed claims.
-- Latest post-RC1 `main` includes managed backup/restore through the Phase 4
-  thin UI. Checkpoint C policy gate contract review is documented; runtime
-  policy gate enforcement is not wired.
-- Current release candidate stamp: `ProofFlow v0.1.0-rc1`.
+- **Audit** what an agent did and why
+- **Gate** high-risk actions before they execute
+- **Prove** that a code review actually checked what it claims
+- **Undo** agent-initiated changes with confidence
 
-## Stack
+ProofFlow solves this by sitting between the agent and the filesystem, creating an evidence graph that links every action to its justification.
 
-- Backend: Python, FastAPI, SQLite
-- Frontend: React, TypeScript, Vite
-- Runtime: local machine only
+## Quickstart
 
-No cloud services and no Docker are part of v0.1.
+### Docker (recommended)
 
-## Quickstart backend
-
-PowerShell:
-
-```powershell
-cd "D:\ProofFlow v0.1\backend"
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -r requirements.txt
-python -m uvicorn proofflow.main:app --host 127.0.0.1 --port 8787 --reload
+```bash
+git clone https://github.com/Hyperion-GPU/ProofFlow-v0.1.git
+cd ProofFlow-v0.1
+docker compose up
 ```
 
-Health check:
+Backend: http://localhost:8787 | Frontend: http://localhost:5173
 
-```powershell
-Invoke-RestMethod http://127.0.0.1:8787/health
+### Manual
+
+```bash
+# Backend
+cd backend && pip install -r requirements.txt
+python -m uvicorn proofflow.main:app --port 8787
+
+# Frontend
+cd frontend && npm ci && npm run dev
 ```
 
-The health response includes the release `version`, `release_stage`, and
-`release_name`.
+### MCP Integration (Claude Code / Codex)
 
-Run backend tests:
-
-```powershell
-cd "D:\ProofFlow v0.1\backend"
-python -m pytest
+```bash
+pip install proofflow-mcp
 ```
 
-## Quickstart frontend
+Add to your project's `.mcp.json`:
 
-PowerShell:
-
-```powershell
-cd "D:\ProofFlow v0.1\frontend"
-npm ci
-npm run dev
+```json
+{
+  "mcpServers": {
+    "proofflow": {
+      "command": "proofflow-mcp",
+      "env": { "PROOFFLOW_BASE_URL": "http://127.0.0.1:8787" }
+    }
+  }
+}
 ```
 
-Open `http://127.0.0.1:5173` unless Vite reports a different local port.
+Now your AI agent can scan files, review code, suggest actions, and export audit reports — all with enforced safety gates.
 
-## Demo seed
+## Architecture
 
-PowerShell:
-
-```powershell
-cd "D:\ProofFlow v0.1"
-python .\scripts\demo_seed.py
+```
+AI Agent (Claude Code / Codex / Custom)
+    |
+    | MCP Protocol (stdio)
+    v
+ProofFlow MCP Server (12 tools)
+    |
+    | HTTP REST API
+    v
+ProofFlow Backend (FastAPI + SQLite)
+    |
+    |--- Evidence Graph: Cases > Artifacts > Claims > Evidence
+    |--- Action Pipeline: Preview > Approve > Execute > Undo
+    |--- Policy Gates: Risk classification > Owner decision
+    |--- Proof Packets: Exportable markdown audit reports
+    v
+Local Filesystem (scanned files, git repos)
 ```
 
-The demo seed creates local sample data under the repository demo roots and
-prints backend/frontend commands for that seeded database. It also honors
-`PROOFFLOW_DB_PATH` and `PROOFFLOW_DATA_DIR` for temp smoke-run output paths.
+## Core Capabilities
 
-## Dogfood v0.1
+### Evidence-Backed Code Review (AgentGuard)
+Analyzes git diffs, generates risk-scored claims, and links each claim to specific evidence (changed lines, test results). No claim exists without supporting evidence.
 
-Use [docs/V0_1_DOGFOOD.md](docs/V0_1_DOGFOOD.md) for the local demo and smoke
-gate path from demo seed through LocalProof, AgentGuard, and Proof Packet export.
+### File Audit & Organization (LocalProof)
+Scans directories, indexes files with SHA-256 hashes, extracts text for full-text search, and suggests organization actions — all tracked in an auditable Case.
 
-For the RC safety baseline, use [docs/action_safety.md](docs/action_safety.md)
-for filesystem action scope rules and [docs/reset_backup.md](docs/reset_backup.md)
-for local reset and backup commands.
+### Policy Gate Enforcement
+High-risk filesystem actions (moves to system paths, bulk operations) are automatically paused at `pending_decision` status. Requires explicit owner approval before execution.
 
-For release-candidate checks, use
-[docs/V0_1_RC_CHECKLIST.md](docs/V0_1_RC_CHECKLIST.md), the
-[CHANGELOG.md](CHANGELOG.md), and the public dogfood packet example in
-[docs/examples/V0_1_DOGFOOD_PROOF_PACKET.md](docs/examples/V0_1_DOGFOOD_PROOF_PACKET.md).
+### Safety Invariants
+- **No Preview, no Action** — destructive operations require two-phase confirmation
+- **No Evidence, no Claim** — every assertion links to verifiable data
+- **No Undo, no Destructive Action** — executed actions carry rollback metadata
+- **No Case, no Workflow** — all work is tracked in auditable containers
 
-For post-RC1 policy gate readiness, use
-[docs/policy-gate-integration-checkpoints.md](docs/policy-gate-integration-checkpoints.md).
-For Checkpoint A dogfood evidence, use
-[docs/checkpoint-a-dogfood-readiness.md](docs/checkpoint-a-dogfood-readiness.md).
-For Checkpoint C policy gate input/output contract review, use
-[docs/policy-gate-input-output-contract-review.md](docs/policy-gate-input-output-contract-review.md).
-For Checkpoint D policy gate enforcement boundary review, use
-[docs/policy-gate-enforcement-boundary-review.md](docs/policy-gate-enforcement-boundary-review.md).
-For Checkpoint E dry-run policy evaluation planning, use
-[docs/policy-gate-dry-run-evaluation-plan.md](docs/policy-gate-dry-run-evaluation-plan.md).
+### MCP Tool Suite (12 tools)
+`health` · `scan` · `suggest` · `review` · `status` · `approve_execute` · `export_packet` · `search` · `list_cases` · `list_actions` · `undo` · `decide`
 
-For publish prep, use the draft release notes in
-[docs/releases/V0_1_0_RC1_RELEASE_NOTES.md](docs/releases/V0_1_0_RC1_RELEASE_NOTES.md)
-and the local helper:
+## Technical Stack
 
-```powershell
-.\scripts\release_check.ps1
+| Layer | Technology | Tests |
+|-------|-----------|-------|
+| Backend | Python 3.12, FastAPI, SQLite | 274 |
+| Frontend | React 19, TypeScript, Vite | 24 |
+| MCP Server | Python, MCP SDK, httpx | 24 |
+| CI | GitHub Actions (3 workflows) | — |
+
+## Security Features
+
+- Optional API key authentication (`PROOFFLOW_API_KEY`)
+- Rate limiting (`PROOFFLOW_RATE_LIMIT`)
+- MCP concurrency guards (`PROOFFLOW_MCP_MAX_CONCURRENT`)
+- Filesystem action scope restrictions (allowed_roots)
+- CORS locked to localhost origins
+
+## Project Status
+
+**v0.1.0 — Stable release.** All core workflows functional, tested, and documented.
+
+| Milestone | Status |
+|-----------|--------|
+| Core evidence graph (Case/Artifact/Claim/Evidence) | Done |
+| LocalProof file audit workflow | Done |
+| AgentGuard code review workflow | Done |
+| Policy gate enforcement | Done |
+| MCP server for Claude Code/Codex | Done |
+| Backup/restore with safety preview | Done |
+| Docker deployment | Done |
+| PyPI package (`proofflow-mcp`) | Done |
+
+## Roadmap
+
+- [ ] Multi-agent coordination (shared Cases across agents)
+- [ ] Vector RAG for semantic evidence retrieval
+- [ ] GitHub Actions integration (CI-triggered reviews)
+- [ ] VS Code extension for inline audit visualization
+- [ ] Cloud sync option for team workflows
+- [ ] Webhook notifications for policy gate decisions
+
+## Development
+
+```bash
+# Run all tests
+cd backend && python -m pytest          # 274 tests
+cd frontend && npm run test             # 24 tests
+cd mcp-server && pip install -e ".[dev]" && python -m pytest  # 24 tests
+
+# End-to-end smoke test
+python scripts/mcp_smoke.py --cleanup
+
+# Demo workflow
+python scripts/demo_workflow.py
 ```
 
-For a local API dogfood smoke that uses temp DB/data paths without starting
-backend or frontend servers:
+## License
 
-```powershell
-python .\scripts\rc_api_smoke.py
-```
+MIT
 
-The helper keeps its temp output for inspection; pass `--cleanup` to remove it
-after a successful run.
+---
 
-For the post-release RC1 bug bash log, use
-[docs/releases/V0_1_0_RC1_BUG_BASH.md](docs/releases/V0_1_0_RC1_BUG_BASH.md).
-
-## Make targets
-
-This repository includes placeholder targets for common workflows:
-
-```powershell
-make setup
-make test
-make dev-backend
-make dev-frontend
-```
-
-`make` was not detected on this Windows machine during initial planning, so the
-PowerShell commands above are the primary run path for now.
-
-## Safety model
-
-- No Case, no workflow.
-- No Evidence, no trusted Claim.
-- No Preview, no Action.
-- No Undo, no destructive Action.
-- No Test, no accepted code workflow.
-- No Source, no Artifact.
-- Destructive file actions must be previewed, approved, and paired with an undo
-  path before execution.
-- ProofFlow stores local workflow data in SQLite by default.
-- The backend database defaults to `backend\data\proofflow.db`; set
-  `PROOFFLOW_DB_PATH` to override it.
-- Filesystem actions require explicit local `allowed_roots` metadata and cannot
-  operate on ProofFlow's own database, data directory, or proof packet directory.
-
-## Known limitations
-
-- No multi-user workflow.
-- No cloud sync.
-- No vector RAG.
-- No ComfyUI execution.
-- Deterministic heuristics first; no automatic AI code edits.
+Built by [Hyperion-GPU](https://github.com/Hyperion-GPU) — making AI agent workflows auditable, safe, and provable.

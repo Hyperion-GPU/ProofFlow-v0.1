@@ -100,6 +100,27 @@ export function Dashboard() {
           </div>
         )}
       </div>
+
+      <div className="panel">
+        <h2>MCP Integration</h2>
+        <p>Connect Claude Code or Claude Desktop to ProofFlow via MCP.</p>
+        <p className="muted">
+          Add this to your project's <code>.mcp.json</code>:
+        </p>
+        <pre className="code-block">
+{`{
+  "mcpServers": {
+    "proofflow": {
+      "command": "proofflow-mcp",
+      "env": {
+        "PROOFFLOW_BASE_URL": "${API_BASE_URL}"
+      }
+    }
+  }
+}`}
+        </pre>
+        <p className="muted">Ensure the backend is running before using MCP tools.</p>
+      </div>
     </section>
   );
 }

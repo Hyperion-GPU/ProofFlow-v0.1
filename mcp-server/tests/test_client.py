@@ -149,3 +149,30 @@ async def test_404_error(client):
     )
     with pytest.raises(ProofFlowError, match="Case not found"):
         await client.get_case_packet("bad-id")
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_create_decision(client):
+    respx.post("http://127.0.0.1:8787/cases/c1/decisions").mock(
+        return_value=httpx.Response(200, json={
+            "id": "dec-1",
+            "case_id": "c1",
+            "title": "Approve gate",
+            "status": "accepted",
+            "rationale": "Safe to proceed",
+            "result": "accepted",
+            "metadata": {},
+            "created_at": "2026-01-01",
+            "updated_at": "2026-01-01",
+        })
+    )
+    result = await client.create_decision(
+        case_id="c1",
+        title="Approve gate",
+        status="accepted",
+        rationale="Safe to proceed",
+        result="accepted",
+    )
+    assert result["id"] == "dec-1"
+    assert result["status"] == "accepted"

@@ -54,6 +54,25 @@ Add to your project's `.mcp.json` or `~/.claude/settings.json`:
 }
 ```
 
+### Claude Desktop
+
+Add to `claude_desktop_config.json`:
+- macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+
+```json
+{
+  "mcpServers": {
+    "proofflow": {
+      "command": "proofflow-mcp",
+      "env": {
+        "PROOFFLOW_BASE_URL": "http://127.0.0.1:8787"
+      }
+    }
+  }
+}
+```
+
 ### Codex
 
 Add to your Codex MCP configuration with the same command/args pattern.
@@ -64,6 +83,8 @@ Add to your Codex MCP configuration with the same command/args pattern.
 |----------|---------|-------------|
 | `PROOFFLOW_BASE_URL` | `http://127.0.0.1:8787` | ProofFlow backend URL |
 | `PROOFFLOW_TIMEOUT` | `30` | HTTP request timeout in seconds |
+| `PROOFFLOW_API_KEY` | *(unset)* | API key for backend auth (optional) |
+| `PROOFFLOW_MCP_MAX_CONCURRENT` | `5` | Max concurrent MCP tool calls |
 
 ## Available Tools
 
@@ -80,6 +101,7 @@ Add to your Codex MCP configuration with the same command/args pattern.
 | `proofflow_list_cases` | List all Cases |
 | `proofflow_list_actions` | List actions for a Case |
 | `proofflow_undo` | Undo an executed action |
+| `proofflow_decide` | Create a decision to approve/reject a policy gate |
 
 ## Usage Example
 

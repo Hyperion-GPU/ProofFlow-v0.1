@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "proofflow": {
+      "command": "proofflow-mcp",
+      "env": {
+        "PROOFFLOW_BASE_URL": "http://127.0.0.1:8787"
+      }
+    }
+  }
+}

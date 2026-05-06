@@ -195,3 +195,31 @@ async def test_search_tool():
     text = result[0].text
     assert "hello.py" in text
     assert "0.90" in text
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_decide_tool():
+    respx.post("http://127.0.0.1:8787/cases/c1/decisions").mock(
+        return_value=httpx.Response(200, json={
+            "id": "dec-1",
+            "case_id": "c1",
+            "title": "Decision on action act-1",
+            "status": "accepted",
+            "rationale": "Reviewed and safe",
+            "result": "accepted",
+            "metadata": {"decision_kind": "policy_gate_owner_decision", "action_id": "act-1"},
+            "created_at": "t",
+            "updated_at": "t",
+        })
+    )
+    result = await call_tool("proofflow_decide", {
+        "case_id": "c1",
+        "action_id": "act-1",
+        "decision": "accepted",
+        "rationale": "Reviewed and safe",
+    })
+    text = result[0].text
+    assert "Decision created" in text
+    assert "dec-1" in text
+    assert "accepted" in text

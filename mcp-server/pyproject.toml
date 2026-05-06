@@ -5,12 +5,31 @@ build-backend = "hatchling.build"
 [project]
 name = "proofflow-mcp"
 version = "0.1.0"
-description = "MCP server for ProofFlow – local-first AI workflow audit dashboard"
+description = "MCP server for ProofFlow – audit infrastructure for AI coding agents"
+readme = "README.md"
+license = "MIT"
 requires-python = ">=3.11"
+authors = [
+    { name = "Hyperion-GPU" },
+]
+keywords = ["mcp", "proofflow", "audit", "ai-agent", "claude-code", "codex"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Quality Assurance",
+]
 dependencies = [
     "mcp>=1.0.0",
     "httpx>=0.27.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/Hyperion-GPU/ProofFlow-v0.1"
+Repository = "https://github.com/Hyperion-GPU/ProofFlow-v0.1"
+Issues = "https://github.com/Hyperion-GPU/ProofFlow-v0.1/issues"
 
 [project.scripts]
 proofflow-mcp = "proofflow_mcp.server:main"

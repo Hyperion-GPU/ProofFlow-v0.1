@@ -1,9 +1,14 @@
+import time
+from collections import deque
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 
+from proofflow.config import get_api_key, get_rate_limit
 from proofflow.migrations import init_db
 from proofflow.routers import (
     actions,
@@ -19,6 +24,51 @@ from proofflow.routers import (
     search,
 )
 from proofflow.version import __version__, release_name
+
+
+class OptionalAPIKeyMiddleware(BaseHTTPMiddleware):
+    """Require X-ProofFlow-Token header when PROOFFLOW_API_KEY is set."""
+
+    async def dispatch(
+        self, request: Request, call_next: RequestResponseEndpoint
+    ) -> Response:
+        api_key = get_api_key()
+        if api_key is None:
+            return await call_next(request)
+        # Health endpoint is always public
+        if request.url.path == "/health":
+            return await call_next(request)
+        token = request.headers.get("X-ProofFlow-Token")
+        if token != api_key:
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Invalid or missing API key"},
+            )
+        return await call_next(request)
+
+
+class SimpleRateLimitMiddleware(BaseHTTPMiddleware):
+    """Sliding-window rate limiter. Only active when PROOFFLOW_RATE_LIMIT is set."""
+
+    def __init__(self, app: FastAPI, max_requests: int = 100, window_seconds: int = 60):
+        super().__init__(app)
+        self.max_requests = max_requests
+        self.window = window_seconds
+        self.requests: deque[float] = deque()
+
+    async def dispatch(
+        self, request: Request, call_next: RequestResponseEndpoint
+    ) -> Response:
+        now = time.time()
+        while self.requests and self.requests[0] < now - self.window:
+            self.requests.popleft()
+        if len(self.requests) >= self.max_requests:
+            return JSONResponse(
+                status_code=429,
+                content={"detail": "Rate limit exceeded"},
+            )
+        self.requests.append(now)
+        return await call_next(request)
 
 
 @asynccontextmanager
@@ -41,6 +91,10 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    app.add_middleware(OptionalAPIKeyMiddleware)
+    rate_limit = get_rate_limit()
+    if rate_limit:
+        app.add_middleware(SimpleRateLimitMiddleware, max_requests=rate_limit)
     app.include_router(cases.router)
     app.include_router(artifacts.router)
     app.include_router(agentguard.router)

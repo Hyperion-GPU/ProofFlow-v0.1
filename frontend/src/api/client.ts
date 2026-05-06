@@ -15,6 +15,8 @@ import type {
 export const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8787";
 
+const API_KEY: string | undefined = import.meta.env.VITE_PROOFFLOW_API_KEY;
+
 export class ApiError extends Error {
   status: number;
   detail: unknown;
@@ -30,12 +32,16 @@ export class ApiError extends Error {
 type RequestBody = object | unknown[] | string | number | boolean | null;
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(init.headers as Record<string, string>),
+  };
+  if (API_KEY) {
+    headers["X-ProofFlow-Token"] = API_KEY;
+  }
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...init.headers,
-    },
+    headers,
   });
 
   const text = await response.text();
