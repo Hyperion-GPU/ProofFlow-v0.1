@@ -1,5 +1,7 @@
 # ProofFlow
 
+[English](README.md) | [简体中文](README.zh-CN.md)
+
 **Local-first audit layer for Codex-compatible AI coding agent workflows.**
 
 Vibe coding is fast. Blind trust is not enough.
