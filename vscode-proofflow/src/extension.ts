@@ -1,0 +1,78 @@
+import * as vscode from "vscode";
+import { ProofFlowClient } from "./api/client";
+import { StatusBar } from "./statusBar";
+import { Poller } from "./polling";
+import { CasesTreeProvider } from "./views/casesTreeProvider";
+import { reviewChanges } from "./commands/reviewChanges";
+import { scanFolder } from "./commands/scanFolder";
+import { approveAction } from "./commands/approveAction";
+
+let poller: Poller | undefined;
+
+export function activate(context: vscode.ExtensionContext): void {
+  const output = vscode.window.createOutputChannel("ProofFlow");
+  output.appendLine(`[${new Date().toISOString()}] ProofFlow extension activated`);
+
+  const client = new ProofFlowClient(output);
+  const statusBar = new StatusBar();
+  const treeProvider = new CasesTreeProvider(client, output);
+
+  const treeView = vscode.window.createTreeView("proofflow.casesView", {
+    treeDataProvider: treeProvider,
+    showCollapseAll: true,
+  });
+
+  context.subscriptions.push(
+    output,
+    treeView,
+    statusBar,
+    vscode.commands.registerCommand("proofflow.reviewLastChanges", () =>
+      reviewChanges(client)
+    ),
+    vscode.commands.registerCommand("proofflow.scanFolder", () =>
+      scanFolder(client)
+    ),
+    vscode.commands.registerCommand("proofflow.approveAction", () =>
+      approveAction(client)
+    ),
+    vscode.commands.registerCommand("proofflow.refresh", () =>
+      treeProvider.refresh()
+    ),
+    vscode.commands.registerCommand("proofflow.showLogs", () =>
+      output.show(true)
+    )
+  );
+
+  const autoRefresh = vscode.workspace
+    .getConfiguration("proofflow")
+    .get<boolean>("autoRefresh", true);
+
+  if (autoRefresh) {
+    poller = new Poller(client, statusBar, treeProvider);
+    poller.start();
+  }
+
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration((e) => {
+      if (e.affectsConfiguration("proofflow.autoRefresh")) {
+        const enabled = vscode.workspace
+          .getConfiguration("proofflow")
+          .get<boolean>("autoRefresh", true);
+        if (enabled && !poller) {
+          poller = new Poller(client, statusBar, treeProvider);
+          poller.start();
+        } else if (!enabled && poller) {
+          poller.stop();
+          poller = undefined;
+        }
+      }
+    })
+  );
+}
+
+export function deactivate(): void {
+  if (poller) {
+    poller.stop();
+    poller = undefined;
+  }
+}

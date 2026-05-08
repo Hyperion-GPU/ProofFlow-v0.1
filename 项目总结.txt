@@ -1,0 +1,1806 @@
+我们正在设计并开发一个叫 ProofFlow 的本地优先 AI 工作流仪表盘。
+
+项目 GitHub：
+
+https://github.com/Hyperion-GPU/ProofFlow-v0.1
+1. 项目起源
+
+最开始的想法是找一个“一个人 + Codex/AI agent 能做出来，但又真的有实用价值”的项目。
+
+最初讨论过几个方向：
+
+AgentGuard：AI 写代码后的验收门禁
+LocalProof：本地文件证据管家
+引用优先知识库搜索器
+设备/工控日志异常解释器
+个人项目决策记录器
+图片/模型素材资产库
+ComfyUI 图像工作流控制台
+
+后来把这些方向合并成一个更统一的产品：
+
+ProofFlow：一个 local-first 的 AI 工作流仪表盘，把代码、文件、日志、文档、图像资产、项目决策都变成可追踪、可引用、可回滚、可导出的工作流证据链。
+
+它不是普通 AI chat app，也不是普通文件管理器，而是一个：
+
+AI 工作流黑匣子 + 证据包生成器 + 本地操作控制台。
+
+2. 核心产品目标
+
+ProofFlow 要解决的问题是：
+
+现在 Codex、Claude Code、Cursor 这类 AI agent 越来越能帮人写代码、整理文件、分析日志、处理文档、生成图像，但问题是：
+
+AI 做了什么？
+为什么这么做？
+依据是什么？
+有没有风险？
+改动能不能验收？
+文件操作能不能回滚？
+决策以后还能不能追溯？
+
+ProofFlow 的目标就是把这些工作流变成有证据链的 Case。
+
+一句话定位：
+
+ProofFlow 是一个本地优先的 AI 工作流仪表盘，帮助个人开发者和小团队把 AI/脚本/人工操作变成可验证、可审计、可回滚、可导出的 Proof Packet。
+
+3. 核心抽象：Evidence Graph
+
+ProofFlow 不应该被设计成一堆散装功能 tab，而应该围绕统一数据模型。
+
+核心对象：
+
+Case       一次工作流事件包
+Artifact   文件、代码 diff、日志、图片、PDF、测试输出等证据对象
+Run        一次脚本/测试/AI/扫描运行记录
+Claim      AI 或系统给出的判断
+Evidence   支撑 Claim 的证据
+Action     可执行操作，例如移动文件、重命名、导出报告
+Decision   人最终做出的决策
+Report     导出的 Proof Packet
+
+所有模块都应该变成 Case：
+
+AgentGuard        = code_review Case
+LocalProof        = file_cleanup Case
+知识库问答         = knowledge_answer Case
+日志异常解释       = log_incident Case
+图像工作流         = image_workflow Case
+项目决策记录       = project_decision Case
+
+一个 Case 的结构：
+
+Case
+├── Timeline
+├── Artifacts
+├── Runs
+├── Claims
+├── Evidence
+├── Actions
+├── Decisions
+└── Proof Packet
+4. 项目核心原则
+
+这些是 ProofFlow 的产品不变量，应该写进 AGENTS.md，也应该贯穿所有代码设计：
+
+No Case, no workflow.
+No Evidence, no trusted Claim.
+No Preview, no Action.
+No Undo, no destructive Action.
+No Test, no accepted code workflow.
+No Source, no Artifact.
+
+中文理解：
+
+没有 Case，就不算一个工作流。
+没有 Evidence，Claim 只能是草稿，不能被信任。
+没有 Preview，就不能执行 Action。
+没有 Undo，就不能执行危险操作。
+没有测试，就不能接受代码工作流。
+没有来源，就不能登记 Artifact。
+
+特别重要的是：
+
+ProofFlow 不是让 AI 更大胆地乱做事，而是给 AI 工作流加刹车、记录仪、验收门禁和证据链。
+
+5. v0.1 MVP 范围
+
+ProofFlow v0.1 不做大而全的平台，先做一个能 dogfood 的最小闭环。
+
+v0.1 定义为：
+
+本地仪表盘 + 文件证据管家 + 代码变更审查 + 决策记录 + Proof Packet 导出。
+
+v0.1 必做：
+
+Core Case 系统
+Artifact 系统
+Evidence 系统
+Action 系统
+Decision 系统
+Proof Packet Markdown 导出
+
+LocalProof:
+- 扫描本地文件夹
+- 记录 metadata
+- 计算 hash
+- 提取文本
+- FTS 搜索
+- 生成安全的文件移动/整理建议
+- preview / approve / execute / undo
+
+AgentGuard:
+- 读取本地 git repo diff
+- 读取 changed files
+- 可选运行测试命令
+- 生成 claims
+- claims 必须带 evidence
+- 创建 code_review Case
+
+Dashboard/UI:
+- Dashboard
+- Cases
+- Case Detail
+- Artifacts
+- Search
+- LocalProof
+- AgentGuard
+- Decisions
+
+v0.1 暂时不做：
+
+多用户权限
+云同步
+插件市场
+完整向量 RAG
+ComfyUI 执行控制
+设备日志异常解释器完整版
+图片/模型资产库完整版
+自动调用 AI 改代码
+
+但后续会预留这些扩展方向。
+
+6. 推荐技术栈
+
+当前技术方向：
+
+Backend:
+- Python
+- FastAPI
+- SQLite
+- pytest
+- GitPython
+- watchdog / pathlib / shutil
+- stdlib sqlite3，暂时不用 SQLAlchemy
+
+Frontend:
+- React
+- TypeScript
+- Vite
+- plain CSS
+- 本地 localhost web app
+
+Database:
+- SQLite 主库
+- SQLite FTS5 做第一版全文搜索
+- 后续可接 sqlite-vec / DuckDB / LanceDB
+
+当前运行方式：
+
+backend:  http://127.0.0.1:8787
+frontend: http://127.0.0.1:5173
+7. 当前 repo 状态
+
+当前 repo 已经 public，并且已经有实际代码，不是空壳。
+
+已经存在：
+
+backend/
+frontend/
+docs/
+sample_data/files/
+scripts/demo_seed.py
+AGENTS.md
+PLANS.md
+README.md
+
+Backend 已经有较完整的模块：
+
+cases
+artifacts
+search
+localproof
+agentguard
+actions
+decisions
+reports
+
+SQLite schema 已经包含：
+
+cases
+artifacts
+case_artifacts
+artifact_text_chunks
+artifact_text_fts
+runs
+claims
+evidence
+actions
+decisions
+
+Tests 已经覆盖不少模块，包括：
+
+actions
+agentguard
+artifacts
+case packet
+decisions
+demo seed
+localproof
+reports
+search
+
+之前做过一轮静态 review，整体判断是：
+
+v0.1 骨架已经立住了，但应该先做 safety/operability hardening，再继续扩功能。
+
+8. 最近一次 code review 结论
+
+Review verdict：
+
+Request changes before next feature sprint.
+
+不是方向错了，而是要先修几个影响信任底座的问题。
+
+P1 问题
+1. README 和 frontend 端口不一致
+
+README 里 backend 默认跑 8000，但 frontend 默认请求：
+
+http://127.0.0.1:8787
+
+需要统一成 8787。
+
+建议 README backend 启动命令：
+
+python -m uvicorn proofflow.main:app --host 127.0.0.1 --port 8787 --reload
+
+health check：
+
+Invoke-RestMethod http://127.0.0.1:8787/health
+2. demo_seed.py 使用了 Python 3.12 的 shutil.rmtree(..., onexc=...)
+
+为了 Python 3.11 兼容，应该换成 onerror。
+
+目标：
+
+demo_seed.py works on Python 3.11+
+3. AgentGuard 对 untracked files 的摄入太宽
+
+当前 AgentGuard 默认 include untracked files，并且可能把 untracked 文本文件完整读入 diff artifact。
+
+风险：
+
+巨大文件进入 SQLite / Proof Packet
+.env / .pem / .key / .db / .sqlite 这类敏感文件被摄入
+
+需要加：
+
+敏感文件 denylist
+单文件大小 cap，例如 256 KiB
+超过 cap 的只记录 metadata，不记录全文
+敏感 untracked 文件直接 skip，不读内容
+记录 skipped/truncated metadata 或 claim
+
+建议规则：
+
+skip names:
+- .env
+- .env.local
+- .env.production
+
+skip suffixes:
+- .pem
+- .key
+- .p12
+- .pfx
+- .db
+- .sqlite
+- .sqlite3
+P2 问题
+4. LocalProof suggestions 可能生成不可执行的 move actions
+
+action_suggestion_service 会建议移动到：
+
+target_root/Images/...
+target_root/Documents/...
+target_root/Notes/...
+target_root/Code/...
+target_root/Logs/...
+
+但如果这些 category directories 不存在，后续 execute 会失败。
+
+两种修法：
+
+方案 A：生成 mkdir_dir action，然后 move_file action 依赖 mkdir_dir
+方案 B：suggest-actions 时直接创建 category dirs
+
+从 ProofFlow 原则看，更推荐方案 A：
+
+创建目录也应该是 previewable Action。
+
+但 v0.1 可以用更简单安全的方案，只要测试覆盖即可。
+
+5. README / PLANS 已经过时
+
+README 还把项目说成 initial skeleton，但代码已经实现很多 MVP 能力。
+
+需要更新：
+
+Current status
+Quickstart on port 8787
+Demo seed command
+Implemented workflows
+Safety model
+Known limitations
+
+PLANS 也要把已完成项打勾，并新增：
+
+Milestone: Harden v0.1
+P3 问题
+6. CaseDetail 显示 test return code 字段名不一致
+
+AgentGuard metadata 用的是：
+
+test_returncode
+
+CaseDetail 里读的是：
+
+return_code
+
+所以 UI 可能显示不出来测试返回码。
+
+修成读取 test_returncode。
+
+项目最终想完成的目的
+
+最终 ProofFlow 想成为一个：
+
+给个人开发者、小团队、AI-heavy 创作者、自动化/工控场景使用的本地 AI 工作流控制台。
+
+它把各种工作变成 Case：
+
+AI 改代码 → 代码审查 Case
+整理文件 → 文件清理 Case
+问知识库 → 引用回答 Case
+分析日志 → 故障诊断 Case
+跑 ComfyUI → 图像生产 Case
+做技术选择 → 项目决策 Case
+
+每个 Case 都能回答：
+
+发生了什么？
+涉及哪些文件/证据？
+AI 或系统做了哪些判断？
+判断依据是什么？
+执行了哪些操作？
+哪些操作能回滚？
+人最后做了什么决策？
+还能导出给别人看吗？
+
+核心输出是：
+
+Proof Packet
+
+Proof Packet 包含：
+
+Summary
+Artifacts
+Runs
+Claims
+Evidence
+Actions
+Decisions
+Remaining Risks
+
+最终愿景：
+
+让 AI 时代的个人工作流不再是黑箱，而是有证据、有记录、有回滚、有验收的本地系统。
+
+9. 近期实际完成工作：v0.1 RC 到 RC1 发布后
+
+这一轮工作的核心目标不是扩新功能，而是把 ProofFlow v0.1 从“能跑的 MVP”推进到“可以发布、可以回归、可以 dogfood 的 release candidate”。
+
+已经完成的主线包括：
+
+1. v0.1 trust baseline hardening
+
+我们先修复了影响信任底座的几个问题：
+
+- 统一 backend 默认端口到 8787，和 frontend 请求地址一致。
+- 修复 demo_seed.py 的 Python 3.11 兼容性问题。
+- 收紧 AgentGuard 对 untracked files 的处理，避免敏感文件或过大文件内容进入 SQLite / Proof Packet。
+- 修复 CaseDetail 中 test_returncode 显示字段不一致的问题。
+- 更新 README / PLANS，让文档不再停留在 initial skeleton 状态。
+
+这一步的目标是先让 v0.1 的基本信任边界站稳，而不是急着继续扩 RAG、ComfyUI、云同步或多用户。
+
+2. Dogfood smoke gate
+
+我们补了 demo seed 和 smoke test 相关能力，让 ProofFlow 可以更稳定地用自己的流程验证自己：
+
+- demo_seed.py 支持隔离的 PROOFFLOW_DB_PATH / PROOFFLOW_DATA_DIR / --db-path / --data-dir。
+- 增加 RC API smoke helper：scripts/rc_api_smoke.py。
+- smoke 覆盖 health release identity、LocalProof action lifecycle、AgentGuard packet export、sensitive untracked file omission。
+- rc_api_smoke.py 在失败时保留临时 DB / data / packet 证据，方便调试；只有 successful run 配合 --cleanup 时才清理。
+
+这一步确认了 ProofFlow 的 dogfood 方向：先用干净本地路径跑完整闭环，再决定下一轮功能，而不是只靠静态文档判断。
+
+3. Action safety gate
+
+我们完成了 v0.1 RC 需要的 filesystem action safety gate：
+
+- 给 filesystem action 增加 scope validation。
+- 给 LocalProof action metadata 写入 source_root、target_root、allowed_roots。
+- 给 move_file / rename_file undo 增加 SHA-256 hash guard。
+- 阻止 ProofFlow DB、data、proof_packets 等内部路径被 filesystem action 操作。
+- 增加 legacy DB action safety upgrade。
+- 增加 action safety、reset、backup、restore 文档。
+
+这一步对应 ProofFlow 的核心不变量：
+
+No Preview, no Action.
+No Undo, no destructive Action.
+
+4. Legacy undo guard sanity check
+
+我们补了 legacy executed move_file / rename_file 的安全回归：
+
+- init_db() 做 legacy hash guard 回填时，如果旧文件已删除、不可读或 hash 读取失败，不会导致应用启动崩溃。
+- migration failure 会记录 hash_guard_migration_failed 和 hash_guard_migration_error。
+- 不会伪造 from_sha256 / source_sha256。
+- undo 阶段如果缺少可信 hash guard，会返回可恢复的 400 错误，而不是 500。
+
+这一步保证旧数据库升级失败时仍然保留 action 记录，并且不会把不可信的 legacy action 标记成安全。
+
+5. Release gate docs / changelog / CI / public dogfood packet
+
+我们把 v0.1 RC 的发布门禁补齐：
+
+- backend GitHub Actions 覆盖 Python 3.11 / 3.12 matrix，并运行 python -m pytest。
+- frontend GitHub Actions 使用 Node 22.x，运行 npm ci、npm run test、npm run build。
+- README 增加简洁 CI badge 和 release / dogfood 文档入口。
+- PLANS 增加 v0.1 RC Action Safety Gate 和 v0.1 RC Release Gate milestone。
+- 新增 CHANGELOG.md，记录 v0.1.0-rc1 能力和 known limitations。
+- 新增 docs/V0_1_RC_CHECKLIST.md，给出本地 release check 路径。
+- 新增 docs/examples/V0_1_DOGFOOD_PROOF_PACKET.md，作为可公开展示的 Proof Packet 示例。
+
+这一步让项目从“代码上能跑”变成“发布状态可说明、可复查、可复现”。
+
+6. v0.1.0-rc1 version stamp & publish prep
+
+我们给 backend 增加集中版本定义：
+
+- backend/proofflow/version.py
+- __version__ = "0.1.0-rc1"
+- release_stage = "rc"
+- release_name = "ProofFlow v0.1.0-rc1"
+
+同时让 /health 返回 release identity，Dashboard 可以显示当前 backend release identity。
+
+之后按 release 顺序完成：
+
+- merge version stamp PR 到 main。
+- 在 merge 后的 main HEAD 上打 tag：v0.1.0-rc1。
+- 创建 GitHub pre-release：ProofFlow v0.1.0-rc1。
+
+重要约束：
+
+- tag 打在 main 的正式状态上，不打在 PR branch 上。
+- v0.1.0-rc1 发布后不移动 tag。
+- post-RC1 的 helper / docs 修复留在 main，不回写到旧 tag。
+
+7. v0.1.0-rc1 Dogfood Bug Bash Log
+
+RC1 发布后，我们新增了 dogfood bug bash 记录文档：
+
+- docs/releases/V0_1_0_RC1_BUG_BASH.md
+
+文档明确：
+
+- 这是 v0.1.0-rc1 发布后的 clean local checkout 验证，不是新功能 sprint。
+- main 可能包含 post-RC1 smoke-helper commits，但不能移动既有 v0.1.0-rc1 tag。
+- 如果需要把 post-RC1 helper 纳入发布快照，应该切 v0.1.0-rc2，而不是改 rc1。
+
+Bug bash checklist 覆盖：
+
+- backend / frontend tests 和 build。
+- scripts/release_check.ps1。
+- scripts/rc_api_smoke.py 和 --cleanup。
+- scripts/demo_seed.py。
+- Dashboard release identity。
+- LocalProof scan、suggest-actions、mkdir_dir、move_file、undo。
+- changed destination content blocks undo。
+- action metadata 中的 source_root、target_root、allowed_roots。
+- AgentGuard review。
+- Proof Packet markdown export。
+- sensitive untracked file omission。
+
+同时 CHANGELOG.md 的 Unreleased 记录了 post-RC1 smoke/helper 变更，没有把这些内容错误写入 v0.1.0-rc1 条目。
+
+8. Dogfood checklist 命令流修复
+
+我们发现并修复了一个文档可复现性问题：
+
+原 dogfood checklist 里先让用户执行：
+
+cd .\backend
+
+后面又写：
+
+cd .\frontend
+
+如果用户在同一个 PowerShell 里顺序复制执行，第二条会尝试进入 backend\frontend，导致失败。
+
+修复方式：
+
+- 改用 Push-Location .\backend / Pop-Location。
+- 改用 Push-Location .\frontend / Pop-Location。
+- 明确长驻 backend / frontend dev server 应该在从仓库根目录打开的独立 PowerShell 窗口中运行。
+- 增加 release docs 测试，防止 bug bash 文档重新退化成不可连续复制执行的 cd backend / cd frontend 流程。
+
+这一修复保持了 PR 很小，只改文档和文档测试，不碰产品逻辑。
+
+9. 当前验证状态
+
+这一轮已实际跑过的验证包括：
+
+- backend pytest：通过。
+- frontend npm run test：通过。
+- frontend npm run build：通过。
+- scripts/release_check.ps1：通过。
+- python .\scripts\rc_api_smoke.py：通过。
+- python .\scripts\rc_api_smoke.py --cleanup：通过。
+- release docs 单测：通过。
+- GitHub Actions backend Python 3.11 / 3.12：通过。
+- GitHub Actions frontend test and build：通过。
+
+已知 warning：
+
+- Windows 上 pytest cache / temp symlink cleanup 可能出现 WinError 5 warning，但相关命令 exit 0。
+- npm install / npm ci 可能报告 audit warning 或依赖 deprecation warning，但本轮验证中 test/build exit 0。
+
+10. 当前边界和下一步
+
+当前阶段刻意没有做：
+
+- RAG。
+- ComfyUI 执行。
+- 云同步。
+- 多用户权限。
+- Docker。
+- 插件系统。
+- AI 自动改代码。
+- managed backup 实现。
+- 文件删除 action。
+- 新 destructive action。
+- 大 UI redesign。
+
+推荐下一步：
+
+先合并 v0.1.0-rc1 Dogfood Bug Bash Log 这类文档和 smoke 收口 PR，然后用一个干净 checkout 跑完整 RC1 Dogfood Bug Bash。
+
+只有遇到 P0 / P1 问题，或者决定把 post-RC1 smoke helper commits 纳入新的发布快照时，再切 v0.1.0-rc2。
+
+下一轮 feature 最自然的方向是 managed backup / restore foundation，因为它接在 Action Safety 后面，能增强本地恢复能力，同时不破坏 ProofFlow 的 local-first 和证据链调性。
+
+11. 最新工作交接：RC1 closure 和 Managed Backup / Restore Foundation
+
+本节记录 2026-04-28 前后完成的实际工作，方便后续接手时知道哪些已经合并、哪些仍在当前分支待收口。
+
+11.1 RC1 closure 已完成
+
+RC1 dogfood closure 已经合并到 main：
+
+- PR #12: chore: close v0.1.0-rc1 dogfood bug bash
+- 合并内容：
+  - 填写 docs/releases/V0_1_0_RC1_BUG_BASH.md 的真实验证结果。
+  - 新增 docs/releases/V0_1_0_RC1_CLOSURE_DECISION.md。
+  - CHANGELOG.md 增加 Unreleased docs/planning note。
+  - GitHub Release v0.1.0-rc1 body 已经清掉 draft wording。
+
+Release body 已经用 gh api 硬验证：
+
+- title/name 是 ProofFlow v0.1.0-rc1。
+- tag_name 是 v0.1.0-rc1。
+- prerelease 是 true。
+- target_commitish 是 main。
+- body 中没有 Release Notes Draft。
+- body 中没有 release candidate draft。
+- body 中没有 Publish Checklist。
+- body 中使用 Status: release candidate / pre-release。
+- body 中使用 Validated Release Gates。
+
+重要约束仍然成立：
+
+- v0.1.0-rc1 tag 没有移动、删除、重建或 retag。
+- 没有 cut v0.1.0-rc2。
+
+stash 状态：
+
+- 之前的 RC1 closure stash 已经不存在。
+- git stash list 当前为空。
+
+11.2 Managed Backup / Restore Foundation design PR 已完成
+
+设计 / 合同 PR 已经合并：
+
+- PR #13: docs: define managed backup restore foundation
+- main commit: 229d855 docs: define managed backup restore foundation (#13)
+
+合并内容：
+
+- 新增 docs/managed_backup_restore.md。
+- AGENTS.md 增加 backup/restore invariants。
+- PLANS.md 增加 Managed Backup / Restore Foundation milestone。
+- CHANGELOG.md 增加 Unreleased docs/planning note。
+- 新增 backend/tests/test_managed_backup_restore_contract.py。
+
+新增 backup/restore invariants：
+
+- No Manifest, no Backup.
+- No Verify, no trusted Backup.
+- No Preview, no Restore.
+- No Pre-restore Backup, no destructive Restore.
+- No Hash Match, no Restore.
+- No Source Version, no Restore Trust.
+- No Restore to live DB in foundation phase.
+
+该 PR 只做设计、合同和测试骨架，没有实现产品路由。
+
+11.3 Phase 2 backend backup preview/create/list/detail/verify 已完成并合并
+
+Phase 2 已经作为 feature PR 合并：
+
+- Branch: feature/backend-backup-create-list-verify
+- PR #14: feat: add managed backup create list verify backend
+- Merge commit: d08fed2 feat: add managed backup create list verify backend
+
+实现的 API：
+
+- POST /backups/preview
+- POST /backups
+- GET /backups
+- GET /backups/{backup_id}
+- POST /backups/{backup_id}/verify
+
+主要文件：
+
+- backend/proofflow/services/backup_service.py
+- backend/proofflow/routers/backups.py
+- backend/proofflow/models/schemas.py
+- backend/proofflow/storage/schema.sql
+- backend/proofflow/migrations.py
+- backend/proofflow/main.py
+- backend/tests/test_backup_service.py
+- backend/tests/test_backup_api.py
+- backend/tests/test_managed_backup_restore_contract.py
+- docs/managed_backup_restore.md
+- CHANGELOG.md
+
+Phase 2 关键行为：
+
+- Preview 只读，不创建 backup directory、archive、manifest、Case、Artifact、Evidence 或 DB row。
+- Create 使用 sqlite3.Connection.backup() 做 SQLite consistent snapshot，不 raw-copy live DB。
+- Archive 是 ZIP。
+- Manifest 是 sidecar JSON，不嵌入 archive 自身，避免 self-hash 循环。
+- Manifest 包含 archive.sha256 和 archive.size_bytes。
+- Hash 每个 archived file、archive 和 final manifest。
+- backups metadata table 记录 backup 状态。
+- 创建 backup workflow Case。
+- 记录 archive Artifact 和 manifest Artifact。
+- 记录 backup creation Evidence。
+- Verify 成功后才把 backup status 更新为 verified，并创建可信的 backup_integrity Claim。
+- Verify 不比较 current live source files，只验证 sidecar manifest、archive hash、ZIP members 和 file hashes。
+
+Phase 2 安全边界：
+
+- 不实现 restore endpoint。
+- 不实现 live DB restore。
+- 不打包 arbitrary LocalProof source roots。
+- 不删除旧 backups。
+- 不做 retention。
+- 不改 UI。
+- 不动 release tag。
+
+Phase 2 reviewer 发现并已修复的风险：
+
+- Create 过程中如果 archive 已写出但 manifest/metadata 记录失败，会清理 generated zip/manifest/staging，避免 orphan backup。
+- backup_root 是普通文件时返回 400，不冒泡成 500。
+- verify 中重复的 archive.zip hash mismatch 会去重。
+
+Phase 2 验证：
+
+- 本地 backend pytest：88 passed, 1 skipped。
+- git diff --check：passed。
+- PR CI：
+  - Backend Python 3.11：pass。
+  - Backend Python 3.12：pass。
+  - Frontend test/build：pass。
+
+已知测试环境 warning：
+
+- Windows 上 pytest cache / temp cleanup 可能出现 WinError 5 warning，但命令 exit 0。
+- symlink 相关测试在当前 Windows 环境可能 skip。
+
+11.4 当前分支：Phase 3 restore preview / restore-to-new-location
+
+当前工作分支：
+
+- feature/restore-preview-to-new-location
+
+当前分支基于：
+
+- d08fed2 feat: add managed backup create list verify backend
+
+当前 Phase 3 已实现但尚未提交 / 尚未开 PR。
+
+实现的 API：
+
+- POST /restore/preview
+- POST /restore/to-new-location
+
+主要新增/修改文件：
+
+- backend/proofflow/services/restore_service.py
+- backend/proofflow/routers/restore.py
+- backend/proofflow/models/schemas.py
+- backend/proofflow/storage/schema.sql
+- backend/proofflow/migrations.py
+- backend/proofflow/main.py
+- backend/proofflow/services/backup_service.py
+- backend/tests/test_restore_service.py
+- backend/tests/test_restore_api.py
+- backend/tests/test_backup_api.py
+- backend/tests/test_managed_backup_restore_contract.py
+- docs/managed_backup_restore.md
+- CHANGELOG.md
+
+新增 DB table：
+
+- restore_previews
+
+字段包括：
+
+- id
+- backup_id
+- case_id
+- target_db_path
+- target_data_dir
+- plan_hash
+- archive_sha256
+- manifest_sha256
+- planned_writes_json
+- schema_risks_json
+- version_risks_json
+- warnings_json
+- created_at
+- updated_at
+
+Phase 3 preview 行为：
+
+- 要求 backup 存在。
+- 要求 backup status 是 verified。
+- 调用只读 integrity helper，重新校验 manifest hash、archive hash、ZIP members 和 file hashes。
+- 不比较 archive contents against current live source files。
+- 校验 manifest app_version 和 schema_version。
+- app_version/schema_version 不同会在 version_risks / schema_risks 中报告。
+- manifest 缺 app_version 或 schema_version 会阻断 restore trust。
+- 拒绝 target_db_path 等于当前 live PROOFFLOW_DB_PATH。
+- 拒绝 target_data_dir 等于当前 live PROOFFLOW_DATA_DIR。
+- 拒绝 target 位于 live data_dir / proof_packets 内或与 live managed roots 重叠。
+- 把 archive member 映射为 planned_writes：
+  - db/proofflow.db -> target_db_path
+  - data/<relative> -> target_data_dir/<relative>
+  - proof_packets/<relative> -> target_data_dir/proof_packets/<relative>
+- planned_writes 包含 archive_relative_path、target_path、role、action、size_bytes、sha256、would_overwrite。
+- 计算 deterministic plan_hash。
+- 持久化 restore_previews row。
+- 记录 restore_preview Evidence。
+- 不创建 trusted restore Claim。
+
+注意：
+
+用户给出的 Phase 3 contract 明确允许 preview 持久化 restore_previews row，以 enforce “No Preview, no Restore”。
+因此 preview 会写 ProofFlow metadata DB，但不会创建任何 target files 或 target directories。
+
+Phase 3 restore-to-new-location 行为：
+
+- 要求 backup 存在且 verified。
+- 要求 accepted_preview_id。
+- 加载 restore_previews row。
+- 校验 preview.backup_id 与 request.backup_id 一致。
+- 校验 preview.target_db_path / target_data_dir 与 request resolved path 一致。
+- 重新校验 manifest hash、archive hash、ZIP members、file hashes。
+- 重新计算 current restore plan。
+- current plan_hash 必须等于 preview.plan_hash。
+- 如果 target filesystem state 在 preview 后变化，会拒绝并要求重新 preview。
+- 如果 archive/manifest 在 preview 后变化，会拒绝并要求重新 verify + preview。
+- 如果任何 planned write 会 overwrite existing target file/directory，会拒绝。
+- 不写当前 live DB/data/proof_packets。
+- 不使用 ZipFile.extract() 或 extractall()。
+- 只读取 manifest-listed ZIP members 并手动 write_bytes 到目标。
+- 拒绝 zip-slip：
+  - absolute paths
+  - Windows drive paths
+  - backslash traversal
+  - ..
+  - empty components
+- unexpected ZIP member 会让只读 integrity check 失败，restore 不会写。
+- failed restore write 会尽量清理本次创建的 files/directories。
+- restore result Evidence 记录失败时会降级成 response warning，不让已经完成的新位置 restore 变成半成功 API error。
+
+Phase 3 当前验证：
+
+- restore-focused tests：13 passed。
+- full backend pytest：101 passed, 1 skipped, 2 warnings。
+- git diff --check：passed。
+- 前端未改，未跑 frontend。
+
+Phase 3 子代理 review 结论：
+
+- 确认没有 live restore / delete / UI scope creep。
+- 确认 overwrite gate、zip-slip gate、unexpected ZIP member gate、accepted_preview_id 和 plan_hash 校验存在。
+- 子代理提出 preview 会写 live metadata DB 的担忧；这里按用户 contract 判断不是 blocker，因为 contract 允许 persist restore_previews DB row 并记录 Evidence。
+- 子代理提出 restore 文件已落盘后 Evidence 记录失败会造成半成功错误；已修复为 warning，并新增测试覆盖。
+
+11.5 当前未提交状态和本地杂物
+
+当前分支仍有未提交 Phase 3 改动。
+
+本地未跟踪杂物：
+
+- .playwright-mcp/
+- 项目总结.txt
+
+这些文件此前一直没有纳入产品 PR。后续如果要提交 Phase 3 PR，仍应只 add 代码/docs/test 目标文件，不要 add .playwright-mcp/。
+
+本文件 项目总结.txt 是交接用本地笔记；是否提交到 repo 要单独决定，默认不应混入产品 PR。
+
+11.6 下一步建议
+
+下一步是把 Phase 3 封成 PR，但不要继续扩功能。
+
+建议 PR title：
+
+feat: add restore preview to new location backend
+
+建议 PR scope：
+
+- restore preview endpoint
+- restore-to-new-location endpoint
+- restore_previews table
+- restore schemas
+- restore service/router
+- service/API/contract tests
+- docs/managed_backup_restore.md Phase 3 wording
+- CHANGELOG.md Unreleased entry
+
+提交前建议再跑：
+
+Push-Location backend
+python -m pytest
+Pop-Location
+
+git diff --check
+
+建议 PR body 重点写：
+
+- Preview persists restore_previews and Evidence to enforce No Preview, no Restore.
+- Restore-to-new-location is inspection-only.
+- No live DB restore.
+- No overwrite restore.
+- No ZipFile.extract/extractall.
+- Target cannot overlap current live PROOFFLOW_DB_PATH / PROOFFLOW_DATA_DIR / proof_packets.
+- Evidence write failure after successful restore is reported as warning.
+
+Phase 3 PR 不应该包含：
+
+- UI。
+- live restore。
+- destructive restore。
+- overwrite restore。
+- delete/retention。
+- cloud/scheduled/encrypted backup。
+- LocalProof source-root bulk restore。
+- release tag changes。
+
+Phase 3 merge 后，下一步才考虑 Phase 4 thin UI。UI 也应该保持薄，只调用已经证明过的 backend contracts，不扩大成 live restore。
+
+12. Phase 4 thin UI 交接记录
+
+当前分支：
+- feature/managed-backup-restore-thin-ui
+
+任务范围：
+- Managed Backup / Restore Foundation Phase 4 thin UI。
+- 只做前端薄控制面，不扩展后端产品能力。
+- 不做 live DB restore、不做 destructive restore、不做 overwrite restore、不做 delete/retention/cloud/scheduled/encryption。
+- 不做 LocalProof source-root bulk restore。
+- 不移动、不删除、不重建、不 retag v0.1.0-rc1，也没有 cut v0.1.0-rc2。
+
+本轮完成内容：
+- 新增 Managed Backup / Restore 页面：/managed-backup-restore。
+- 在侧边栏新增入口：Backup / Restore。
+- 新增前端 API helper 和 TypeScript types，用于消费已合并的 Phase 2 / Phase 3 后端接口。
+- 页面支持：
+  - backup preview
+  - create backup
+  - list backups
+  - backup detail
+  - verify backup
+  - restore preview
+  - restore to new inspection location
+- 更新 docs/managed_backup_restore.md，标记 Phase 4 thin UI 已实现。
+- 更新 CHANGELOG.md 的 Unreleased，记录 thin UI 控制面。
+
+本轮涉及的主要文件：
+- frontend/src/pages/ManagedBackupRestore.tsx
+- frontend/src/pages/ManagedBackupRestore.test.tsx
+- frontend/src/api/client.ts
+- frontend/src/api/client.test.ts
+- frontend/src/types.ts
+- frontend/src/App.tsx
+- frontend/src/components/Layout.tsx
+- frontend/src/styles.css
+- docs/managed_backup_restore.md
+- CHANGELOG.md
+
+前端已接入的现有 API：
+- POST /backups/preview
+- POST /backups
+- GET /backups
+- GET /backups/{backup_id}
+- POST /backups/{backup_id}/verify
+- POST /restore/preview
+- POST /restore/to-new-location
+
+UI 安全 guardrails：
+- Create backup 必须先对同一个 backup_root 成功 preview。
+- Restore-to-new-location 必须先成功 restore preview。
+- 修改 backup_id / target_db_path / target_data_dir 后，会失效 accepted preview。
+- restore preview 返回 would_overwrite=true 时，restore-to-new-location 按钮保持禁用，只提示选择空目标并重新 preview。
+- 页面明确显示：
+  - Local-only
+  - No live restore
+  - New inspection location only
+  - No overwrite restore
+- 后端 400 / 404 safety rejection 会直接展示，不吞掉错误。
+- 没有 live restore button。
+- 没有 overwrite confirmation。
+- 没有 backup delete / retention 控件。
+- 没有 cloud / schedule / encryption 控件。
+
+测试和验证结果：
+- Push-Location frontend; npm run test; Pop-Location
+  - 17 passed
+- Push-Location frontend; npm run build; Pop-Location
+  - passed
+- Push-Location backend; python -m pytest; Pop-Location
+  - 108 passed, 3 skipped
+  - 有 Windows pytest cache / temp cleanup 的 WinError 5 warning，但命令 exit 0。
+- python scripts/backup_restore_api_smoke.py --cleanup
+  - passed
+  - 使用临时 PROOFFLOW_DB_PATH / PROOFFLOW_DATA_DIR，完成 backup preview -> create -> verify -> restore preview -> restore-to-new-location，并清理临时目录。
+- git diff --check
+  - passed
+  - 只有 Windows LF/CRLF 工作区提示。
+- hidden/bidi Unicode scan
+  - No bidi/hidden Unicode control characters found in changed text files.
+- git tag --points-at HEAD
+  - 无输出，说明当前 HEAD 没有 tag，v0.1.0-rc1 未被移动。
+
+当前工作树状态说明：
+- 当前分支仍是 feature/managed-backup-restore-thin-ui。
+- 后端产品代码没有 diff。
+- .playwright-mcp/ 仍是本地未跟踪目录。
+- 项目总结.txt 是本地交接笔记；是否提交到 repo 要单独决定，默认不要混入产品 PR。
+
+建议提交 / PR：
+- PR title:
+  feat: add managed backup restore thin UI
+
+建议 PR body：
+
+## Summary
+- Add a thin Managed Backup / Restore UI surface.
+- Surface backup preview, create, list, detail, verify, restore preview, and restore-to-new-location.
+- Keep restore-to-new-location framed as inspection evidence only.
+- Add frontend tests for safety guardrails, endpoint payloads, preview invalidation, overwrite blocking, and backend error display.
+
+## Validation
+- Push-Location frontend; npm run test; Pop-Location
+- Push-Location frontend; npm run build; Pop-Location
+- Push-Location backend; python -m pytest; Pop-Location
+- python scripts/backup_restore_api_smoke.py --cleanup
+- git diff --check
+
+## UI coverage
+- Backup preview.
+- Backup create after accepted preview.
+- Backup list/detail.
+- Backup verify.
+- Restore preview.
+- Restore to new inspection location after accepted preview.
+
+## Safety model
+- No Preview, no Action for backup create.
+- No Preview, no Restore for restore-to-new-location.
+- Restore-to-new-location requires the latest accepted preview for matching backup ID and target paths.
+- Overwrite previews block execution.
+- Backend safety rejections remain visible to the operator.
+
+## Non-goals
+- No live DB restore.
+- No destructive restore.
+- No overwrite restore.
+- No backup delete or retention.
+- No cloud, scheduled, or encrypted backup work.
+- No LocalProof source-root bulk restore.
+- No release tag changes.
+
+## Next phase
+Review the thin UI against backend smoke evidence before considering any future Phase 5 live-restore gate design.
+
+Review 重点：
+- UI 是否只调用现有 7 个 backup/restore 接口。
+- Create backup 是否必须先 backup preview。
+- Restore-to-new-location 是否必须先 accepted restore preview。
+- target path 改动后 accepted preview 是否失效。
+- overwrite preview 是否阻断执行。
+- 页面是否没有 live/delete/retention/cloud/schedule/encryption 暗示。
+- 文档是否仍明确 live restore 属于未来 Phase 5，不在当前 PR 范围内。
+
+---
+
+## 2026-04-29 交接更新：High-risk policy gates docs + policy gate result foundation
+
+本轮工作目标：
+- 先安全 squash merge PR #22。
+- 然后创建一个 tiny backend-only implementation foundation PR：`feat: add policy gate result foundation`。
+- 范围严格限制为 policy gate result 的后端基础类型和测试，不接入运行时行为。
+
+已完成 1：PR #22 已 squash merge
+- PR: https://github.com/Hyperion-GPU/ProofFlow-v0.1/pull/22
+- Title: docs: define high-risk action policy gates
+- Final state: MERGED
+- Merge commit: dbad7d73e51de3ef7797956aaedeeba02f0618a5
+- 合并方式：squash merge
+- 未删除远端分支。
+
+PR #22 合并前确认：
+- PR scope 只包含：
+  - CHANGELOG.md
+  - docs/high_risk_action_policy_gates.md
+- GitHub checks:
+  - Python 3.11 passed
+  - Python 3.12 passed
+  - Test and build passed
+- 本地复验：
+  - git diff --check origin/main...HEAD: passed
+  - hidden/bidi/line-ending scan: clean
+  - Push-Location backend; python -m pytest tests/test_release_docs.py; Pop-Location
+    - 3 passed
+    - 本机仍有 pytest cache permission warning，但 exit 0
+  - git tag --points-at HEAD
+    - 无输出，v0.1.0-rc1 没有在 HEAD 上
+
+已完成 2：创建 PR #23
+- PR: https://github.com/Hyperion-GPU/ProofFlow-v0.1/pull/23
+- Title: feat: add policy gate result foundation
+- Branch: feature/policy-gate-result-foundation
+- Commit: 5fb4fe43c3eb7ab41488334718122e641f2d9f03
+- PR state: OPEN
+- GitHub CI 当前状态：
+  - Python 3.11 passed
+  - Python 3.12 passed
+  - Test and build passed
+
+PR #23 改动文件：
+- backend/proofflow/services/policy_gate_service.py
+- backend/tests/test_policy_gate_service.py
+- CHANGELOG.md
+
+PR #23 实现内容：
+- 新增纯后端 service foundation：
+  - PolicyOutcome
+  - PolicyCategory
+  - PolicySeverity
+  - PolicyGateResult
+- PolicyOutcome values:
+  - allow
+  - warn
+  - require_decision
+  - block
+  - fail_closed
+- PolicyCategory values:
+  - filesystem_escape
+  - secret_access
+  - network_execution
+  - package_dependency_mutation
+  - process_persistence
+  - destructive_local_operation
+  - backup_restore_target_risk
+  - explanation_action_mismatch
+  - autonomous_unattended_mode
+- PolicySeverity values:
+  - info
+  - low
+  - medium
+  - high
+  - critical
+- PolicyGateResult 字段对齐 docs/high_risk_action_policy_gates.md 的 suggested metadata：
+  - policy_id
+  - policy_name
+  - category
+  - severity
+  - outcome
+  - reason
+  - matched_surface
+  - redaction_status
+  - affected_paths
+  - affected_commands
+  - allowed_roots_snapshot
+  - related_case_id
+  - related_action_id
+  - related_decision_id
+  - related_evidence_id
+  - transparency_event_id
+  - remaining_risks
+- 新增 helper：
+  - is_blocking_outcome()
+  - requires_operator_decision()
+  - outcome_precedence()
+  - most_restrictive_outcome()
+  - PolicyGateResult.to_dict()
+- most_restrictive_outcome([]) 选择 fail-closed 行为，返回 PolicyOutcome.FAIL_CLOSED。
+
+PR #23 测试覆盖：
+- outcome precedence：
+  - allow < warn < require_decision < block < fail_closed
+  - allow + warn -> warn
+  - require_decision + block -> block
+  - block + fail_closed -> fail_closed
+- blocking / decision helper：
+  - block 和 fail_closed 是 blocking
+  - allow / warn / require_decision 不是 blocking
+  - require_decision 需要 operator decision
+  - block 不伪装成人为批准状态
+- serialization：
+  - to_dict() 可 json.dumps()
+  - enum 字段序列化为 string value
+  - list 字段保持 list
+  - optional unset 字段稳定输出 None 或空 list
+- safe defaults：
+  - list defaults 使用 default_factory，实例之间独立
+  - redaction_status 默认是 not_applicable
+  - remaining_risks 默认是 []
+- empty aggregation：
+  - most_restrictive_outcome([]) == PolicyOutcome.FAIL_CLOSED
+
+PR #23 验证结果：
+- Push-Location backend; python -m pytest tests/test_policy_gate_service.py; Pop-Location
+  - 5 passed
+  - 本机仍有 pytest cache permission warning，但 exit 0
+- Push-Location backend; python -m pytest; Pop-Location
+  - 113 passed, 3 skipped
+  - 本机仍有 pytest cache/temp permission warnings，并在 atexit 出现 pytest temp cleanup PermissionError 文本，但命令 exit 0
+- git diff --check main...HEAD
+  - passed
+- hidden/bidi/line-ending scan
+  - CHANGELOG.md: bytes=4297 lf=109 cr=102 crlf=102 lone_cr=0
+  - backend/proofflow/services/policy_gate_service.py: bytes=3398 lf=100 cr=0 crlf=0 lone_cr=0
+  - backend/tests/test_policy_gate_service.py: bytes=4101 lf=110 cr=0 crlf=0 lone_cr=0
+  - no suspicious hidden/bidi/control characters or lone CR line endings found
+- git tag --points-at HEAD
+  - 无输出，v0.1.0-rc1 没有在当前 HEAD 上
+
+子代理 / review 结论：
+- repo_mapper 子代理确认 backend service 风格是函数 + 少量 dataclass(frozen=True) + typing。
+- services/__init__.py 只有 docstring，不需要为新 service 增加 export。
+- reviewer 子代理确认无 blocking findings。
+- reviewer 重点确认：
+  - helper 语义符合 allow < warn < require_decision < block < fail_closed
+  - empty aggregation 是 fail-closed
+  - to_dict 输出 JSON-safe 值，enum 转 value
+  - mutable defaults 使用 field(default_factory=list)
+  - 没有 endpoint / DB migration / frontend / runtime wiring
+  - CHANGELOG 文案没有误导，明确是 foundation types/tests，without wiring them into runtime behavior
+
+刻意没做：
+- 没有实现 Phase 5。
+- 没有实现 live restore。
+- 没有实现 destructive restore。
+- 没有实现 overwrite restore。
+- 没有新增 backup delete / retention / cloud backup / scheduled backup / encryption / LocalProof source-root bulk restore。
+- 没有新增 API endpoint。
+- 没有新增 DB migration。
+- 没有修改 frontend。
+- 没有把 policy gate 接入 action execution / restore execution / AgentGuard / LocalProof。
+- 没有新增 network call。
+- 没有新增依赖。
+- 没有改 GitHub release metadata。
+- 没有 move / delete / recreate / retag / push v0.1.0-rc1。
+- 没有 cut v0.1.0-rc2。
+
+当前工作树状态：
+- 当前分支：feature/policy-gate-result-foundation
+- 当前分支已 push 并跟踪 origin/feature/policy-gate-result-foundation。
+- PR #23 已打开且 CI 绿。
+- 本地仍有未跟踪文件：
+  - .playwright-mcp/
+  - 项目总结.txt
+- 这两个文件没有进入 PR #23，也不应默认 add / commit。
+
+下一步建议：
+1. Review PR #23。
+2. 如果没有 review blocker，并且 CI 继续保持绿，可以 squash merge PR #23。
+3. merge 后回到 main 并执行：
+   - git pull --ff-only origin main
+   - gh pr view 23 --json state,mergedAt,mergeCommit,url,title
+   - git tag --points-at HEAD
+4. 合并 #23 后仍不要直接进入 runtime wiring。
+5. 如果继续推进，应先做小设计/测试边界，例如：
+   - policy gate evaluator skeleton，但仍不接入执行链路；
+   - 或 ActionGuard/AgentGuard integration design doc；
+   - 或只做 policy result evidence serialization 设计。
+6. 任何未来接入 action execution / restore execution 前，必须先明确 fail-closed 语义、operator Decision 失效规则、preview/execute 一致性检查，以及 Evidence / transparency log 落点。
+## 2026-04-29 交接记录：post-RC1 policy gate foundation chain 收口
+
+本节记录 2026-04-29 在 `Hyperion-GPU/ProofFlow-v0.1` 上完成的 post-RC1 policy gate foundation 系列工作。范围是设计文档、后台 foundation 类型、聚合 helper、以及一个 fail-closed 语义修复；没有进入 runtime policy gate integration。
+
+### 已合并 PR / main 状态
+
+- PR #22 `docs: define high-risk action policy gates`
+  - 状态：已 squash merge。
+  - merge commit：`dbad7d73e51de3ef7797956aaedeeba02f0618a5`
+  - 变更文件：
+    - `CHANGELOG.md`
+    - `docs/high_risk_action_policy_gates.md`
+  - 内容：定义未来本地优先 high-risk action policy gate 设计，包括 `allow` / `warn` / `require_decision` / `block` / `fail_closed` 结果语义，以及 agent、script、filesystem、package、network、managed restore 等风险面。
+
+- PR #23 `feat: add policy gate result foundation`
+  - 状态：已 squash merge。
+  - merge commit：`91e988c74d1ccf2f03ff99370ab0ca829302fed4`
+  - 变更文件：
+    - `CHANGELOG.md`
+    - `backend/proofflow/services/policy_gate_service.py`
+    - `backend/tests/test_policy_gate_service.py`
+  - 内容：
+    - 新增 `PolicyOutcome`、`PolicyCategory`、`PolicySeverity`。
+    - 新增 `PolicyGateResult`，字段对齐 high-risk policy gate 设计中的 metadata。
+    - 新增 `is_blocking_outcome()`、`requires_operator_decision()`、`outcome_precedence()`、`most_restrictive_outcome()`、`PolicyGateResult.to_dict()`。
+    - 合并前修复了 `PolicyGateResult` 的 collection immutability：`affected_paths`、`affected_commands`、`allowed_roots_snapshot`、`remaining_risks` 内部为 tuple-backed，`to_dict()` 继续输出 JSON-safe list。
+
+- PR #24 `feat: add policy gate evaluation summary`
+  - 状态：已 squash merge。
+  - merge commit：`4fe329e1d340eed128ad7aff8b1e487320265b4b`
+  - 变更文件：
+    - `CHANGELOG.md`
+    - `backend/proofflow/services/policy_gate_service.py`
+    - `backend/tests/test_policy_gate_service.py`
+  - 内容：
+    - 新增 `PolicyGateEvaluation`，用于聚合多个 `PolicyGateResult`。
+    - `results` 内部 tuple-backed。
+    - `final_outcome` 默认由 `most_restrictive_outcome(result.outcome for result in results)` 计算。
+    - empty results 默认 fail closed。
+    - 提供 `is_blocking`、`requires_operator_decision`、`has_warnings`、`to_dict()`。
+
+- PR #25 `fix: enforce restrictive policy evaluation outcome`
+  - 状态：已 squash merge。
+  - merge commit：`37b8227b459beab911bef92bc9e1a3f519f95ea9`
+  - latest `main` HEAD：`37b8227 fix: enforce restrictive policy evaluation outcome`
+  - 变更文件：
+    - `CHANGELOG.md`
+    - `backend/proofflow/services/policy_gate_service.py`
+    - `backend/tests/test_policy_gate_service.py`
+  - 内容：
+    - 修复 PR #24 后 main 上残留的 fail-closed 语义问题：caller-provided `final_outcome` 不能把 `results` 派生出的更严格 outcome 降级。
+    - 当前语义：
+      - `results=[BLOCK]` + `final_outcome=ALLOW` -> final `BLOCK`
+      - `results=[FAIL_CLOSED]` + `final_outcome=REQUIRE_DECISION` -> final `FAIL_CLOSED`
+      - caller 可以提供比 results 更严格的 outcome，例如 `WARN` + explicit `BLOCK` -> final `BLOCK`
+      - empty results + explicit `ALLOW` -> final `FAIL_CLOSED`
+
+### latest main 验证结果
+
+在 PR #25 merge 后，latest `main` 上执行过：
+
+- `Push-Location backend; python -m pytest tests/test_policy_gate_service.py; python -m pytest; Pop-Location`
+  - `tests/test_policy_gate_service.py`：`15 passed`
+  - full backend pytest：`123 passed, 3 skipped`
+  - 本机仍有已知 pytest cache/temp 权限 warning，并在 atexit 打印 temp cleanup `PermissionError` 文本；命令 exit code 为 0。
+- `Push-Location frontend; npm run test; npm run build; Pop-Location`
+  - frontend tests：`6 passed test files, 21 passed tests`
+  - frontend build：passed
+- `python scripts/backup_restore_api_smoke.py --cleanup`
+  - passed
+  - 备份/恢复 smoke 使用临时目录，成功后 cleanup。
+- `git diff --check`
+  - passed
+- `git diff --name-only`
+  - no output
+- `git tag --points-at HEAD`
+  - no output
+
+### 明确没做的事情
+
+- 没有实现 runtime policy gate integration。
+- 没有新增 backend API endpoint。
+- 没有新增 DB migration。
+- 没有修改 frontend 行为。
+- 没有把 policy gate 接入 AgentGuard、ActionGuard、LocalProof、restore、action execution 或 Proof Packet export。
+- 没有实现 command scanning。
+- 没有新增依赖。
+- 没有新增 network call。
+- 没有实现 Phase 5。
+- 没有实现 live restore。
+- 没有实现 destructive restore。
+- 没有实现 overwrite restore。
+- 没有修改 GitHub release metadata。
+- 没有移动、删除、重建、重打或 push `v0.1.0-rc1`。
+- 没有 cut `v0.1.0-rc2`。
+- `.playwright-mcp/` 和 `项目总结.txt` 仍作为本地未跟踪文件保留，没有进入任何 PR。
+
+### 当前交接结论
+
+post-RC1 safety foundation chain 已完成：
+
+- Managed Backup / Restore backend and thin UI。
+- Agent intermediary tampering threat model。
+- Agent transparency log foundation。
+- High-risk action policy gate design。
+- Policy gate result foundation。
+- Policy gate evaluation summary。
+- Restrictive outcome bugfix for fail-closed aggregation semantics。
+
+建议下一步不要立刻开始 runtime policy gate integration。先二选一：
+
+1. 暂停并 dogfood latest `main`。
+2. 先写一份很小的 policy gate integration checkpoints design note，明确未来接入点、fail-closed 边界、operator decision 失效规则、preview/execute 一致性检查，以及 Evidence / transparency log 落点。
+
+不要在没有 checkpoint 设计前直接把 policy gate 接入 AgentGuard / ActionGuard / LocalProof / restore / action execution。
+
+## 2026-04-30 交接记录：Checkpoint A-D、phase truth alignment 和分支清理
+
+本节记录 2026-04-30 完成的 post-RC1 policy gate checkpoint 收口、文档阶段状态对齐、GitHub PR 发布，以及分支清理。范围仍然是 docs/design、验证和仓库卫生；没有进入 runtime policy gate integration。
+
+### 当前 main 状态
+
+当前 `main` 已同步到远端：
+
+- latest `main` HEAD：`047227d docs: review policy gate enforcement boundary (#30)`
+- remote：`origin/main`
+- GitHub open PR：无
+- GitHub remote heads：只剩 `main`
+- 本地分支：只剩 `main`
+- 本地未跟踪文件仍然只有：
+  - `.playwright-mcp/`
+  - `项目总结.txt`
+
+`v0.1.0-rc1` 没有移动、删除、重建、重打或重新 push。没有 cut `v0.1.0-rc2`。
+
+### 已完成 PR / main commit
+
+- PR #26 `docs: add policy gate integration checkpoints`
+  - main commit：`46fca1f docs: add policy gate integration checkpoints`
+  - 变更内容：
+    - 新增 `docs/policy-gate-integration-checkpoints.md`。
+    - 明确 Checkpoint A-F/G 的推进顺序和边界。
+    - 将 future runtime integration 拆成 dogfood、docs source map、contract review、boundary review、dry-run plan、runtime readiness decision。
+    - 写明 runtime enforcement、UI enforcement、restore behavior、DB/API/schema/release/tag 都不是当前阶段工作。
+
+- PR #27 `docs: capture checkpoint A dogfood readiness`
+  - main commit：`1a5fbbb docs: capture checkpoint A dogfood readiness`
+  - 变更内容：
+    - 新增 `docs/checkpoint-a-dogfood-readiness.md`。
+    - 记录 Checkpoint A dogfood readiness：主工作流仍是 local-first evidence dashboard，没有被 policy foundation 扭曲。
+    - 记录 Case / Artifact / Claim / Evidence / Action / Decision / Report、backup/restore safety、policy visibility、transparency/tamper concepts 的 readiness 证据。
+    - 明确 Checkpoint A 不授权 runtime policy gate integration，不授权 rc2/release/tag 动作。
+
+- PR #28 `docs: review policy gate input output contract`
+  - main commit：`f126568 docs: review policy gate input output contract (#28)`
+  - 变更文件：
+    - `README.md`
+    - `docs/policy-gate-input-output-contract-review.md`
+  - 变更内容：
+    - 新增 Checkpoint C contract review。
+    - 梳理 `PolicyGateResult` / `PolicyGateEvaluation` 的 input / output / trust model。
+    - 明确 `allow < warn < require_decision < block < fail_closed` 的 restrictiveness。
+    - 记录 caller-provided `final_outcome` 不能降级 result-derived `block` / `fail_closed`。
+    - 记录 open gaps：无 runtime input object、无 policy API、无 persistence model、无 transparency table/service、无 freshness/tamper binding、无 Proof Packet export semantics。
+
+- PR #29 `docs: align post-RC1 phase status`
+  - main commit：`3d3f0d docs: align post-RC1 phase status (#29)`
+  - 变更文件：
+    - `PLANS.md`
+    - `README.md`
+  - 变更内容：
+    - 将 `PLANS.md` 中 managed backup/restore Phase 2-4 标为 complete。
+    - 明确 live DB restore remains deferred/blocked until stricter pre-restore backup and confirmation gates exist。
+    - 在 `README.md` 中用 `Latest post-RC1 main includes...` 表述当前主线状态，避免误导为 rc1 tag 被更新。
+    - 明确 Checkpoint C contract review 已文档化，但 runtime policy gate enforcement is not wired。
+  - Scope guard：
+    - docs-only。
+    - 只改 `PLANS.md` 和 `README.md`。
+    - 没有改 backend/frontend runtime、API、schema、migration、UI behavior、test logic、release/tag。
+
+- PR #30 `docs: review policy gate enforcement boundary`
+  - main commit：`047227d docs: review policy gate enforcement boundary (#30)`
+  - 变更文件：
+    - `README.md`
+    - `docs/policy-gate-enforcement-boundary-review.md`
+  - 变更内容：
+    - 新增 Checkpoint D policy gate enforcement boundary design review。
+    - 比较 candidate enforcement boundaries：
+      - action suggestion / proposal
+      - preview
+      - approval / decision
+      - server-side pre-execution
+      - execution result recording
+      - undo / rollback
+      - report / export
+      - backup / restore sensitive operation
+    - 推荐 future runtime integration 方向：server-side pre-execution boundary for high-risk Actions，位于 preview material 已存在之后、execution mutate state 之前。
+    - 明确这只是 recommended design direction，不授权 runtime integration。
+    - 绑定 future evidence requirements：
+      - Case ID
+      - Action ID
+      - action type / category
+      - preview ID 或 preview material hash
+      - policy evaluation ID / result / freshness
+      - Evidence IDs
+      - Decision ID
+      - undo / rollback metadata
+      - artifact source reference
+      - test evidence
+      - transparency / tamper context
+      - actor / human / agent context gap
+    - 明确 fail-closed boundary rules：
+      - no Case + high-risk action -> block / fail_closed
+      - no preview + action execution -> block
+      - destructive action without undo metadata -> block
+      - missing / malformed / stale / mismatched policy evaluation -> fail_closed
+      - caller `final_outcome` 不是 allow authority
+      - result-derived `block` / `fail_closed` 不能降级
+      - unknown intermediary / tamper / redaction state 不能生成 allow
+    - 明确 what not to gate yet：
+      - read-only navigation
+      - normal Case browsing
+      - report viewing
+      - docs browsing
+      - harmless export preview
+      - global app startup
+      - all UI visibility
+      - live DB restore
+      - destructive restore
+      - global chat / file-manager style permissions
+    - README 只补了一条 Checkpoint D 文档链接，没有重构 docs index，没有改 `Current status`。
+
+### Checkpoint A current-head 轻量复跑
+
+在 `f126568` + #29 phase truth alignment 后，对 `36a2360 docs: align post-RC1 phase status` 做过轻量 current-head refresh。目的只是确认 phase truth alignment 没有影响主流程。
+
+已跑：
+
+- `git diff --name-only origin/main...HEAD`
+  - 只包含 `PLANS.md`、`README.md`
+- `git diff --check origin/main...HEAD`
+  - passed
+- `python -m pytest tests/test_policy_gate_service.py tests/test_release_docs.py`
+  - `18 passed`
+  - 本机仍有 pytest cache 权限 warning，exit code 为 0
+- `npm run test`
+  - `6 files / 21 tests passed`
+- `python .\scripts\rc_api_smoke.py --cleanup`
+  - passed
+  - 覆盖 LocalProof case/actions、AgentGuard case、Proof Packet export
+- `python .\scripts\backup_restore_api_smoke.py --cleanup`
+  - passed
+  - 覆盖 backup preview/create/list/detail/verify、restore preview、restore-to-new-location
+- `git tag --points-at HEAD`
+  - no output
+
+该复跑没有写入 Checkpoint A 文档，因为当时 PR #29 的 scope guard 是只改 `PLANS.md` 和 `README.md`。
+
+### Checkpoint D 验证结果
+
+PR #30 合并前后验证过：
+
+- `git diff --name-only origin/main...HEAD`
+  - `README.md`
+  - `docs/policy-gate-enforcement-boundary-review.md`
+- `git diff --check origin/main...HEAD`
+  - passed
+- `git tag --points-at HEAD`
+  - no output
+- `python -m pytest tests/test_release_docs.py`
+  - `3 passed`
+  - 本机仍有 pytest cache 权限 warning，exit code 为 0
+- `gh pr diff 30 --name-only`
+  - 只包含 `README.md` 和 `docs/policy-gate-enforcement-boundary-review.md`
+- `gh pr checks 30`
+  - Python 3.11：pass
+  - Python 3.12：pass
+  - Test and build：pass
+
+### 分支清理
+
+在 #30 merge 后，执行了一次安全优先的分支清理。
+
+清理前先确认：
+
+- `main` 已快进到 `047227d`。
+- `gh pr list --state all --limit 100` 显示相关 topic branches 对应 PR 均已 merged。
+- 当前只有一个 worktree：`D:/ProofFlow v0.1`。
+- 当前分支已切回 `main`。
+- `.playwright-mcp/` 和 `项目总结.txt` 是未跟踪本地文件，保留，不删除。
+
+清理动作：
+
+- 删除本地已合并/已完成 topic、docs、feature、fix、review 分支共 22 个。
+- 删除远端 GitHub 已合并 topic branches 共 15 个。
+- 运行 `git remote prune origin` 和 `git fetch origin --prune`。
+
+清理后验证：
+
+- `git ls-remote --heads origin`
+  - 只返回 `refs/heads/main`
+- `gh pr list --state open`
+  - `[]`
+- `git branch -a`
+  - 只剩：
+    - `main`
+    - `origin/main`
+    - `origin/HEAD -> origin/main`
+- `git status --short --branch`
+  - `## main...origin/main`
+  - 仍只有 `.playwright-mcp/` 和 `项目总结.txt` 未跟踪。
+
+### 明确没做的事情
+
+- 没有实现 runtime policy gate integration。
+- 没有把 policy gate 接入 `action_service.py`、LocalProof、AgentGuard、restore、backup、Proof Packet export 或 frontend。
+- 没有新增 policy API endpoint。
+- 没有新增 DB migration / schema / model 变更。
+- 没有修改 UI 行为。
+- 没有修改 backend/frontend runtime。
+- 没有新增 test logic。
+- 没有新增 package/config/lock 变更。
+- 没有修改 backup/restore behavior。
+- 没有实现 live DB restore。
+- 没有实现 destructive restore。
+- 没有实现 overwrite restore。
+- 没有移动、删除、重建、重打或 push `v0.1.0-rc1`。
+- 没有 cut `v0.1.0-rc2`。
+- 没有把 `.playwright-mcp/` 和 `项目总结.txt` 纳入任何 PR。
+
+### 当前交接结论
+
+post-RC1 policy gate checkpoint 文档链已推进到 Checkpoint D：
+
+- Checkpoint A：dogfood readiness evidence。
+- Checkpoint B：source map / checkpoint path 已由 integration checkpoints 文档覆盖。
+- Checkpoint C：policy gate input/output contract review。
+- Checkpoint D：runtime enforcement boundary design review。
+
+当前最重要的结论：
+
+- 可以继续围绕 policy gate 做设计和 dogfood。
+- 不建议直接进入 runtime enforcement implementation。
+- 如果继续推进，下一步更自然的是：
+  1. 暂停并 dogfood 当前 `main`；
+  2. 或进入 Checkpoint E / dry-run-only policy evaluation plan；
+  3. 或由 owner 要求补充 Checkpoint D 的某个设计 gap。
+
+不要在没有 owner decision gate 前，把 policy gate 接入 action execution、restore execution、AgentGuard、LocalProof、frontend controls 或通用权限系统。
+
+## 2026-05-06 交接记录：Checkpoint E-I → v0.1.0 正式发布
+
+上述限制已解除。Owner decision gate 已实现并通过 enforcement smoke test。Policy gate 已完整接入 action execution + frontend。
+
+### 已完成的 Checkpoint 链
+
+| Checkpoint | 内容 | PR |
+|-----------|------|-----|
+| E | Policy gate dry-run pipeline orchestrator | #38 |
+| F | Policy gate observation thin UI（只读显示） | #39 |
+| G | Policy gate owner decision gate types and validator | #40 |
+| H | Policy gate runtime enforcement — pending_decision lifecycle | #41 |
+| I | Frontend pending_decision gate UI（orange pill + banner + one-click approve） | #42 |
+| — | RC2 version bump | #43 |
+| — | v0.1.0 final release | #44 |
+
+### Policy Gate Enforcement 核心实现
+
+高风险动作（move_file, rename_file）在 execute 时：
+
+1. `evaluate_policy_gate()` 调用 classifier → 判定 high-risk
+2. 状态转为 `pending_decision`，文件不动
+3. 前端显示 orange status pill + gate banner（categories + reason）
+4. Owner 点击 "Approve & Resolve Gate" → 创建 Decision（绑定 action_id + pipeline_id + preview_hash）
+5. 再次 execute → `_validate_decision_gate()` 验证 binding → 执行文件操作
+
+安全语义：
+- Fail-open：classifier/observer 崩溃 → 不阻塞，正常执行
+- Fail-closed：一旦进入 pending_decision → 必须有 valid Decision 才能继续
+- Decision binding：必须匹配 action_id + policy_evaluation_id + preview_hash
+
+关键文件：
+- `backend/proofflow/services/action_service.py` — `_check_policy_gate()`, `_validate_decision_gate()`
+- `backend/proofflow/services/policy_gate_runtime_observer.py` — `evaluate_policy_gate()`, `PolicyGateEnforcementResult`
+- `backend/tests/conftest.py` — autouse fixture bypass gate for non-enforcement tests
+- `frontend/src/pages/CaseDetail.tsx` — `PolicyGateBanner` component
+- `frontend/src/pages/LocalProof.tsx` — same gate UI
+
+### 测试覆盖
+
+- Backend: 267 tests pass, 3 skipped
+- Frontend: 24 tests pass, build clean
+- `scripts/rc2_policy_gate_smoke.py`: 14/14 enforcement lifecycle checks
+  - health → create case → create action → approve → execute→pending_decision → verify evidence → create decision → re-execute→executed → verify file moved → reject flow
+- `scripts/rc_api_smoke.py`: LocalProof + AgentGuard + Packet + gate auto-approval
+
+### v0.1.0 Release
+
+- Tag: `v0.1.0`
+- GitHub Release: https://github.com/Hyperion-GPU/ProofFlow-v0.1/releases/tag/v0.1.0
+- 日期: 2026-05-06
+
+### v0.1.0 能帮用户完成什么
+
+1. 本地文件整理（LocalProof）
+   - 扫描任意文件夹 → 自动生成 SHA-256 hash + 文本索引
+   - AI 建议清理动作（move, rename, mkdir）
+   - 预览 → 批准 → 执行 → 可回滚（hash 校验）
+   - 全程记录为 Case + Evidence + Action
+
+2. 代码审查（AgentGuard）
+   - 读取本地 git diff → 生成 evidence-backed claims
+   - 自动过滤敏感文件（.env, .pem, .key）和超大文件（>256KB）
+   - 导出 Proof Packet（Markdown 格式，可分享）
+
+3. 高风险操作管控（Policy Gate）
+   - move_file / rename_file 自动暂停为 pending_decision
+   - Owner 必须审批才能继续执行
+   - 前端一键审批，预填所有 binding metadata
+   - 拒绝后文件不动，状态变为 rejected
+
+4. 备份恢复（Managed Backup/Restore）
+   - 创建 SQLite 一致性备份（ZIP 归档）
+   - 验证备份完整性（manifest hash + file hash）
+   - 恢复到新位置检查（不覆盖 live DB）
+
+5. 全链路审计
+   - Case → Artifact → Evidence → Action → Decision → Proof Packet
+   - 每个操作都有 evidence 记录
+   - 可导出为 Markdown 报告
+
+### 战略方向分析：功能开发 vs 工具集成
+
+结论：先接入主流编码工具。
+
+原因分析：
+
+1. 用户获取问题
+   - 独立 Web UI（localhost:5173）没有自然流量入口
+   - 用户不会主动去找一个"AI 操作审计工具"
+   - 但如果在 Claude Code / Codex / VS Code 里能直接触发 ProofFlow，使用门槛为零
+
+2. Codex for OSS 申请策略
+   - 评审看的是"真实用户在用"，不是功能数量
+   - 一个能在 Claude Code 里 `@proofflow` 触发审计的 MCP server，比 10 个没人用的 feature 更有说服力
+   - 需要 50+ stars 和真实使用数据才有竞争力
+
+3. 差异化定位
+   - 市面上没有"AI agent 操作审计 + 证据链"的 MCP server
+   - 这是蓝海：AI coding tools 越来越多，但审计/验收工具几乎没有
+   - ProofFlow 的定位是"AI 工作流黑匣子"，天然适合作为 MCP tool 嵌入
+
+4. 开发成本评估
+   - ProofFlow 已有完整 REST API（20+ endpoints）
+   - 包装成 MCP server 只需薄薄一层适配（tool definition + HTTP call）
+   - 预计 1-2 周可完成最小可用版本
+
+### 推荐路线图
+
+Phase 1（1-2 周）：ProofFlow MCP Server
+- 把核心 API 包装为 MCP tools：
+  - `proofflow_scan` — 扫描文件夹，创建 Case + Artifacts
+  - `proofflow_suggest` — 生成清理建议
+  - `proofflow_approve_execute` — 批准并执行动作
+  - `proofflow_review` — AgentGuard 代码审查
+  - `proofflow_export_packet` — 导出 Proof Packet
+  - `proofflow_status` — 查看 Case 状态
+- 用户在 Claude Code / Codex 中通过 tool call 触发
+- 发布到 npm / MCP server registry
+
+Phase 2（1 周）：VS Code Extension
+- 侧边栏显示当前 Case 状态和 pending_decision 提醒
+- 右键菜单触发 LocalProof scan / AgentGuard review
+- 状态栏 badge 显示未处理的 gate
+
+Phase 3（持续）：社区推广 + 申请
+- 写 demo 视频：Claude Code + ProofFlow 审计 AI 代码修改
+- 发布到 Reddit r/programming, Hacker News, Twitter
+- 目标：50+ stars → 申请 Codex for OSS
+- 收集用户反馈，迭代 MCP tool 设计
+
+### 为什么不先做更多功能
+
+- Vector RAG、ComfyUI、multi-user 这些功能很酷，但没有用户基础时做了也没人用
+- MCP server 是"分发渠道"，功能是"产品深度"
+- 先有渠道（用户能发现和使用），再加深度（更多功能）
+- 类比：先把店开在人流量大的地方，再丰富货架
+
+### 当前项目状态总结
+
+- v0.1.0 已发布，功能完整可用
+- 267 backend tests + 24 frontend tests + 2 smoke scripts
+- 核心能力：Evidence Graph + LocalProof + AgentGuard + Policy Gate + Backup/Restore
+- 已知限制：no auth, no cloud sync, no multi-user, localhost only
+- 下一步：MCP Server → VS Code Extension → 社区推广 → Codex for OSS 申请
+
+## 2026-05-07 项目包装：Codex for OSS 申请准备
+
+### 已完成的包装工作
+
+1. README 标题更新
+   - 改为：`ProofFlow — Local-first audit layer for Codex and AI coding agents`
+   - 添加引用语突出用户痛点
+
+2. Codex 专用文档
+   - 新建 `docs/codex_workflow.md`
+   - 内容：Setup → MCP 集成 → 典型 Codex 工作流 → Policy Gate 流程 → 安全模型
+
+3. 公开样例 Proof Packet
+   - 新建 `docs/examples/proof_packet_codex_review.md`
+   - 内容：完整的 Codex 代码审查 Proof Packet 示例（artifacts, claims, actions, decisions, timeline）
+
+4. GitHub Topics
+   - 添加：codex, mcp, ai-agents, code-review, audit, agent-safety, developer-tools
+
+5. Roadmap Issues（5 个）
+   - #57: VS Code extension: inline audit visualization
+   - #58: GitHub Actions integration: CI-triggered ProofFlow reviews
+   - #59: Multi-agent coordination: shared Cases across agents
+   - #60: Vector RAG: semantic evidence retrieval for large codebases
+   - #61: Webhook notifications for policy gate decisions
+
+### 下一步行动
+
+- [ ] 录制 30 秒 demo GIF（Claude Code + ProofFlow MCP 触发审计）
+- [ ] 发布到社交平台（Twitter, Reddit r/programming, Hacker News）
+- [ ] 收集早期用户反馈
+- [ ] 达到 50+ stars 后提交 Codex for OSS 申请
+
+### 2026-05-07 补充：文档真实性验证
+
+发现 `docs/codex_workflow.md` 和 `docs/examples/proof_packet_codex_review.md` 是虚构内容。
+已用 `scripts/generate_real_docs_output.py` 跑完整 MCP 工作流，用真实输出重写了两个文件。
+
+验证结果：
+- `proofflow_health`: 返回 version=0.1.0, stage=stable ✓
+- `proofflow_scan`: 扫描 4 个文件，创建 4 个 Artifacts，索引 2 个文本块 ✓
+- `proofflow_suggest`: 生成 3 个动作（1 mkdir + 2 move_file） ✓
+- `proofflow_approve_execute`: move_file 触发 policy gate → pending_decision ✓
+- `proofflow_decide`: 创建 accepted Decision，binding 验证通过 ✓
+- `proofflow_review`: 读取 git diff，生成 1 claim + 1 evidence ✓
+- `proofflow_export_packet`: 导出完整 Proof Packet Markdown ✓
+
+修复的 bug：
+- MCP server `_handle_decide` 缺少 `policy_evaluation_id` 和 `preview_hash`
+  导致 decision binding 验证失败。已修复并通过 24 个 MCP 测试。
+
+当前所有文档中的示例输出都是真实的、可复现的。

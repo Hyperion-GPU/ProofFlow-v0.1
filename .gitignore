@@ -22,3 +22,14 @@ dist/
 Thumbs.db
 .idea/
 .vscode/
+
+# Local tooling
+.claude/
+.playwright-mcp/
+*.exe
+
+# VS Code extension build artifacts
+*.vsix
+
+# Large media
+video/

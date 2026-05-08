@@ -200,6 +200,23 @@ async def test_search_tool():
 @pytest.mark.asyncio
 @respx.mock
 async def test_decide_tool():
+    respx.get("http://127.0.0.1:8787/cases/c1/actions").mock(
+        return_value=httpx.Response(200, json=[{
+            "id": "act-1",
+            "case_id": "c1",
+            "kind": "move_file",
+            "title": "Move file",
+            "status": "pending_decision",
+            "metadata": {
+                "policy_gate": {
+                    "pipeline_id": "pipe-123",
+                    "preview_hash": "hash-456",
+                }
+            },
+            "created_at": "t",
+            "updated_at": "t",
+        }])
+    )
     respx.post("http://127.0.0.1:8787/cases/c1/decisions").mock(
         return_value=httpx.Response(200, json={
             "id": "dec-1",

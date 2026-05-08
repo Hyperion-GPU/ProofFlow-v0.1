@@ -498,16 +498,30 @@ async def _handle_undo(args: dict[str, Any]) -> list[TextContent]:
 
 
 async def _handle_decide(args: dict[str, Any]) -> list[TextContent]:
+    # Fetch action to get policy gate metadata for binding
+    case_id = args["case_id"]
+    action_id = args["action_id"]
+    actions = await _client.list_actions(case_id)
+    gate_meta: dict[str, Any] = {}
+    for action in actions:
+        if action.get("id") == action_id:
+            gate_meta = (action.get("metadata") or {}).get("policy_gate", {})
+            break
+
+    metadata = {
+        "decision_kind": "policy_gate_owner_decision",
+        "action_id": action_id,
+        "policy_evaluation_id": gate_meta.get("pipeline_id", ""),
+        "preview_hash": gate_meta.get("preview_hash", ""),
+    }
+
     result = await _client.create_decision(
-        case_id=args["case_id"],
-        title=f"Decision on action {args['action_id']}",
+        case_id=case_id,
+        title=f"Decision on action {action_id}",
         status=args["decision"],
         rationale=args["rationale"],
         result=args["decision"],
-        metadata={
-            "decision_kind": "policy_gate_owner_decision",
-            "action_id": args["action_id"],
-        },
+        metadata=metadata,
     )
     return _text(
         f"Decision created.\n"

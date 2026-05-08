@@ -1,0 +1,110 @@
+{
+  "name": "proofflow",
+  "displayName": "ProofFlow",
+  "description": "Local-first audit layer for AI coding agents — review, gate, and trace every AI change",
+  "version": "0.1.0",
+  "publisher": "hyperion-gpu",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Hyperion-GPU/ProofFlow-v0.1"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Other", "Testing"],
+  "keywords": ["ai", "audit", "codex", "code-review", "agent-safety", "mcp"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "proofflow.reviewLastChanges",
+        "title": "ProofFlow: Review Last AI Changes",
+        "icon": "$(shield)"
+      },
+      {
+        "command": "proofflow.scanFolder",
+        "title": "ProofFlow: Scan Current Folder"
+      },
+      {
+        "command": "proofflow.approveAction",
+        "title": "ProofFlow: Approve Pending Action"
+      },
+      {
+        "command": "proofflow.refresh",
+        "title": "Refresh",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "proofflow.showLogs",
+        "title": "ProofFlow: Show Logs"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "proofflow-sidebar",
+          "title": "ProofFlow",
+          "icon": "resources/icons/proofflow.svg"
+        }
+      ]
+    },
+    "views": {
+      "proofflow-sidebar": [
+        {
+          "id": "proofflow.casesView",
+          "name": "Cases"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "proofflow.casesView",
+        "contents": "No cases found.\n[Review Last AI Changes](command:proofflow.reviewLastChanges)\n[Scan Current Folder](command:proofflow.scanFolder)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "proofflow.refresh",
+          "when": "view == proofflow.casesView",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "ProofFlow",
+      "properties": {
+        "proofflow.backendUrl": {
+          "type": "string",
+          "default": "http://127.0.0.1:8787",
+          "description": "URL of the ProofFlow backend server"
+        },
+        "proofflow.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Optional API key for authentication"
+        },
+        "proofflow.autoRefresh": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically poll backend every 10 seconds"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "package": "vsce package",
+    "publish": "vsce publish"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@types/node": "^20.11.0",
+    "esbuild": "^0.20.0",
+    "typescript": "^5.4.0",
+    "@vscode/vsce": "^2.24.0"
+  }
+}
