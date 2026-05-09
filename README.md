@@ -16,6 +16,9 @@ ProofFlow makes AI coding agents reviewable, traceable, and reversible through e
 [![Backend](https://github.com/Hyperion-GPU/ProofFlow-v0.1/actions/workflows/backend.yml/badge.svg)](https://github.com/Hyperion-GPU/ProofFlow-v0.1/actions/workflows/backend.yml)
 [![Frontend](https://github.com/Hyperion-GPU/ProofFlow-v0.1/actions/workflows/frontend.yml/badge.svg)](https://github.com/Hyperion-GPU/ProofFlow-v0.1/actions/workflows/frontend.yml)
 [![MCP Server](https://github.com/Hyperion-GPU/ProofFlow-v0.1/actions/workflows/mcp-server.yml/badge.svg)](https://github.com/Hyperion-GPU/ProofFlow-v0.1/actions/workflows/mcp-server.yml)
+[![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/hyperion-gpu.proofflow?label=VS%20Code&logo=visualstudiocode)](https://marketplace.visualstudio.com/items?itemName=hyperion-gpu.proofflow)
+[![PyPI](https://img.shields.io/pypi/v/proofflow-mcp?logo=pypi&logoColor=white)](https://pypi.org/project/proofflow-mcp/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## Problem
 
@@ -150,7 +153,7 @@ High-risk filesystem actions (moves to system paths, bulk operations) are automa
 - [ ] Multi-agent coordination (shared Cases across agents)
 - [ ] Vector RAG for semantic evidence retrieval
 - [ ] GitHub Actions integration (CI-triggered reviews)
-- [ ] VS Code extension for inline audit visualization
+- [x] VS Code extension ([Marketplace](https://marketplace.visualstudio.com/items?itemName=hyperion-gpu.proofflow))
 - [ ] Cloud sync option for team workflows
 - [ ] Webhook notifications for policy gate decisions
 
@@ -168,6 +171,13 @@ python scripts/mcp_smoke.py --cleanup
 # Demo workflow
 python scripts/demo_workflow.py
 ```
+
+## Contributing
+
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+- [Code of Conduct](CODE_OF_CONDUCT.md)
+- [Security Policy](SECURITY.md)
 
 ## License
 

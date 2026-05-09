@@ -1,0 +1,9 @@
+# Default reviewers for all changes
+* @Hyperion-GPU
+
+# Component-specific ownership
+/backend/ @Hyperion-GPU
+/frontend/ @Hyperion-GPU
+/mcp-server/ @Hyperion-GPU
+/vscode-proofflow/ @Hyperion-GPU
+/docs/ @Hyperion-GPU
