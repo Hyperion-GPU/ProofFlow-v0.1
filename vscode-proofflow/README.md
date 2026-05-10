@@ -12,7 +12,7 @@ The extension talks to a local ProofFlow backend (`http://127.0.0.1:8787` by def
 - **📂 Folder scan** — `ProofFlow: Scan Current Folder` indexes every file with SHA-256 hashes for cleanup or audit.
 - **🌳 Sidebar tree** — Browse all Cases. Expand to see Actions and Claims with severity-coded icons.
 - **🚦 Status bar** — Online/Offline indicator plus a counter for actions pending decision.
-- **✅ Quick approve** — `ProofFlow: Approve Pending Action` lets you pick from gated actions and approve + execute in one step.
+- **✅ Gate approve** — `ProofFlow: Approve Gate & Execute` lets you pick a gated action, record the owner decision, and execute it in one step.
 - **🔄 Auto-refresh** — Polls the backend every 10 seconds; configurable.
 
 ## Quick Start
@@ -54,7 +54,7 @@ code --install-extension proofflow-0.1.0.vsix
 |---|---|
 | `ProofFlow: Review Last AI Changes` | Runs AgentGuard on the current workspace and creates a code-review Case. |
 | `ProofFlow: Scan Current Folder` | Indexes every file in the workspace as artifacts. |
-| `ProofFlow: Approve Pending Action` | Quick-pick a gated action and approve + execute it. |
+| `ProofFlow: Approve Gate & Execute` | Quick-pick a gated action, record the owner decision, and execute it. |
 | `ProofFlow: Show Logs` | Open the ProofFlow output channel for debugging. |
 | `Refresh` (sidebar title bar) | Force a tree refresh. |
 

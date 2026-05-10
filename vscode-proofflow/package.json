@@ -29,7 +29,7 @@
       },
       {
         "command": "proofflow.approveAction",
-        "title": "ProofFlow: Approve Pending Action"
+        "title": "ProofFlow: Approve Gate & Execute"
       },
       {
         "command": "proofflow.refresh",
@@ -96,6 +96,7 @@
   },
   "scripts": {
     "build": "node esbuild.mjs",
+    "test": "node test/run-tests.mjs",
     "watch": "node esbuild.mjs --watch",
     "package": "vsce package",
     "publish": "vsce publish"

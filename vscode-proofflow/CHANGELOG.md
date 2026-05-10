@@ -6,7 +6,7 @@ Initial release.
 
 - One-click `Review Last AI Changes` command (calls `/agentguard/review`).
 - `Scan Current Folder` command (calls `/localproof/scan`).
-- `Approve Pending Action` command for gated actions.
+- `Approve Gate & Execute` command for gated actions.
 - Sidebar tree view: Cases → Actions / Claims, with severity-coded icons.
 - Status bar with online/offline indicator and pending-action counter.
 - Auto-polling every 10 seconds (configurable).
