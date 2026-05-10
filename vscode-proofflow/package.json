@@ -12,9 +12,21 @@
   "engines": {
     "vscode": "^1.85.0"
   },
-  "categories": ["Other", "Testing"],
-  "keywords": ["ai", "audit", "codex", "code-review", "agent-safety", "mcp"],
-  "activationEvents": ["onStartupFinished"],
+  "categories": [
+    "Other",
+    "Testing"
+  ],
+  "keywords": [
+    "ai",
+    "audit",
+    "codex",
+    "code-review",
+    "agent-safety",
+    "mcp"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
@@ -102,10 +114,10 @@
     "publish": "vsce publish"
   },
   "devDependencies": {
+    "@types/node": "^25.6.2",
     "@types/vscode": "^1.85.0",
-    "@types/node": "^20.11.0",
-    "esbuild": "^0.20.0",
-    "typescript": "^6.0.3",
-    "@vscode/vsce": "^2.24.0"
+    "@vscode/vsce": "^2.24.0",
+    "esbuild": "^0.28.0",
+    "typescript": "^6.0.3"
   }
 }
