@@ -411,10 +411,10 @@ async def _handle_approve_execute(args: dict[str, Any]) -> list[TextContent]:
     if status == "pending_decision":
         return _text(
             f"Action {action_id} is blocked by a policy gate (pending_decision).\n"
-            f"Owner approval is required in the ProofFlow UI before this action can execute."
+            "Owner approval is required in the ProofFlow UI before this action can execute."
         )
     lines = [
-        f"Action executed successfully.",
+        "Action executed successfully.",
         f"ID: {result['id']}",
         f"Kind: {result['kind']}",
         f"Status: {result['status']}",

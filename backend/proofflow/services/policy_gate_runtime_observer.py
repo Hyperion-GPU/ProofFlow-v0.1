@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from proofflow.db import connect, new_uuid, utc_now_iso
-from proofflow.services.json_utils import dumps_metadata, loads_metadata
+from proofflow.services.json_utils import dumps_metadata
 from proofflow.services.policy_gate_action_classifier import (
     classify_policy_gate_action,
 )
@@ -29,7 +29,6 @@ from proofflow.services.policy_gate_dry_run_pipeline import (
     evaluate_dry_run_pipeline,
 )
 from proofflow.services.policy_gate_service import (
-    PolicyCategory,
     PolicyGateEvaluation,
     PolicyGateResult,
     PolicyOutcome,
