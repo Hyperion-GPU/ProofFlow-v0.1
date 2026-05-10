@@ -3,7 +3,6 @@ from typing import Any
 
 from proofflow.db import connect, new_uuid, utc_now_iso
 from proofflow.models.schemas import (
-    ActionResponse,
     LocalProofSuggestActionsRequest,
     LocalProofSuggestActionsSummary,
     LocalProofSuggestSkippedItem,
