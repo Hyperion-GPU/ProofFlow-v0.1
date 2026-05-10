@@ -1,5 +1,7 @@
 import * as vscode from "vscode";
 import { ProofFlowClient } from "../api/client";
+import type { ActionResponse } from "../types";
+import { buildPolicyGateDecisionPayload } from "./policyGateDecision";
 
 export async function approveAction(client: ProofFlowClient): Promise<void> {
   const cases = await client.listCases().catch(() => []);
@@ -8,14 +10,14 @@ export async function approveAction(client: ProofFlowClient): Promise<void> {
     return;
   }
 
-  const pendingActions: { label: string; actionId: string }[] = [];
+  const pendingActions: { label: string; action: ActionResponse }[] = [];
   for (const c of cases) {
     const actions = await client.listCaseActions(c.id).catch(() => []);
     for (const a of actions) {
       if (a.status === "pending_decision") {
         pendingActions.push({
-          label: `${c.title} → ${a.title}`,
-          actionId: a.id,
+          label: `${c.title} -> ${a.title}`,
+          action: a,
         });
       }
     }
@@ -36,10 +38,11 @@ export async function approveAction(client: ProofFlowClient): Promise<void> {
   }
 
   try {
-    await client.approveAction(picked.actionId);
-    await client.executeAction(picked.actionId);
+    const decisionPayload = buildPolicyGateDecisionPayload(picked.action);
+    await client.createDecision(picked.action.case_id, decisionPayload);
+    await client.executeAction(picked.action.id);
     vscode.window.showInformationMessage(
-      `ProofFlow: Action approved and executed.`
+      "ProofFlow: Policy gate approved and action executed."
     );
     vscode.commands.executeCommand("proofflow.refresh");
   } catch (err: unknown) {
