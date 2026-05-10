@@ -11,10 +11,7 @@ from proofflow.services.policy_gate_action_snapshot import (
     PolicyGateActionSnapshot,
     stable_preview_hash,
 )
-from proofflow.services.policy_gate_dry_run_pipeline import (
-    PolicyGateDryRunPipelineResult,
-    evaluate_dry_run_pipeline,
-)
+from proofflow.services.policy_gate_dry_run_pipeline import evaluate_dry_run_pipeline
 from proofflow.services.policy_gate_service import (
     PolicyCategory,
     PolicyGateEvaluation,

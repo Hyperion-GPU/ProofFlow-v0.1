@@ -1,8 +1,6 @@
 """Tests for MCP server tool listing and dispatch."""
 
-import pytest
-
-from proofflow_mcp.server import TOOLS, _server
+from proofflow_mcp.server import TOOLS
 
 
 def test_all_tools_defined():
