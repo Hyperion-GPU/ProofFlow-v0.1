@@ -4,6 +4,13 @@ All notable changes for ProofFlow v0.1 are tracked here.
 
 ## Unreleased
 
+## v0.1.4
+
+### Fixed
+
+- Fixed #78: VS Code `Approve Gate & Execute` now records the accepted policy
+  gate owner decision for `pending_decision` actions before executing them.
+
 ## v0.1.0
 
 ### Added
