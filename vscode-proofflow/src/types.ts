@@ -15,14 +15,52 @@ export interface ActionResponse {
   kind: string;
   reason?: string;
   preview?: ActionPreview;
-  metadata?: Record<string, unknown>;
+  metadata?: ActionMetadata;
   created_at: string;
 }
 
 export interface ActionPreview {
   from_path?: string;
   to_path?: string;
+  dir_path?: string;
   content?: string;
+}
+
+export interface ActionMetadata {
+  policy_gate?: PolicyGateMetadata;
+  [key: string]: unknown;
+}
+
+export interface PolicyGateMetadata {
+  pipeline_id?: unknown;
+  preview_hash?: unknown;
+  reason?: unknown;
+  [key: string]: unknown;
+}
+
+export interface DecisionCreatePayload {
+  title: string;
+  status: "accepted";
+  rationale: string;
+  result: string;
+  metadata: {
+    decision_kind: "policy_gate_owner_decision";
+    action_id: string;
+    policy_evaluation_id: string;
+    preview_hash: string;
+    source: "vscode-proofflow";
+  };
+}
+
+export interface DecisionResponse {
+  id: string;
+  case_id: string;
+  title: string;
+  status: string;
+  rationale: string;
+  result: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface ReviewResponse {
