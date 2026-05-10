@@ -6,6 +6,8 @@ import type {
   ScanResponse,
   HealthResponse,
   CasePacket,
+  DecisionCreatePayload,
+  DecisionResponse,
 } from "../types";
 
 export class ProofFlowClient {
@@ -108,8 +110,15 @@ export class ProofFlowClient {
     await this.request("POST", `/actions/${actionId}/approve`);
   }
 
-  async executeAction(actionId: string): Promise<void> {
-    await this.request("POST", `/actions/${actionId}/execute`);
+  async createDecision(
+    caseId: string,
+    payload: DecisionCreatePayload
+  ): Promise<DecisionResponse> {
+    return this.request("POST", `/cases/${caseId}/decisions`, payload);
+  }
+
+  async executeAction(actionId: string): Promise<ActionResponse> {
+    return this.request("POST", `/actions/${actionId}/execute`);
   }
 
   async getCasePacket(caseId: string): Promise<CasePacket> {

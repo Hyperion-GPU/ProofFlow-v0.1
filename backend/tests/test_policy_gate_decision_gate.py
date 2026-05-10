@@ -10,10 +10,7 @@ from proofflow.services.policy_gate_decision_gate import (
     PolicyGateDecisionBinding,
     PolicyGateDecisionRequirement,
 )
-from proofflow.services.policy_gate_decision_validator import (
-    PolicyGateDecisionValidation,
-    validate_decision_binding,
-)
+from proofflow.services.policy_gate_decision_validator import validate_decision_binding
 from proofflow.services.policy_gate_service import PolicyCategory
 
 
