@@ -32,12 +32,12 @@
     "commands": [
       {
         "command": "proofflow.reviewLastChanges",
-        "title": "ProofFlow: Review Last AI Changes",
+        "title": "ProofFlow: Review with AgentGuard",
         "icon": "$(shield)"
       },
       {
         "command": "proofflow.scanFolder",
-        "title": "ProofFlow: Scan Current Folder"
+        "title": "ProofFlow: Scan with ProofFlow"
       },
       {
         "command": "proofflow.approveAction",
@@ -82,6 +82,24 @@
           "command": "proofflow.refresh",
           "when": "view == proofflow.casesView",
           "group": "navigation"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "proofflow.scanFolder",
+          "when": "explorerResourceIsFolder",
+          "group": "navigation@80"
+        },
+        {
+          "command": "proofflow.reviewLastChanges",
+          "group": "navigation@81"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "proofflow.approveAction",
+          "when": "view == proofflow.casesView && viewItem == action",
+          "group": "inline"
         }
       ]
     },

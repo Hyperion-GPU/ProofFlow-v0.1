@@ -1,27 +1,16 @@
 import * as vscode from "vscode";
 import { ProofFlowClient } from "../api/client";
 
-export async function reviewChanges(client: ProofFlowClient): Promise<void> {
-  const folders = vscode.workspace.workspaceFolders;
-  if (!folders || folders.length === 0) {
-    vscode.window.showErrorMessage("ProofFlow: No workspace folder open.");
+export async function reviewChanges(
+  client: ProofFlowClient,
+  selectedUri?: vscode.Uri
+): Promise<void> {
+  const repoPath = selectedUri
+    ? resolveWorkspaceRoot(selectedUri)
+    : await pickWorkspaceFolderPath();
+  if (!repoPath) {
     return;
   }
-
-  let folder: vscode.WorkspaceFolder;
-  if (folders.length === 1) {
-    folder = folders[0];
-  } else {
-    const picked = await vscode.window.showWorkspaceFolderPick({
-      placeHolder: "Select workspace to review",
-    });
-    if (!picked) {
-      return;
-    }
-    folder = picked;
-  }
-
-  const repoPath = folder.uri.fsPath;
 
   await vscode.window.withProgress(
     {
@@ -33,7 +22,7 @@ export async function reviewChanges(client: ProofFlowClient): Promise<void> {
       try {
         const result = await client.review(repoPath);
         vscode.window.showInformationMessage(
-          `ProofFlow: Review complete — ${result.risk_level} risk, ${result.claims_created} claim(s), ${result.changed_files.length} file(s)`
+          `ProofFlow: Review complete - ${result.risk_level} risk, ${result.claims_created} claim(s), ${result.changed_files.length} file(s)`
         );
         vscode.commands.executeCommand("proofflow.refresh");
       } catch (err: unknown) {
@@ -49,4 +38,38 @@ export async function reviewChanges(client: ProofFlowClient): Promise<void> {
       }
     }
   );
+}
+
+function resolveWorkspaceRoot(selectedUri: vscode.Uri): string | undefined {
+  const folder = vscode.workspace.getWorkspaceFolder(selectedUri);
+  if (!folder) {
+    vscode.window.showErrorMessage(
+      "ProofFlow: Selected item is not inside a workspace folder."
+    );
+    return undefined;
+  }
+  return folder.uri.fsPath;
+}
+
+async function pickWorkspaceFolderPath(): Promise<string | undefined> {
+  const folders = vscode.workspace.workspaceFolders;
+  if (!folders || folders.length === 0) {
+    vscode.window.showErrorMessage("ProofFlow: No workspace folder open.");
+    return undefined;
+  }
+
+  let folder: vscode.WorkspaceFolder;
+  if (folders.length === 1) {
+    folder = folders[0];
+  } else {
+    const picked = await vscode.window.showWorkspaceFolderPick({
+      placeHolder: "Select workspace to review",
+    });
+    if (!picked) {
+      return undefined;
+    }
+    folder = picked;
+  }
+
+  return folder.uri.fsPath;
 }

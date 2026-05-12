@@ -26,11 +26,11 @@ export function activate(context: vscode.ExtensionContext): void {
     output,
     treeView,
     statusBar,
-    vscode.commands.registerCommand("proofflow.reviewLastChanges", () =>
-      reviewChanges(client)
+    vscode.commands.registerCommand("proofflow.reviewLastChanges", (uri?: vscode.Uri) =>
+      reviewChanges(client, uri)
     ),
-    vscode.commands.registerCommand("proofflow.scanFolder", () =>
-      scanFolder(client)
+    vscode.commands.registerCommand("proofflow.scanFolder", (uri?: vscode.Uri) =>
+      scanFolder(client, uri)
     ),
     vscode.commands.registerCommand("proofflow.approveAction", () =>
       approveAction(client)
