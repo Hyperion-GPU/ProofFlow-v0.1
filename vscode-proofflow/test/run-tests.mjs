@@ -8,6 +8,10 @@ const outDir = await mkdtemp(path.join(tmpdir(), "proofflow-vscode-tests-"));
 const testFiles = [
   "test/policyGateDecision.test.ts",
   "test/approveAction.test.ts",
+  "test/scanFolder.test.ts",
+  "test/reviewChanges.test.ts",
+  "test/polling.test.ts",
+  "test/packageContributions.test.ts",
 ];
 
 const vscodeMockPlugin = {

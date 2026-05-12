@@ -1,5 +1,4 @@
 import * as vscode from "vscode";
-import { ProofFlowClient } from "../api/client";
 
 export class StatusBar {
   private item: vscode.StatusBarItem;
@@ -36,7 +35,7 @@ export class StatusBar {
     } else if (this.pendingCount > 0) {
       this.item.text = `$(shield) ProofFlow (${this.pendingCount})`;
       this.item.backgroundColor = undefined;
-      this.item.tooltip = `${this.pendingCount} action(s) pending decision`;
+      this.item.tooltip = `${this.pendingCount} action(s) pending decision. Run ProofFlow: Approve Gate & Execute to continue.`;
     } else {
       this.item.text = "$(shield) ProofFlow";
       this.item.backgroundColor = undefined;
