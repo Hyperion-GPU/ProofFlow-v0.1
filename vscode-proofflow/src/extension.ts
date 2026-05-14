@@ -6,6 +6,7 @@ import { CasesTreeProvider } from "./views/casesTreeProvider";
 import { reviewChanges } from "./commands/reviewChanges";
 import { scanFolder } from "./commands/scanFolder";
 import { approveAction } from "./commands/approveAction";
+import { InlineAuditDecorations } from "./inlineDecorations";
 
 let poller: Poller | undefined;
 
@@ -16,6 +17,7 @@ export function activate(context: vscode.ExtensionContext): void {
   const client = new ProofFlowClient(output);
   const statusBar = new StatusBar();
   const treeProvider = new CasesTreeProvider(client, output);
+  const inlineDecorations = new InlineAuditDecorations(client, output);
 
   const treeView = vscode.window.createTreeView("proofflow.casesView", {
     treeDataProvider: treeProvider,
@@ -26,6 +28,10 @@ export function activate(context: vscode.ExtensionContext): void {
     output,
     treeView,
     statusBar,
+    inlineDecorations,
+    vscode.window.onDidChangeVisibleTextEditors(() =>
+      void inlineDecorations.refresh()
+    ),
     vscode.commands.registerCommand("proofflow.reviewLastChanges", (uri?: vscode.Uri) =>
       reviewChanges(client, uri)
     ),
@@ -35,9 +41,10 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand("proofflow.approveAction", () =>
       approveAction(client)
     ),
-    vscode.commands.registerCommand("proofflow.refresh", () =>
-      treeProvider.refresh()
-    ),
+    vscode.commands.registerCommand("proofflow.refresh", () => {
+      treeProvider.refresh();
+      void inlineDecorations.refresh();
+    }),
     vscode.commands.registerCommand("proofflow.showLogs", () =>
       output.show(true)
     )
@@ -48,7 +55,7 @@ export function activate(context: vscode.ExtensionContext): void {
     .get<boolean>("autoRefresh", true);
 
   if (autoRefresh) {
-    poller = new Poller(client, statusBar, treeProvider);
+    poller = new Poller(client, statusBar, treeProvider, inlineDecorations);
     poller.start();
   }
 
@@ -59,7 +66,7 @@ export function activate(context: vscode.ExtensionContext): void {
           .getConfiguration("proofflow")
           .get<boolean>("autoRefresh", true);
         if (enabled && !poller) {
-          poller = new Poller(client, statusBar, treeProvider);
+          poller = new Poller(client, statusBar, treeProvider, inlineDecorations);
           poller.start();
         } else if (!enabled && poller) {
           poller.stop();

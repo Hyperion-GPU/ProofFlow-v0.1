@@ -301,6 +301,13 @@ class CasePacketArtifact(BaseModel):
     updated_at: str
 
 
+class CasePacketSourceLocation(BaseModel):
+    path: str
+    start_line: int = Field(ge=1)
+    end_line: int = Field(ge=1)
+    source: Literal["source_ref", "artifact_path"]
+
+
 class CasePacketEvidence(BaseModel):
     id: str
     artifact_id: str | None
@@ -310,6 +317,7 @@ class CasePacketEvidence(BaseModel):
     source_ref: str | None
     artifact_name: str | None
     artifact_path: str | None
+    source_location: CasePacketSourceLocation | None = None
     created_at: str
 
 
