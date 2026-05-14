@@ -72,18 +72,17 @@ export class InlineAuditDecorations {
               sameFilePath(decoration.filePath, editor.document.uri.fsPath)
           )
           .map((decoration) => ({
-            range: new vscode.Range(
-              decoration.startLine - 1,
-              0,
-              decoration.endLine - 1,
-              0
-            ),
+            range: claimDecorationRange(decoration),
             hoverMessage: decoration.message,
           }));
         editor.setDecorations(this.decorationTypes[severity], options);
       }
     }
   }
+}
+
+export function claimDecorationRange(decoration: ClaimDecoration): vscode.Range {
+  return new vscode.Range(decoration.startLine - 1, 0, decoration.endLine, 0);
 }
 
 export function buildClaimDecorations(
@@ -155,15 +154,21 @@ function resolveSourcePath(sourcePath: string, roots: string[]): string | undefi
   if (!root) {
     return undefined;
   }
+  if (isWindowsSourcePath(root)) {
+    return path.win32.resolve(root, sourcePath);
+  }
   return path.resolve(root, sourcePath);
+}
+
+function isWindowsSourcePath(sourcePath: string): boolean {
+  return /^[A-Za-z]:[\\/]/.test(sourcePath) || sourcePath.startsWith("\\\\");
 }
 
 function isAbsoluteSourcePath(sourcePath: string): boolean {
   return (
     path.isAbsolute(sourcePath) ||
     path.posix.isAbsolute(sourcePath) ||
-    /^[A-Za-z]:[\\/]/.test(sourcePath) ||
-    sourcePath.startsWith("\\\\")
+    isWindowsSourcePath(sourcePath)
   );
 }
 

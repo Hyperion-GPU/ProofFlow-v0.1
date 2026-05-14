@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { buildClaimDecorations } from "../src/inlineDecorations";
+import { buildClaimDecorations, claimDecorationRange } from "../src/inlineDecorations";
 import type { CasePacket } from "../src/types";
 import { workspaceFolder } from "vscode";
 
@@ -157,4 +157,19 @@ test("buildClaimDecorations can use packet repo_path when no workspace is availa
 
   assert.equal(decorations[0].filePath, "C:\\repo\\tests\\test_actions.py");
   assert.equal(decorations[0].severity, "high");
+});
+
+test("claimDecorationRange includes the packet inclusive end line", () => {
+  const range = claimDecorationRange({
+    filePath: "C:\\repo\\src\\actions.ts",
+    startLine: 12,
+    endLine: 14,
+    severity: "medium",
+    message: "ProofFlow medium claim",
+  });
+
+  assert.equal(range.startLine, 11);
+  assert.equal(range.startCharacter, 0);
+  assert.equal(range.endLine, 14);
+  assert.equal(range.endCharacter, 0);
 });
