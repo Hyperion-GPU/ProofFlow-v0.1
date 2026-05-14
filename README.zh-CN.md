@@ -11,7 +11,7 @@ ProofFlow 让 AI coding agents 的行为变得可评审、可追踪、可回退�
 ▶ **观看 72 秒演示：** [From AI agent claims to verifiable Proof Packets](https://github.com/Hyperion-GPU/ProofFlow-v0.1/releases/tag/v0.1.3)<br>
 📦 **Proof Packet 示例：** [`docs/examples/proof_packet_codex_review.md`](docs/examples/proof_packet_codex_review.md)
 
-[![ProofFlow demo thumbnail](docs/assets/proofflow-demo-thumbnail.png)](https://github.com/Hyperion-GPU/ProofFlow-v0.1/releases/tag/v0.1.3)
+[![ProofFlow AgentGuard demo screenshot](docs/assets/proofflow-demo-thumbnail.png)](https://github.com/Hyperion-GPU/ProofFlow-v0.1/releases/tag/v0.1.3)
 
 [![Backend](https://img.shields.io/badge/backend-FastAPI-0f5132)](#architecture)
 [![Frontend](https://img.shields.io/badge/frontend-React-0f5132)](#architecture)
