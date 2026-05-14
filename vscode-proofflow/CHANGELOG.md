@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.1.5 - 2026-05-14
+
+### Added
+
+- Added inline audit decorations for ProofFlow claims with reliable source
+  locations.
+- Added Explorer context menu entries for `Scan with ProofFlow` and
+  `Review with AgentGuard`.
+- Added a pending policy gate notification that opens the existing approve flow.
+
+### Fixed
+
+- Fixed multiline inline decoration ranges so packet inclusive end lines remain
+  highlighted in VS Code's exclusive range model.
+
 ## 0.1.4 - 2026-05-10
 
 ### Fixed

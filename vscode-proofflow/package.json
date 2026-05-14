@@ -2,7 +2,7 @@
   "name": "proofflow",
   "displayName": "ProofFlow",
   "description": "Local-first audit layer for AI coding agents — review, gate, and trace every AI change",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "publisher": "hyperion-gpu",
   "license": "MIT",
   "repository": {

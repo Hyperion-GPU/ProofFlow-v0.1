@@ -4,6 +4,20 @@ All notable changes for ProofFlow v0.1 are tracked here.
 
 ## Unreleased
 
+## v0.1.5
+
+### Added
+
+- Completed #57: VS Code inline audit visualization now highlights claims with
+  reliable source locations in open editors.
+- Case packet evidence now exposes structured `source_location` data when an
+  existing source reference includes an explicit path and line or line range.
+
+### Fixed
+
+- Fixed VS Code decoration range conversion so inclusive packet end lines map
+  to VS Code's exclusive range end position.
+
 ## v0.1.4
 
 ### Fixed
