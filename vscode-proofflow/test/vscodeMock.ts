@@ -151,12 +151,25 @@ export const StatusBarAlignment = {
   Left: 1,
 };
 
+export const OverviewRulerLane = {
+  Right: 4,
+};
+
 export class ThemeColor {
   constructor(readonly id: string) {}
 }
 
 export class ThemeIcon {
   constructor(readonly id: string, readonly color?: ThemeColor) {}
+}
+
+export class Range {
+  constructor(
+    readonly startLine: number,
+    readonly startCharacter: number,
+    readonly endLine: number,
+    readonly endCharacter: number
+  ) {}
 }
 
 function normalizePath(value: string): string {

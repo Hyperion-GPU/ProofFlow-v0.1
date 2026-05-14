@@ -184,8 +184,62 @@ def _evidence_from_row(row: Any) -> CasePacketEvidence:
         source_ref=row["source_ref"],
         artifact_name=row["artifact_name"],
         artifact_path=artifact_path,
+        source_location=_source_location_from_refs(row["source_ref"], artifact_path),
         created_at=row["created_at"],
     )
+
+
+def _source_location_from_refs(source_ref: str | None, artifact_path: str | None) -> dict[str, Any] | None:
+    source_ref_location = _parse_path_line_ref(source_ref)
+    if source_ref_location is not None:
+        return {
+            **source_ref_location,
+            "source": "source_ref",
+        }
+
+    artifact_path_location = _parse_path_line_ref(artifact_path)
+    if artifact_path_location is not None:
+        return {
+            **artifact_path_location,
+            "source": "artifact_path",
+        }
+
+    return None
+
+
+def _parse_path_line_ref(value: str | None) -> dict[str, Any] | None:
+    if not value:
+        return None
+
+    ref = value.strip()
+    separator_index = ref.rfind(":")
+    if separator_index <= 0 or separator_index == len(ref) - 1:
+        return None
+
+    path = ref[:separator_index]
+    line_part = ref[separator_index + 1 :]
+    if not path or not line_part:
+        return None
+
+    if "-" in line_part:
+        start_text, end_text = line_part.split("-", 1)
+    else:
+        start_text = line_part
+        end_text = line_part
+
+    if not start_text.isdigit() or not end_text.isdigit():
+        return None
+
+    start_line = int(start_text)
+    end_line = int(end_text)
+    if start_line < 1 or end_line < start_line:
+        return None
+
+    return {
+        "path": path,
+        "start_line": start_line,
+        "end_line": end_line,
+    }
 
 
 def _claim_from_row(row: Any, evidence: list[CasePacketEvidence]) -> CasePacketClaim:

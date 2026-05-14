@@ -2,8 +2,13 @@ import { ProofFlowClient } from "./api/client";
 import { StatusBar } from "./statusBar";
 import { CasesTreeProvider } from "./views/casesTreeProvider";
 import * as vscode from "vscode";
+import type { CaseResponse } from "./types";
 
 const APPROVE_GATE_LABEL = "Approve Gate & Execute";
+
+interface InlineDecorations {
+  refresh(cases?: CaseResponse[]): Promise<void>;
+}
 
 export class Poller {
   private timer: ReturnType<typeof setInterval> | undefined;
@@ -11,15 +16,18 @@ export class Poller {
   private client: ProofFlowClient;
   private statusBar: StatusBar;
   private treeProvider: CasesTreeProvider;
+  private inlineDecorations: InlineDecorations | undefined;
 
   constructor(
     client: ProofFlowClient,
     statusBar: StatusBar,
-    treeProvider: CasesTreeProvider
+    treeProvider: CasesTreeProvider,
+    inlineDecorations?: InlineDecorations
   ) {
     this.client = client;
     this.statusBar = statusBar;
     this.treeProvider = treeProvider;
+    this.inlineDecorations = inlineDecorations;
   }
 
   start(): void {
@@ -52,6 +60,7 @@ export class Poller {
       this.statusBar.setPendingCount(pendingActionIds.length);
       await this.notifyPendingActions(pendingActionIds);
       this.treeProvider.refresh();
+      await this.inlineDecorations?.refresh(cases).catch(() => undefined);
     } catch {
       this.statusBar.setOnline(false);
     }

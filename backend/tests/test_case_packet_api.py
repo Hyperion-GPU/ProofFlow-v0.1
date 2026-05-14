@@ -11,7 +11,7 @@ def _client(monkeypatch, tmp_path) -> TestClient:
     return TestClient(app)
 
 
-def _seed_case_packet() -> str:
+def _seed_case_packet(source_ref: str = "tests/test_actions.py:42") -> str:
     case_id = "case-packet-1"
     artifact_id = "artifact-packet-1"
     claim_id = "claim-packet-1"
@@ -131,7 +131,7 @@ def _seed_case_packet() -> str:
                 claim_id,
                 "git_diff",
                 "AssertionError: expected safe action state",
-                "tests/test_actions.py:42",
+                source_ref,
                 dumps_metadata({}),
                 now,
                 now,
@@ -213,6 +213,12 @@ def test_get_case_packet_returns_case_context(monkeypatch, tmp_path):
     assert claim["evidence"][0]["artifact_name"] == "app.py diff"
     assert claim["evidence"][0]["artifact_path"] == "C:/ProofFlow/repo/app.py"
     assert claim["evidence"][0]["source_ref"] == "tests/test_actions.py:42"
+    assert claim["evidence"][0]["source_location"] == {
+        "path": "tests/test_actions.py",
+        "start_line": 42,
+        "end_line": 42,
+        "source": "source_ref",
+    }
 
     assert payload["actions"][0]["status"] == "approved"
     assert payload["actions"][0]["title"] == "Inspect failed tests"
@@ -220,6 +226,17 @@ def test_get_case_packet_returns_case_context(monkeypatch, tmp_path):
     assert payload["decisions"][0]["result"] == "Do not commit."
     assert payload["runs"][0]["metadata"]["test_status"] == "failed"
     assert payload["runs"][0]["metadata"]["return_code"] == 1
+
+
+def test_get_case_packet_does_not_invent_source_location_without_line(monkeypatch, tmp_path):
+    with _client(monkeypatch, tmp_path) as client:
+        case_id = _seed_case_packet(source_ref="tests/test_actions.py")
+        response = client.get(f"/cases/{case_id}/packet")
+
+    assert response.status_code == 200
+    evidence = response.json()["claims"][0]["evidence"][0]
+    assert evidence["source_ref"] == "tests/test_actions.py"
+    assert evidence["source_location"] is None
 
 
 def test_get_case_packet_missing_case_returns_404(monkeypatch, tmp_path):
