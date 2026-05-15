@@ -145,6 +145,7 @@ def test_agentguard_review_records_failing_test_as_high_risk(monkeypatch):
     _require_git()
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_root = Path(temp_dir)
+        monkeypatch.setenv("PROOFFLOW_ENABLE_TEST_COMMANDS", "true")
         repo = _init_repo(temp_root / "repo")
         (repo / "fail_test.py").write_text(
             "import sys\nprint('failing test')\nsys.stderr.write('boom\\n')\nsys.exit(1)\n",
@@ -199,6 +200,27 @@ def test_agentguard_review_records_failing_test_as_high_risk(monkeypatch):
         assert json.loads(run["metadata_json"])["test_status"] == "failed"
         assert "failing test" in test_output_chunk["content"]
         assert "boom" in test_output_chunk["content"]
+
+
+def test_agentguard_review_rejects_test_command_when_disabled(monkeypatch):
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_root = Path(temp_dir)
+        monkeypatch.delenv("PROOFFLOW_ENABLE_TEST_COMMANDS", raising=False)
+
+        with _client(monkeypatch, temp_root) as client:
+            response = client.post(
+                "/agentguard/review",
+                json={
+                    "repo_path": str(temp_root / "missing-repo"),
+                    "test_command": "python -m pytest",
+                },
+            )
+
+        assert response.status_code == 400
+        assert "PROOFFLOW_ENABLE_TEST_COMMANDS=true" in response.json()["detail"]
+        with connect(get_db_path()) as connection:
+            case_count = connection.execute("SELECT COUNT(*) FROM cases").fetchone()[0]
+        assert case_count == 0
 
 
 def test_agentguard_review_honors_include_untracked(monkeypatch):

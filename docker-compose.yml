@@ -2,12 +2,14 @@ services:
   backend:
     build: ./backend
     ports:
-      - "8787:8787"
+      - "127.0.0.1:8787:8787"
     volumes:
       - proofflow-data:/app/data
     environment:
       - PROOFFLOW_DB_PATH=/app/data/proofflow.db
       - PROOFFLOW_DATA_DIR=/app/data
+      - PROOFFLOW_API_KEY=${PROOFFLOW_API_KEY:-}
+      - PROOFFLOW_ENABLE_TEST_COMMANDS=${PROOFFLOW_ENABLE_TEST_COMMANDS:-false}
     healthcheck:
       test: ["CMD", "python", "-c", "import httpx; r=httpx.get('http://localhost:8787/health'); assert r.status_code==200"]
       interval: 10s
@@ -15,9 +17,12 @@ services:
       retries: 3
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        VITE_PROOFFLOW_API_KEY: ${PROOFFLOW_API_KEY:-}
     ports:
-      - "5173:5173"
+      - "127.0.0.1:5173:5173"
     depends_on:
       backend:
         condition: service_healthy

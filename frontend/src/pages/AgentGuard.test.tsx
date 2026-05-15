@@ -61,6 +61,30 @@ describe("AgentGuard", () => {
       "/cases/case-agentguard",
     );
   });
+
+  it("explains when backend test commands are disabled", async () => {
+    mockApiPost.mockRejectedValue(
+      new Error(
+        "AgentGuard test_command execution is disabled. Set PROOFFLOW_ENABLE_TEST_COMMANDS=true to allow local test commands.",
+      ),
+    );
+
+    render(
+      <MemoryRouter>
+        <AgentGuard />
+      </MemoryRouter>,
+    );
+
+    await userEvent.type(screen.getByLabelText("Repo path"), "D:/repo");
+    await userEvent.type(screen.getByLabelText("Test command"), "python -m pytest");
+    await userEvent.click(screen.getByRole("button", { name: "Run review" }));
+
+    expect(
+      await screen.findByText(
+        "AgentGuard test commands are disabled by default. Set PROOFFLOW_ENABLE_TEST_COMMANDS=true on the backend to run a local test command.",
+      ),
+    ).toBeInTheDocument();
+  });
 });
 
 function agentGuardPacket(): CasePacketResponse {

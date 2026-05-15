@@ -7,6 +7,7 @@ import os
 import shlex
 import subprocess
 
+from proofflow.config import test_commands_enabled
 from proofflow.db import connect, new_uuid, utc_now_iso
 from proofflow.models.schemas import (
     AgentGuardArtifactRef,
@@ -58,6 +59,12 @@ class ArtifactRecord:
 
 
 def review_repository(payload: AgentGuardReviewRequest) -> AgentGuardReviewResponse:
+    if payload.test_command is not None and payload.test_command.strip():
+        if not test_commands_enabled():
+            raise ReviewServiceError(
+                "AgentGuard test_command execution is disabled. "
+                "Set PROOFFLOW_ENABLE_TEST_COMMANDS=true to allow local test commands."
+            )
     review_started_at = utc_now_iso()
     snapshot = inspect_working_tree(
         payload.repo_path,

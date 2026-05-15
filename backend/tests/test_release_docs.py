@@ -45,6 +45,9 @@ def test_rc1_bug_bash_links_and_changelog_unreleased_scope():
     assert "ProofFlow" in readme
     assert "MCP" in readme
     assert "docker compose" in readme.lower() or "docker-compose" in readme.lower()
+    assert "127.0.0.1" in readme
+    assert "PROOFFLOW_API_KEY" in readme
+    assert "PROOFFLOW_ENABLE_TEST_COMMANDS" in readme
 
     # Changelog structure still valid
     assert "## Unreleased" in changelog

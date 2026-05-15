@@ -101,8 +101,9 @@ export function AgentGuard() {
         </label>
         <p className="notice-text">
           AgentGuard reads the local git repository and creates a review Case. If provided,
-          the test command executes locally from the repo path with the backend's 120 second
-          timeout. v0.1 does not modify code or apply AI fixes.
+          the test command executes locally from the repo path only when the backend has
+          PROOFFLOW_ENABLE_TEST_COMMANDS=true, with a 120 second timeout. v0.1 does not
+          modify code or apply AI fixes.
         </p>
         <button type="submit" disabled={!repoPath.trim() || !baseRef.trim() || loading}>
           {loading ? "Reviewing..." : "Run review"}
@@ -247,6 +248,9 @@ function reviewErrorText(error: unknown): string {
   }
   if (lower.includes("test command executable not found")) {
     return `AgentGuard could not run the local test command: ${message}`;
+  }
+  if (lower.includes("proofflow_enable_test_commands")) {
+    return `AgentGuard test commands are disabled by default. Set PROOFFLOW_ENABLE_TEST_COMMANDS=true on the backend to run a local test command.`;
   }
   if (lower.includes("base_ref") || lower.includes("base ref")) {
     return `AgentGuard could not resolve the base ref: ${message}`;

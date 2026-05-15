@@ -19,6 +19,7 @@ if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
 from proofflow.db import connect, new_uuid, utc_now_iso
+from proofflow.config import test_commands_enabled
 from proofflow.migrations import init_db
 from proofflow.models.schemas import (
     ActionCreate,
@@ -128,6 +129,8 @@ def seed_demo(
         agentguard_case_id, agentguard_skipped_reason = _try_create_agentguard_demo(
             agent_repo
         )
+    else:
+        agentguard_skipped_reason = "AgentGuard demo was not requested"
 
     return DemoSeedResult(
         db_path=db_path,
@@ -365,7 +368,7 @@ def _try_create_agentguard_demo(agent_repo: Path) -> tuple[str | None, str | Non
         return None, "git executable was not found"
     try:
         _create_demo_git_repo(agent_repo)
-        command = f'"{sys.executable}" run_tests.py'
+        command = f'"{sys.executable}" run_tests.py' if test_commands_enabled() else None
         response = review_service.review_repository(
             AgentGuardReviewRequest(
                 repo_path=str(agent_repo),
