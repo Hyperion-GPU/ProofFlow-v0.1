@@ -84,7 +84,13 @@ TOOLS: list[Tool] = [
                 "repo_path": {"type": "string", "description": "Absolute path to the git repository."},
                 "base_ref": {"type": "string", "description": "Git ref to diff against.", "default": "HEAD"},
                 "include_untracked": {"type": "boolean", "description": "Include untracked files.", "default": True},
-                "test_command": {"type": "string", "description": "Optional test command to run (e.g. 'pytest')."},
+                "test_command": {
+                    "type": "string",
+                    "description": (
+                        "Optional test command to run (e.g. 'pytest'). "
+                        "Requires the backend to set PROOFFLOW_ENABLE_TEST_COMMANDS=true."
+                    ),
+                },
             },
             "required": ["repo_path"],
         },

@@ -88,6 +88,10 @@ Add to your Codex MCP configuration with the same command/args pattern.
 | `PROOFFLOW_API_KEY` | *(unset)* | API key for backend auth (optional) |
 | `PROOFFLOW_MCP_MAX_CONCURRENT` | `5` | Max concurrent MCP tool calls |
 
+AgentGuard `test_command` requests are disabled by default in the backend. Set
+`PROOFFLOW_ENABLE_TEST_COMMANDS=true` on the ProofFlow backend only when you want
+MCP clients to run local test commands during review.
+
 ## Available Tools
 
 | Tool | Description |

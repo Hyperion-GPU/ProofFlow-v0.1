@@ -11,7 +11,7 @@ ProofFlow makes AI coding agents reviewable, traceable, and reversible through e
 ▶ **Watch the 72s demo:** [From AI agent claims to verifiable Proof Packets](https://github.com/Hyperion-GPU/ProofFlow-v0.1/releases/tag/v0.1.3)<br>
 📦 **Example Proof Packet:** [`docs/examples/proof_packet_codex_review.md`](docs/examples/proof_packet_codex_review.md)
 
-[![ProofFlow AgentGuard demo screenshot](docs/assets/proofflow-demo-thumbnail.png)](https://github.com/Hyperion-GPU/ProofFlow-v0.1/releases/tag/v0.1.3)
+[![ProofFlow demo thumbnail](docs/assets/proofflow-demo-thumbnail.png)](https://github.com/Hyperion-GPU/ProofFlow-v0.1/releases/tag/v0.1.3)
 
 [![Backend](https://github.com/Hyperion-GPU/ProofFlow-v0.1/actions/workflows/backend.yml/badge.svg)](https://github.com/Hyperion-GPU/ProofFlow-v0.1/actions/workflows/backend.yml)
 [![Frontend](https://github.com/Hyperion-GPU/ProofFlow-v0.1/actions/workflows/frontend.yml/badge.svg)](https://github.com/Hyperion-GPU/ProofFlow-v0.1/actions/workflows/frontend.yml)
@@ -42,6 +42,21 @@ docker compose up
 ```
 
 Backend: http://localhost:8787 | Frontend: http://localhost:5173
+
+Docker publishes both ports on `127.0.0.1` by default to preserve ProofFlow's
+localhost trust boundary. For stronger local protection, set an API key before
+starting:
+
+```bash
+PROOFFLOW_API_KEY=change-me docker compose up
+```
+
+If you enable backend auth for the Docker frontend, use the same
+`PROOFFLOW_API_KEY` value at build time so Vite can embed
+`VITE_PROOFFLOW_API_KEY` in the static frontend bundle. AgentGuard
+`test_command` execution is disabled by default; set
+`PROOFFLOW_ENABLE_TEST_COMMANDS=true` only when you intentionally want the
+backend to run local test commands during review.
 
 ### Manual
 
@@ -129,6 +144,7 @@ High-risk filesystem actions (moves to system paths, bulk operations) are automa
 
 - Optional API key authentication (`PROOFFLOW_API_KEY`)
 - Rate limiting (`PROOFFLOW_RATE_LIMIT`)
+- AgentGuard test command execution is opt-in (`PROOFFLOW_ENABLE_TEST_COMMANDS`)
 - MCP concurrency guards (`PROOFFLOW_MCP_MAX_CONCURRENT`)
 - Filesystem action scope restrictions (allowed_roots)
 - CORS locked to localhost origins

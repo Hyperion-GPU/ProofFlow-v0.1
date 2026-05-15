@@ -22,16 +22,24 @@ def run_smoke(temp_root: Path) -> dict[str, Any]:
     data_dir = temp_root / "data"
     os.environ["PROOFFLOW_DB_PATH"] = str(db_path)
     os.environ["PROOFFLOW_DATA_DIR"] = str(data_dir)
+    previous_test_command_flag = os.environ.get("PROOFFLOW_ENABLE_TEST_COMMANDS")
+    os.environ["PROOFFLOW_ENABLE_TEST_COMMANDS"] = "true"
 
-    from fastapi.testclient import TestClient
-    from proofflow.main import app
+    try:
+        from fastapi.testclient import TestClient
+        from proofflow.main import app
 
-    with TestClient(app) as client:
-        health = _require_ok(client.get("/health"), "GET /health")
-        _assert_release_identity(health)
+        with TestClient(app) as client:
+            health = _require_ok(client.get("/health"), "GET /health")
+            _assert_release_identity(health)
 
-        localproof = _run_localproof_action_smoke(client, temp_root)
-        agentguard = _run_agentguard_packet_smoke(client, temp_root)
+            localproof = _run_localproof_action_smoke(client, temp_root)
+            agentguard = _run_agentguard_packet_smoke(client, temp_root)
+    finally:
+        if previous_test_command_flag is None:
+            os.environ.pop("PROOFFLOW_ENABLE_TEST_COMMANDS", None)
+        else:
+            os.environ["PROOFFLOW_ENABLE_TEST_COMMANDS"] = previous_test_command_flag
 
     return {
         "db_path": str(db_path),

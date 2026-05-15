@@ -29,3 +29,13 @@ def get_rate_limit() -> int | None:
     """Return max requests/minute if PROOFFLOW_RATE_LIMIT is set, else None."""
     val = os.getenv("PROOFFLOW_RATE_LIMIT")
     return int(val) if val else None
+
+
+def test_commands_enabled() -> bool:
+    """Return True when AgentGuard test_command execution is explicitly enabled."""
+    return os.getenv("PROOFFLOW_ENABLE_TEST_COMMANDS", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
