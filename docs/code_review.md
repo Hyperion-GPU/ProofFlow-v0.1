@@ -40,3 +40,37 @@ dry-run -> user approval -> execution -> undo path
 This applies to cleanup scripts, formatters that rewrite many files, generated
 patches, and database reset commands.
 
+## GitHub Actions PR Review
+
+ProofFlow can run a minimal AgentGuard review automatically for pull requests
+with `.github/workflows/proofflow-pr-review.yml`.
+
+To enable it, keep that workflow file in the repository and allow GitHub Actions
+to run on pull requests. To disable it, delete the workflow file or disable the
+workflow in the repository Actions settings.
+
+The workflow:
+
+- runs on `pull_request`,
+- checks out the repository with full history,
+- installs `backend/requirements.txt`,
+- runs `scripts/ci_agentguard_review.py` against the PR base SHA,
+- stores the Proof Packet markdown and `summary.json` as the
+  `proofflow-agentguard-review` workflow artifact,
+- publishes or updates one PR comment marked with
+  `<!-- proofflow-agentguard-review -->`.
+
+The PR comment reports status, risk level, changed file count, claim count,
+evidence count, artifact name, Proof Packet path, and any failure or skipped
+reason. This is audit-only visibility; it does not block merges.
+
+The workflow needs `contents: read` to inspect the repository,
+`pull-requests: write` to read PR metadata, and `issues: write` because GitHub
+stores PR comments as issue comments.
+
+The CI script sets isolated `PROOFFLOW_DB_PATH` and `PROOFFLOW_DATA_DIR` values
+under the workflow output directory, so it does not write to local development
+data. It also intentionally does not pass `test_command` to AgentGuard. If a
+future workflow needs test command execution, enable it explicitly and review
+that command execution boundary separately.
+

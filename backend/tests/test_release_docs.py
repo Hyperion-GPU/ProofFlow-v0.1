@@ -67,3 +67,23 @@ def test_rc1_bug_bash_commands_return_to_repo_root():
     assert "Push-Location .\\backend" in content
     assert "Push-Location .\\frontend" in content
     assert content.count("Pop-Location") >= 3
+
+
+def test_code_review_docs_describe_github_actions_pr_review():
+    repo_root = Path(__file__).resolve().parents[2]
+    content = (repo_root / "docs" / "code_review.md").read_text(encoding="utf-8")
+
+    required = [
+        "GitHub Actions PR Review",
+        ".github/workflows/proofflow-pr-review.yml",
+        "scripts/ci_agentguard_review.py",
+        "pull_request",
+        "proofflow-agentguard-review",
+        "does not block merges",
+        "contents: read",
+        "pull-requests: write",
+        "issues: write",
+        "does not pass `test_command`",
+    ]
+    for text in required:
+        assert text in content

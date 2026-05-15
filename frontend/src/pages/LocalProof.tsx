@@ -1,7 +1,8 @@
 import type { FormEvent } from "react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { apiGet, apiPost, formatApiError } from "../api/client";
+import { JsonDetails, PathValue, metadataText } from "../components/AuditDisplay";
 import type {
   ActionResponse,
   JsonObject,
@@ -86,7 +87,10 @@ export function LocalProof() {
       .finally(() => setBusyAction(null));
   }
 
-  const actions = suggestResult?.actions ?? [];
+  const actions = useMemo(
+    () => sortActionsForReview(suggestResult?.actions ?? []),
+    [suggestResult?.actions],
+  );
 
   return (
     <section className="page">
@@ -214,7 +218,9 @@ export function LocalProof() {
               </div>
               <div>
                 <dt>Target root</dt>
-                <dd className="mono-cell">{suggestResult.target_root}</dd>
+                <dd>
+                  <PathValue value={suggestResult.target_root} />
+                </dd>
               </div>
               <div>
                 <dt>Actions created</dt>
@@ -252,14 +258,15 @@ export function LocalProof() {
                   </div>
                   <span className={`status-pill${action.status === "pending_decision" ? " warn" : ""}`}>{action.status}</span>
                 </div>
+                <ActionStatusSummary action={action} />
                 <div className="path-preview-grid">
                   <ActionPathPreview action={action} />
                 </div>
-                <div className="json-grid">
-                  <JsonBlock label="Preview" value={action.preview} />
-                  <JsonBlock label="Result" value={action.result} />
-                  <JsonBlock label="Undo" value={action.undo} />
-                  <JsonBlock label="Metadata" value={action.metadata} />
+                <div className="details-grid">
+                  <JsonDetails label="Preview" value={action.preview} />
+                  <JsonDetails label="Result" value={action.result} />
+                  <JsonDetails label="Undo" value={action.undo} />
+                  <JsonDetails label="Metadata" value={action.metadata} />
                 </div>
                 <ActionDependencyMetadata metadata={action.metadata} />
                 {action.status === "pending_decision" && (
@@ -327,7 +334,9 @@ function SkippedItemsTable({
         <tbody>
           {items.map((item, index) => (
             <tr key={`${item.path ?? "unknown"}-${index}`}>
-              <td className="mono-cell">{item.path ?? "not recorded"}</td>
+              <td>
+                <PathValue label="Path" value={item.path} />
+              </td>
               <td>{item.reason}</td>
               <td>{item.indexed === undefined ? "not applicable" : item.indexed ? "yes" : "no"}</td>
             </tr>
@@ -340,17 +349,17 @@ function SkippedItemsTable({
 
 function ActionPathPreview({ action }: { action: ActionResponse }) {
   if (action.kind === "mkdir_dir") {
-    return <PathPreview label="Directory" value={previewText(action.preview, "dir_path")} />;
+    return <PathValue label="Directory" value={previewText(action.preview, "dir_path")} />;
   }
   if (action.kind === "move_file" || action.kind === "rename_file") {
     return (
       <>
-        <PathPreview label="From" value={previewText(action.preview, "from_path")} />
-        <PathPreview label="To" value={previewText(action.preview, "to_path")} />
+        <PathValue label="From" value={previewText(action.preview, "from_path")} />
+        <PathValue label="To" value={previewText(action.preview, "to_path")} />
       </>
     );
   }
-  return <PathPreview label="Preview" value={formatJson(action.preview)} />;
+  return <PathValue label="Preview" value={previewText(action.preview, "path")} />;
 }
 
 function ActionDependencyMetadata({ metadata }: { metadata: JsonObject }) {
@@ -361,26 +370,8 @@ function ActionDependencyMetadata({ metadata }: { metadata: JsonObject }) {
   }
   return (
     <div className="path-preview-grid">
-      <PathPreview label="Depends on action" value={dependsOnActionId} />
-      <PathPreview label="Depends on directory" value={dependsOnDirPath} />
-    </div>
-  );
-}
-
-function PathPreview({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="path-preview">
-      <strong>{label}</strong>
-      <span>{value}</span>
-    </div>
-  );
-}
-
-function JsonBlock({ label, value }: { label: string; value: unknown }) {
-  return (
-    <div>
-      <strong>{label}</strong>
-      <pre>{formatJson(value)}</pre>
+      <PathValue label="Depends on action" value={dependsOnActionId} />
+      <PathValue label="Depends on directory" value={dependsOnDirPath} />
     </div>
   );
 }
@@ -405,32 +396,6 @@ function canRunAction(action: ActionResponse, operation: ActionOperation): boole
 function previewText(preview: JsonObject, key: string): string {
   const value = preview[key];
   return typeof value === "string" && value ? value : "not recorded";
-}
-
-function metadataText(metadata: JsonObject, key: string): string {
-  const value = metadata[key];
-  if (value === null || value === undefined) return "not recorded";
-  if (typeof value === "string") return value;
-  if (typeof value === "number" || typeof value === "boolean") return String(value);
-  return JSON.stringify(value);
-}
-
-function formatJson(value: unknown): string {
-  if (value === null || value === undefined || isEmptyObject(value)) {
-    return "not recorded";
-  }
-  if (typeof value === "string") return value;
-  if (typeof value === "number" || typeof value === "boolean") return String(value);
-  return JSON.stringify(value, null, 2);
-}
-
-function isEmptyObject(value: unknown): boolean {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    !Array.isArray(value) &&
-    Object.keys(value as Record<string, unknown>).length === 0
-  );
 }
 
 function PolicyGateBanner({
@@ -472,7 +437,7 @@ function PolicyGateBanner({
 
   return (
     <div className="gate-banner">
-      <strong>Policy gate — action paused</strong>
+      <strong>Policy gate - action paused</strong>
       {reason && <span>{reason}</span>}
       {categories && <span>Categories: {categories}</span>}
       <button type="button" onClick={createGateDecision} disabled={busy || creating}>
@@ -480,4 +445,49 @@ function PolicyGateBanner({
       </button>
     </div>
   );
+}
+
+function ActionStatusSummary({ action }: { action: ActionResponse }) {
+  return (
+    <div className="action-summary">
+      <strong>{actionStatusText(action)}</strong>
+      <span>{nextActionText(action)}</span>
+    </div>
+  );
+}
+
+function actionStatusText(action: ActionResponse): string {
+  if (action.status === "pending_decision") return "Owner decision required before execution.";
+  if (action.status === "pending" || action.status === "previewed") return "Preview is ready for approval.";
+  if (action.status === "approved") return "Approved and ready to execute.";
+  if (action.status === "executed") return "Executed with undo metadata recorded.";
+  if (action.status === "undone") return "Undo completed.";
+  if (action.status === "rejected") return "Rejected.";
+  return "Action state recorded.";
+}
+
+function nextActionText(action: ActionResponse): string {
+  const available = (["approve", "execute", "undo", "reject"] as ActionOperation[])
+    .filter((operation) => canRunAction(action, operation))
+    .map((operation) => ACTION_LABELS[operation]);
+  if (available.length === 0) return "No further action is currently available.";
+  return `Next: ${available.join(" or ")}.`;
+}
+
+function sortActionsForReview(actions: ActionResponse[]): ActionResponse[] {
+  const order: Record<string, number> = {
+    pending_decision: 0,
+    approved: 1,
+    pending: 2,
+    previewed: 3,
+    executed: 4,
+    undone: 5,
+    rejected: 6,
+  };
+  return [...actions].sort((left, right) => {
+    const leftOrder = order[left.status] ?? 9;
+    const rightOrder = order[right.status] ?? 9;
+    if (leftOrder !== rightOrder) return leftOrder - rightOrder;
+    return left.created_at.localeCompare(right.created_at) || left.title.localeCompare(right.title);
+  });
 }

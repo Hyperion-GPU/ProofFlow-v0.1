@@ -1,0 +1,101 @@
+name: ProofFlow PR Review
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  agentguard-review:
+    name: AgentGuard Proof Packet
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Run AgentGuard review
+        env:
+          PROOFFLOW_CI_BASE_REF: ${{ github.event.pull_request.base.sha }}
+          PROOFFLOW_CI_OUTPUT_DIR: prooflow-ci-output
+          PROOFFLOW_CI_ARTIFACT_NAME: proofflow-agentguard-review
+        run: |
+          python scripts/ci_agentguard_review.py \
+            --repo-root "$GITHUB_WORKSPACE" \
+            --base-ref "$PROOFFLOW_CI_BASE_REF" \
+            --output-dir "$PROOFFLOW_CI_OUTPUT_DIR"
+
+      - name: Upload ProofFlow review artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: proofflow-agentguard-review
+          path: |
+            prooflow-ci-output/summary.json
+            prooflow-ci-output/data/proof_packets/*.md
+          if-no-files-found: warn
+
+      - name: Build PR review comment
+        env:
+          SUMMARY_PATH: prooflow-ci-output/summary.json
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          marker = "<!-- proofflow-agentguard-review -->"
+          summary = json.loads(Path(os.environ["SUMMARY_PATH"]).read_text(encoding="utf-8"))
+          error = summary.get("error") or "None"
+          packet = summary.get("proof_packet_path") or "Not generated"
+          body = f"""{marker}
+          ## ProofFlow AgentGuard review
+
+          | Field | Value |
+          | --- | --- |
+          | Status | `{summary.get("status", "unknown")}` |
+          | Risk level | `{summary.get("risk_level", "unknown")}` |
+          | Changed files | `{summary.get("changed_files", 0)}` |
+          | Claims | `{summary.get("claims_created", 0)}` |
+          | Evidence | `{summary.get("evidence_created", 0)}` |
+          | Artifact | `{summary.get("artifact_name", "proofflow-agentguard-review")}` |
+          | Proof Packet | `{packet}` |
+          | Failure / skip reason | `{error}` |
+
+          ProofFlow generated this audit only for review visibility. It does not block merge.
+          """
+          Path("proofflow-pr-comment.md").write_text(body, encoding="utf-8")
+          PY
+
+      - name: Publish or update PR comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          marker="<!-- proofflow-agentguard-review -->"
+          comment_id="$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" --jq ".[] | select(.body | contains(\"$marker\")) | .id" | tail -n 1)"
+          if [ -n "$comment_id" ]; then
+            gh api "repos/$REPO/issues/comments/$comment_id" \
+              --method PATCH \
+              --field body="$(cat proofflow-pr-comment.md)" >/dev/null
+          else
+            gh pr comment "$PR_NUMBER" --repo "$REPO" --body-file proofflow-pr-comment.md
+          fi

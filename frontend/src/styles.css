@@ -412,12 +412,49 @@ blockquote {
   gap: 10px;
 }
 
-.json-grid strong {
+.details-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.json-grid strong,
+.audit-details strong {
   display: block;
-  margin-bottom: 5px;
   color: #526071;
   font-size: 0.78rem;
   text-transform: uppercase;
+}
+
+.audit-details {
+  border: 1px solid #e5eaf1;
+  border-radius: 6px;
+  background: #fbfcfe;
+}
+
+.audit-details summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  min-height: 42px;
+  cursor: pointer;
+  padding: 9px 10px;
+}
+
+.audit-details summary span {
+  min-width: 0;
+  color: #667085;
+  font-size: 0.82rem;
+  overflow: hidden;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.audit-details pre {
+  border-width: 1px 0 0;
+  border-radius: 0 0 6px 6px;
 }
 
 pre {
@@ -467,6 +504,41 @@ pre {
     "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
   font-size: 0.85rem;
   overflow-wrap: anywhere;
+}
+
+.path-details summary {
+  cursor: pointer;
+  color: #344054;
+  font-family:
+    "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 0.85rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.path-details[open] summary {
+  margin-bottom: 6px;
+}
+
+.action-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  align-items: center;
+  border: 1px solid #dbe2ec;
+  border-radius: 6px;
+  background: #f8fafc;
+  color: #344054;
+  padding: 10px 12px;
+}
+
+.action-summary strong {
+  color: #172033;
+}
+
+.action-summary span {
+  color: #667085;
 }
 
 .compact-list {
@@ -566,6 +638,7 @@ pre {
   .page-header,
   .two-column,
   .json-grid,
+  .details-grid,
   .path-preview-grid {
     grid-template-columns: 1fr;
     flex-direction: column;

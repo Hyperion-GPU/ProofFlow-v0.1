@@ -135,10 +135,10 @@ High-risk filesystem actions (moves to system paths, bulk operations) are automa
 
 | Layer | Technology | Tests |
 |-------|-----------|-------|
-| Backend | Python 3.12, FastAPI, SQLite | 274 |
-| Frontend | React 19, TypeScript, Vite | 24 |
+| Backend | Python 3.12, FastAPI, SQLite | 295 |
+| Frontend | React 19, TypeScript, Vite | 25 |
 | MCP Server | Python, MCP SDK, httpx | 24 |
-| CI | GitHub Actions (3 workflows) | — |
+| CI | GitHub Actions (PR review + release gates) | Audit artifact + PR comment |
 
 ## Security Features
 
@@ -168,7 +168,7 @@ High-risk filesystem actions (moves to system paths, bulk operations) are automa
 
 - [ ] Multi-agent coordination (shared Cases across agents)
 - [ ] Vector RAG for semantic evidence retrieval
-- [ ] GitHub Actions integration (CI-triggered reviews)
+- [x] GitHub Actions integration (CI-triggered reviews)
 - [x] VS Code extension ([Marketplace](https://marketplace.visualstudio.com/items?itemName=hyperion-gpu.proofflow))
 - [ ] Cloud sync option for team workflows
 - [ ] Webhook notifications for policy gate decisions
@@ -187,6 +187,10 @@ python scripts/mcp_smoke.py --cleanup
 # Demo workflow
 python scripts/demo_workflow.py
 ```
+
+Local backend data defaults to `backend/data/`. For dogfood runs that should not
+touch repository-local state, set `PROOFFLOW_DB_PATH` and `PROOFFLOW_DATA_DIR`
+to a temporary directory before starting the backend.
 
 ## Contributing
 

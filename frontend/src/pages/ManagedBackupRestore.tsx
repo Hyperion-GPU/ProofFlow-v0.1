@@ -11,6 +11,7 @@ import {
   restoreToNewLocation,
   verifyBackup,
 } from "../api/client";
+import { PathValue } from "../components/AuditDisplay";
 import type {
   BackupCreateResponse,
   BackupDetailResponse,
@@ -477,15 +478,15 @@ function BackupPreviewResult({ result }: { result: BackupPreviewResponse | null 
       <dl className="detail-list">
         <div>
           <dt>DB path</dt>
-          <dd className="mono-cell">{result.source.db_path}</dd>
+          <dd><PathValue value={result.source.db_path} /></dd>
         </div>
         <div>
           <dt>Data dir</dt>
-          <dd className="mono-cell">{result.source.data_dir}</dd>
+          <dd><PathValue value={result.source.data_dir} /></dd>
         </div>
         <div>
           <dt>Proof packets</dt>
-          <dd className="mono-cell">{result.source.proof_packets_dir}</dd>
+          <dd><PathValue value={result.source.proof_packets_dir} /></dd>
         </div>
         <div>
           <dt>Would create Case</dt>
@@ -514,11 +515,11 @@ function CreateBackupResult({ result }: { result: BackupCreateResponse | null })
         </div>
         <div>
           <dt>Archive</dt>
-          <dd className="mono-cell">{result.archive_path}</dd>
+          <dd><PathValue value={result.archive_path} /></dd>
         </div>
         <div>
           <dt>Manifest</dt>
-          <dd className="mono-cell">{result.manifest_path}</dd>
+          <dd><PathValue value={result.manifest_path} /></dd>
         </div>
         <div>
           <dt>Manifest SHA-256</dt>
@@ -574,7 +575,7 @@ function BackupTable({
               </td>
               <td>{backup.created_at}</td>
               <td>{backup.verified_at ?? "not verified"}</td>
-              <td className="mono-cell">{backup.archive_path}</td>
+              <td><PathValue value={backup.archive_path} /></td>
               <td>
                 <div className="action-buttons">
                   <button
@@ -627,7 +628,7 @@ function BackupDetailResult({ result }: { result: BackupDetailResponse | null })
         </div>
         <div>
           <dt>Archive</dt>
-          <dd className="mono-cell">{result.archive_path}</dd>
+          <dd><PathValue value={result.archive_path} /></dd>
         </div>
         <div>
           <dt>Verification</dt>
@@ -739,11 +740,11 @@ function RestorePreviewResult({
         </div>
         <div>
           <dt>Target DB</dt>
-          <dd className="mono-cell">{result.target.db_path}</dd>
+          <dd><PathValue value={result.target.db_path} /></dd>
         </div>
         <div>
           <dt>Target data</dt>
-          <dd className="mono-cell">{result.target.data_dir}</dd>
+          <dd><PathValue value={result.target.data_dir} /></dd>
         </div>
       </dl>
       {wouldOverwrite && (
@@ -785,11 +786,11 @@ function RestoreResult({ result }: { result: RestoreToNewLocationResponse | null
         </div>
         <div>
           <dt>Target DB</dt>
-          <dd className="mono-cell">{result.target.db_path}</dd>
+          <dd><PathValue value={result.target.db_path} /></dd>
         </div>
         <div>
           <dt>Target data</dt>
-          <dd className="mono-cell">{result.target.data_dir}</dd>
+          <dd><PathValue value={result.target.data_dir} /></dd>
         </div>
       </dl>
       <WarningList warnings={result.warnings} emptyText="No inspection restore warnings." />
@@ -817,7 +818,7 @@ function PlannedBackupFilesTable({ files }: { files: PlannedBackupFile[] }) {
             <tr key={`${file.role}:${file.relative_path}`}>
               <td>{file.role}</td>
               <td className="mono-cell">{file.relative_path}</td>
-              <td className="mono-cell">{file.source_path}</td>
+              <td><PathValue value={file.source_path} /></td>
               <td>{formatBytes(file.size_bytes)}</td>
             </tr>
           ))}
@@ -849,7 +850,7 @@ function RestoreWritesTable({ writes }: { writes: RestorePlannedWrite[] }) {
           {writes.map((write) => (
             <tr key={`${write.archive_relative_path}:${write.target_path}`}>
               <td className="mono-cell">{write.archive_relative_path}</td>
-              <td className="mono-cell">{write.target_path}</td>
+              <td><PathValue value={write.target_path} /></td>
               <td>{write.role}</td>
               <td>{write.action}</td>
               <td>{write.would_overwrite ? "yes" : "no"}</td>
