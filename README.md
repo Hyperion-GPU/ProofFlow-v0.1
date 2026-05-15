@@ -177,8 +177,8 @@ High-risk filesystem actions (moves to system paths, bulk operations) are automa
 
 ```bash
 # Run all tests
-cd backend && python -m pytest          # 274 tests
-cd frontend && npm run test             # 24 tests
+cd backend && python -m pytest          # 295 tests
+cd frontend && npm run test             # 25 tests
 cd mcp-server && pip install -e ".[dev]" && python -m pytest  # 24 tests
 
 # End-to-end smoke test

@@ -4,6 +4,37 @@ All notable changes for ProofFlow v0.1 are tracked here.
 
 ## Unreleased
 
+## v0.1.6
+
+### Added
+
+- Completed #58: GitHub Actions can now run AgentGuard reviews on pull
+  requests, upload a Proof Packet plus JSON summary artifact, and publish a
+  stable PR summary comment.
+- Added `scripts/ci_agentguard_review.py` for isolated CI review runs with
+  dedicated `PROOFFLOW_DB_PATH` and `PROOFFLOW_DATA_DIR` output paths.
+- Added `docs/code_review.md` guidance for enabling, disabling, and securing the
+  GitHub Actions PR review workflow.
+
+### Improved
+
+- Reduced frontend audit noise by compacting long paths, folding raw JSON behind
+  summaries, and showing action status plus next-step guidance in LocalProof and
+  Case Detail.
+- Improved Backup / Restore path readability with compact expandable paths.
+- Fixed frontend and VS Code extension lockfiles so fresh `npm ci` installs work
+  from a clean clone.
+- Hardened Docker and AgentGuard local test-command defaults so review commands
+  remain opt-in.
+
+### Dogfood / Smoke Checks
+
+- Verified a clean-clone beginner path: install backend/frontend/VS Code
+  dependencies, run LocalProof scan and action suggestions, run AgentGuard CI
+  review with Proof Packet export, and run managed backup/verify/restore smoke.
+- Ignored repository-local generated backend data and dogfood temp output by
+  default to reduce accidental local-state noise.
+
 ## v0.1.5
 
 ### Added
