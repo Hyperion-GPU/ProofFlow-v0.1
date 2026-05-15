@@ -10,6 +10,8 @@ __pycache__/
 backend/data/demo/
 sample_data/work/
 sample_data/repos/
+prooflow-ci-output*/
+proofflow-ci-output*/
 
 # Frontend
 node_modules/
