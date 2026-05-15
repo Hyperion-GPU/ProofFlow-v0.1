@@ -93,7 +93,7 @@ describe("CaseDetail", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("move_file")).toBeInTheDocument();
     expect(screen.getByText("observed_only")).toBeInTheDocument();
-    expect(screen.getByText("destructive_local_operation · warn")).toBeInTheDocument();
+    expect(screen.getByText("destructive_local_operation / warn")).toBeInTheDocument();
   });
 
   it("does not render observations section when empty", async () => {
@@ -153,8 +153,8 @@ describe("CaseDetail", () => {
     );
 
     // Gate banner renders
-    expect(await screen.findByText("Policy gate — action paused")).toBeInTheDocument();
-    expect(screen.getByText(/destructive_local_operation/)).toBeInTheDocument();
+    expect(await screen.findByText("Policy gate - action paused")).toBeInTheDocument();
+    expect(screen.getAllByText(/destructive_local_operation/).length).toBeGreaterThanOrEqual(1);
 
     // Status pill has warn class
     const pill = screen.getByText("pending_decision");

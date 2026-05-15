@@ -7,9 +7,11 @@ __pycache__/
 # Local data
 *.sqlite3
 *.db
+backend/data/
 backend/data/demo/
 sample_data/work/
 sample_data/repos/
+tmp-dogfood/
 prooflow-ci-output*/
 proofflow-ci-output*/
 

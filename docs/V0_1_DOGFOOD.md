@@ -28,7 +28,7 @@ The post-release RC1 bug bash log is tracked in
 Seed demo data:
 
 ```powershell
-cd "D:\ProofFlow v0.1"
+cd "<repo root>"
 python .\scripts\demo_seed.py
 ```
 
@@ -43,21 +43,21 @@ The helper keeps its temp packet for inspection unless you pass `--cleanup`.
 Run backend checks:
 
 ```powershell
-cd "D:\ProofFlow v0.1\backend"
+cd "<repo root>\backend"
 python -m pytest
 ```
 
 Start the backend:
 
 ```powershell
-cd "D:\ProofFlow v0.1\backend"
+cd "<repo root>\backend"
 python -m uvicorn proofflow.main:app --host 127.0.0.1 --port 8787 --reload
 ```
 
 Start and verify the frontend:
 
 ```powershell
-cd "D:\ProofFlow v0.1\frontend"
+cd "<repo root>\frontend"
 npm ci
 npm run test
 npm run build

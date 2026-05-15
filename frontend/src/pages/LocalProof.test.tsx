@@ -97,8 +97,9 @@ describe("LocalProof", () => {
 
     expect(await screen.findByText("Create Notes directory")).toBeInTheDocument();
     expect(screen.getByText("Move notes.md to Notes")).toBeInTheDocument();
+    expect(screen.getAllByText("Preview is ready for approval.").length).toBeGreaterThanOrEqual(2);
     expect(screen.getAllByText("D:/sorted/Notes").length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText("D:/inbox/notes.md")).toBeInTheDocument();
+    expect(screen.getAllByText("D:/inbox/notes.md").length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText("D:/sorted/Notes/notes.md").length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText("Preview").length).toBeGreaterThanOrEqual(2);
     expect(screen.getAllByText("Result").length).toBeGreaterThanOrEqual(2);

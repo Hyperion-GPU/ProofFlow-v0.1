@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { apiGet, apiPost, formatApiError } from "../api/client";
+import { JsonDetails, PathValue, metadataText } from "../components/AuditDisplay";
 import type {
   ActionResponse,
   CasePacketResponse,
@@ -175,7 +176,9 @@ export function CaseDetail() {
                         </td>
                         <td>{artifact.kind}</td>
                         <td>{artifact.role}</td>
-                        <td className="mono-cell">{artifact.path ?? artifact.uri}</td>
+                        <td>
+                          <PathValue label="Path" value={artifact.path ?? artifact.uri} />
+                        </td>
                         <td>
                           <span className="mono-cell">{artifact.sha256 ?? "not recorded"}</span>
                           <br />
@@ -201,7 +204,7 @@ export function CaseDetail() {
                       <div>
                         <strong>{claim.claim_text}</strong>
                         <div className="muted">
-                          {claim.claim_type} · {claim.status}
+                          {claim.claim_type} / {claim.status}
                         </div>
                       </div>
                       <span className={`status-pill risk-${claim.severity}`}>
@@ -216,14 +219,12 @@ export function CaseDetail() {
                           <li key={evidence.id} className="evidence-item">
                             <div className="result-meta">
                               <span>
-                                {evidence.evidence_type} ·{" "}
+                                {evidence.evidence_type} /{" "}
                                 {evidence.artifact_name ?? evidence.artifact_id ?? "no artifact"}
                               </span>
                               <span>{evidence.source_ref ?? "no source ref"}</span>
                             </div>
-                            <div className="mono-cell">
-                              {evidence.artifact_path ?? "no artifact path recorded"}
-                            </div>
+                            <PathValue label="Artifact path" value={evidence.artifact_path} />
                             <blockquote>{evidence.content || "No evidence content recorded."}</blockquote>
                           </li>
                         ))}
@@ -248,7 +249,7 @@ export function CaseDetail() {
                       <div>
                         <strong>{obs.action_type ?? "unknown"}</strong>
                         <div className="muted">
-                          {obs.categories.join(", ")} · {obs.would_have_outcome}
+                          {obs.categories.join(", ")} / {obs.would_have_outcome}
                         </div>
                       </div>
                       <span className="status-pill">{obs.label}</span>
@@ -293,15 +294,20 @@ export function CaseDetail() {
                       <div>
                         <strong>{action.title}</strong>
                         <div className="muted">
-                          {action.kind} · {action.reason}
+                          {action.kind} / {action.reason}
                         </div>
                       </div>
                       <span className={`status-pill${action.status === "pending_decision" ? " warn" : ""}`}>{action.status}</span>
                     </div>
-                    <div className="json-grid">
-                      <JsonBlock label="Preview" value={action.preview} />
-                      <JsonBlock label="Result" value={action.result} />
-                      <JsonBlock label="Undo" value={action.undo} />
+                    <ActionStatusSummary action={action} />
+                    <div className="path-preview-grid">
+                      <ActionPathPreview action={action} />
+                    </div>
+                    <div className="details-grid">
+                      <JsonDetails label="Preview" value={action.preview} />
+                      <JsonDetails label="Result" value={action.result} />
+                      <JsonDetails label="Undo" value={action.undo} />
+                      <JsonDetails label="Metadata" value={action.metadata} />
                     </div>
                     {action.status === "pending_decision" && (
                       <PolicyGateBanner
@@ -404,15 +410,6 @@ export function CaseDetail() {
   );
 }
 
-function JsonBlock({ label, value }: { label: string; value: unknown }) {
-  return (
-    <div>
-      <strong>{label}</strong>
-      <pre>{formatJson(value)}</pre>
-    </div>
-  );
-}
-
 function canRunAction(action: ActionResponse, operation: ActionOperation): boolean {
   if (operation === "approve") return action.status === "pending" || action.status === "previewed";
   if (operation === "execute") return action.status === "approved" || action.status === "pending_decision";
@@ -430,22 +427,51 @@ function canRunAction(action: ActionResponse, operation: ActionOperation): boole
   return false;
 }
 
-function formatJson(value: unknown): string {
-  if (value === null || value === undefined || isEmptyObject(value)) {
-    return "not recorded";
+function ActionPathPreview({ action }: { action: ActionResponse }) {
+  if (action.kind === "mkdir_dir") {
+    return <PathValue label="Directory" value={previewText(action.preview, "dir_path")} />;
   }
-  if (typeof value === "string") return value;
-  if (typeof value === "number" || typeof value === "boolean") return String(value);
-  return JSON.stringify(value, null, 2);
+  if (action.kind === "move_file" || action.kind === "rename_file") {
+    return (
+      <>
+        <PathValue label="From" value={previewText(action.preview, "from_path")} />
+        <PathValue label="To" value={previewText(action.preview, "to_path")} />
+      </>
+    );
+  }
+  return <PathValue label="Preview" value={previewText(action.preview, "path")} />;
 }
 
-function isEmptyObject(value: unknown): boolean {
+function ActionStatusSummary({ action }: { action: ActionResponse }) {
   return (
-    typeof value === "object" &&
-    value !== null &&
-    !Array.isArray(value) &&
-    Object.keys(value as Record<string, unknown>).length === 0
+    <div className="action-summary">
+      <strong>{actionStatusText(action)}</strong>
+      <span>{nextActionText(action)}</span>
+    </div>
   );
+}
+
+function actionStatusText(action: ActionResponse): string {
+  if (action.status === "pending_decision") return "Owner decision required before execution.";
+  if (action.status === "pending" || action.status === "previewed") return "Preview is ready for approval.";
+  if (action.status === "approved") return "Approved and ready to execute.";
+  if (action.status === "executed") return "Executed with undo metadata recorded.";
+  if (action.status === "undone") return "Undo completed.";
+  if (action.status === "rejected") return "Rejected.";
+  return "Action state recorded.";
+}
+
+function nextActionText(action: ActionResponse): string {
+  const available = (["approve", "execute", "undo", "reject"] as ActionOperation[])
+    .filter((operation) => canRunAction(action, operation))
+    .map((operation) => ACTION_LABELS[operation]);
+  if (available.length === 0) return "No further action is currently available.";
+  return `Next: ${available.join(" or ")}.`;
+}
+
+function previewText(preview: JsonObject, key: string): string {
+  const value = preview[key];
+  return typeof value === "string" && value ? value : "not recorded";
 }
 
 function formatSize(sizeBytes: number | null): string {
@@ -454,14 +480,6 @@ function formatSize(sizeBytes: number | null): string {
   const kib = sizeBytes / 1024;
   if (kib < 1024) return `${kib.toFixed(1)} KiB`;
   return `${(kib / 1024).toFixed(1)} MiB`;
-}
-
-function metadataText(metadata: JsonObject, key: string): string {
-  const value = metadata[key];
-  if (value === null || value === undefined) return "not recorded";
-  if (typeof value === "string") return value;
-  if (typeof value === "number" || typeof value === "boolean") return String(value);
-  return JSON.stringify(value);
 }
 
 function metadataTextFallback(metadata: JsonObject, primaryKey: string, fallbackKey: string): string {
@@ -513,7 +531,7 @@ function PolicyGateBanner({
 
   return (
     <div className="gate-banner">
-      <strong>Policy gate — action paused</strong>
+      <strong>Policy gate - action paused</strong>
       {reason && <span>{reason}</span>}
       {categories && <span>Categories: {categories}</span>}
       <button type="button" onClick={createGateDecision} disabled={busy || creating}>
