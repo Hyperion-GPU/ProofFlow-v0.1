@@ -93,6 +93,13 @@ def _claim_evidence_text(case_id: str) -> str:
     return "\n".join(f"{row['claim_text']}\n{row['content']}" for row in rows)
 
 
+def _review_repo(monkeypatch, temp_root: Path, repo: Path) -> dict:
+    with _client(monkeypatch, temp_root) as client:
+        response = client.post("/agentguard/review", json={"repo_path": str(repo)})
+    assert response.status_code == 200
+    return response.json()
+
+
 def test_agentguard_review_records_modified_file_claims_and_evidence(monkeypatch):
     _require_git()
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -341,3 +348,72 @@ def test_agentguard_review_omits_oversized_untracked_text_content(monkeypatch):
                 "cap_bytes": 262144,
             }
         ]
+
+
+def test_agentguard_review_flags_workflow_and_permission_changes(monkeypatch):
+    _require_git()
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_root = Path(temp_dir)
+        repo = _init_repo(temp_root / "repo")
+        workflow_path = repo / ".github" / "workflows" / "ci.yml"
+        workflow_path.parent.mkdir(parents=True)
+        workflow_path.write_text(
+            "name: CI\n"
+            "on: pull_request\n"
+            "permissions:\n"
+            "  contents: read\n"
+            "jobs:\n"
+            "  test:\n"
+            "    runs-on: ubuntu-latest\n"
+            "    steps:\n"
+            "      - run: python -m pytest\n",
+            encoding="utf-8",
+        )
+
+        payload = _review_repo(monkeypatch, temp_root, repo)
+
+        assert payload["risk_level"] == "medium"
+        evidence_text = _claim_evidence_text(payload["case_id"])
+        assert "GitHub Actions workflow files changed." in evidence_text
+        assert "workflow_changed" in evidence_text
+        assert "GitHub Actions workflow permissions changed." in evidence_text
+        assert "ci_permissions_changed" in evidence_text
+        assert ".github/workflows/ci.yml" in evidence_text
+
+
+def test_agentguard_review_flags_backend_service_change_without_tests(monkeypatch):
+    _require_git()
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_root = Path(temp_dir)
+        repo = _init_repo(temp_root / "repo")
+        service_path = repo / "backend" / "proofflow" / "services" / "new_service.py"
+        service_path.parent.mkdir(parents=True)
+        service_path.write_text("def risky():\n    return True\n", encoding="utf-8")
+
+        payload = _review_repo(monkeypatch, temp_root, repo)
+
+        assert payload["risk_level"] == "medium"
+        evidence_text = _claim_evidence_text(payload["case_id"])
+        assert "Backend service code changed without backend test changes." in evidence_text
+        assert "backend_service_changed_without_tests" in evidence_text
+        assert "backend/proofflow/services/new_service.py" in evidence_text
+
+
+def test_agentguard_review_keeps_docs_only_change_info_risk(monkeypatch):
+    _require_git()
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_root = Path(temp_dir)
+        repo = _init_repo(temp_root / "repo")
+        (repo / "README.md").write_text("# Docs only\n", encoding="utf-8")
+        asset_path = repo / "docs" / "assets" / "review.svg"
+        asset_path.parent.mkdir(parents=True)
+        asset_path.write_text("<svg xmlns=\"http://www.w3.org/2000/svg\" />\n", encoding="utf-8")
+
+        payload = _review_repo(monkeypatch, temp_root, repo)
+
+        assert payload["risk_level"] == "info"
+        evidence_text = _claim_evidence_text(payload["case_id"])
+        assert "Documentation or media-only change detected." in evidence_text
+        assert "docs_only_change" in evidence_text
+        assert "README.md" in evidence_text
+        assert "docs/assets/review.svg" in evidence_text

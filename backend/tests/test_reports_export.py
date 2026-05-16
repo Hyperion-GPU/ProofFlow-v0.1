@@ -277,6 +277,157 @@ def _seed_agentguard_untracked_policy_case() -> str:
     return case_id
 
 
+def _seed_ci_provenance_case() -> str:
+    case_id = "case-ci-provenance"
+    artifact_id = "artifact-ci-diff"
+    claim_id = "claim-ci"
+    evidence_id = "evidence-ci"
+    run_id = "run-ci"
+    now = "2026-01-01T00:00:00Z"
+    ci_provenance = {
+        "repo": "Hyperion-GPU/ProofFlow-v0.1",
+        "pr_number": "95",
+        "workflow_run_url": "https://github.com/Hyperion-GPU/ProofFlow-v0.1/actions/runs/123",
+        "base_sha": "base-sha",
+        "head_sha": "head-sha",
+        "base_ref": "base-sha",
+        "include_untracked": True,
+        "test_command_policy": "not_run_by_ci_design",
+        "diff_artifact_path": "artifacts/git-diff.patch",
+    }
+
+    with connect(get_db_path()) as connection:
+        connection.execute(
+            """
+            INSERT INTO cases (
+                id, title, case_type, status, summary, metadata_json, created_at, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                case_id,
+                "CI provenance case",
+                "code_review",
+                "open",
+                "Review CI provenance.",
+                dumps_metadata(
+                    {
+                        "ci_provenance": ci_provenance,
+                        "test_command_policy": "not_run_by_ci_design",
+                    }
+                ),
+                now,
+                now,
+            ),
+        )
+        connection.execute(
+            """
+            INSERT INTO artifacts (
+                id, artifact_type, uri, name, mime_type, sha256, size_bytes,
+                metadata_json, created_at, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                artifact_id,
+                "git_diff",
+                "agentguard://case-ci-provenance/git-diff.patch",
+                "git-diff.patch",
+                "text/plain",
+                "sha-ci-diff",
+                128,
+                dumps_metadata(
+                    {
+                        "source": "agentguard_review",
+                        "artifact_relative_path": "artifacts/git-diff.patch",
+                    }
+                ),
+                now,
+                now,
+            ),
+        )
+        connection.execute(
+            """
+            INSERT INTO case_artifacts (
+                case_id, artifact_id, role, created_at, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (case_id, artifact_id, "primary", now, now),
+        )
+        connection.execute(
+            """
+            INSERT INTO runs (
+                id, case_id, run_type, status, started_at, finished_at,
+                metadata_json, created_at, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                run_id,
+                case_id,
+                "agentguard_review",
+                "completed",
+                now,
+                now,
+                dumps_metadata(
+                    {
+                        "test_status": "not_run",
+                        "test_command": None,
+                        "test_command_policy": "not_run_by_ci_design",
+                        "risk_level": "info",
+                    }
+                ),
+                now,
+                now,
+            ),
+        )
+        connection.execute(
+            """
+            INSERT INTO claims (
+                id, case_id, run_id, claim_text, claim_type, status,
+                metadata_json, created_at, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                claim_id,
+                case_id,
+                run_id,
+                "Changed file count: 1.",
+                "agentguard_risk",
+                "open",
+                dumps_metadata({"severity": "info"}),
+                now,
+                now,
+            ),
+        )
+        connection.execute(
+            """
+            INSERT INTO evidence (
+                id, case_id, artifact_id, claim_id, evidence_type, content,
+                source_ref, metadata_json, created_at, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                evidence_id,
+                case_id,
+                artifact_id,
+                claim_id,
+                "git_diff",
+                "M\tREADME.md\ttracked",
+                artifact_id,
+                dumps_metadata({"source": "test"}),
+                now,
+                now,
+            ),
+        )
+        connection.commit()
+
+    return case_id
+
+
 def test_export_case_proof_packet_writes_markdown_and_report_artifact(monkeypatch, tmp_path):
     with _client(monkeypatch, tmp_path) as client:
         case_id = _seed_packet_case()
@@ -365,6 +516,33 @@ def test_export_case_proof_packet_renders_agentguard_untracked_policy_notes(
     assert "env-secret" not in content
     assert "large-file-secret-marker" not in content
     assert "unsafe_content" not in content
+
+
+def test_export_case_proof_packet_renders_ci_provenance_and_relative_artifact_path(
+    monkeypatch,
+    tmp_path,
+):
+    with _client(monkeypatch, tmp_path) as client:
+        case_id = _seed_ci_provenance_case()
+        response = client.post(
+            f"/reports/cases/{case_id}/export",
+            json={"format": "markdown"},
+        )
+
+    assert response.status_code == 200
+    content = response.json()["content"]
+
+    assert "## CI Provenance" in content
+    assert "Hyperion-GPU/ProofFlow-v0.1" in content
+    assert "PR number: `95`" in content
+    assert "https://github.com/Hyperion-GPU/ProofFlow-v0.1/actions/runs/123" in content
+    assert "Base SHA: `base-sha`" in content
+    assert "Head SHA: `head-sha`" in content
+    assert "Include untracked: `True`" in content
+    assert "Test command policy: `not_run_by_ci_design`" in content
+    assert "Path: `artifacts/git-diff.patch`" in content
+    assert "Artifact relative path: `artifacts/git-diff.patch`" in content
+    assert "Test status: `not_run_by_ci_design`" in content
 
 
 def test_export_case_proof_packet_does_not_overwrite_existing_report(monkeypatch, tmp_path):

@@ -151,6 +151,7 @@ def _render_markdown(packet: dict[str, Any], created_at: str) -> str:
         "",
     ]
 
+    lines.extend(_render_ci_provenance(case))
     lines.extend(_render_artifacts(packet["artifacts"]))
     lines.extend(_render_untracked_policy(packet["case"], packet["artifacts"]))
     lines.extend(_render_claims_and_evidence(packet["claims"], packet["evidence"]))
@@ -168,7 +169,7 @@ def _render_artifacts(artifacts: list[Any]) -> list[str]:
 
     for artifact in artifacts:
         metadata = loads_metadata(artifact["metadata_json"])
-        path = metadata.get("path") or artifact["uri"]
+        path = metadata.get("artifact_relative_path") or metadata.get("path") or artifact["uri"]
         lines.extend(
             [
                 f"- `{artifact['id']}` {_md(artifact['name'])}",
@@ -177,6 +178,30 @@ def _render_artifacts(artifacts: list[Any]) -> list[str]:
                 f"  - SHA-256: `{artifact['sha256'] or 'not recorded'}`",
             ]
         )
+    return lines + [""]
+
+
+def _render_ci_provenance(case: Any) -> list[str]:
+    metadata = loads_metadata(case["metadata_json"])
+    provenance = metadata.get("ci_provenance")
+    if not isinstance(provenance, dict):
+        return []
+
+    lines = [
+        "## CI Provenance",
+        "",
+        f"- Repository: `{_metadata_value(provenance.get('repo'))}`",
+        f"- PR number: `{_metadata_value(provenance.get('pr_number'))}`",
+        f"- Workflow run: `{_metadata_value(provenance.get('workflow_run_url'))}`",
+        f"- Base SHA: `{_metadata_value(provenance.get('base_sha'))}`",
+        f"- Head SHA: `{_metadata_value(provenance.get('head_sha'))}`",
+        f"- Base ref: `{_metadata_value(provenance.get('base_ref'))}`",
+        f"- Include untracked: `{_metadata_value(provenance.get('include_untracked'))}`",
+        f"- Test command policy: `{_metadata_value(provenance.get('test_command_policy'))}`",
+    ]
+    diff_artifact_path = provenance.get("diff_artifact_path")
+    if diff_artifact_path:
+        lines.append(f"- Diff artifact: `{_md(diff_artifact_path)}`")
     return lines + [""]
 
 
@@ -232,11 +257,13 @@ def _render_claims_and_evidence(claims: list[Any], evidence_rows: list[Any]) -> 
         )
         for evidence in evidence_by_claim.get(claim["id"], []):
             path = _evidence_artifact_path(evidence)
+            relative_path = _evidence_artifact_relative_path(evidence)
             lines.extend(
                 [
                     f"- Evidence `{evidence['id']}` ({evidence['evidence_type']})",
                     f"  - Artifact: `{evidence['artifact_id'] or 'none'}` {_md(evidence['artifact_name'] or '')}",
                     f"  - Path: `{path}`",
+                    f"  - Artifact relative path: `{relative_path}`",
                     f"  - Source ref: `{evidence['source_ref'] or 'not recorded'}`",
                     "",
                     *_quote_block(evidence["content"]),
@@ -292,6 +319,7 @@ def _render_runs(runs: list[Any]) -> list[str]:
 
     for run in runs:
         metadata = loads_metadata(run["metadata_json"])
+        test_status = _render_test_status(metadata)
         lines.extend(
             [
                 f"- Run `{run['id']}`",
@@ -299,7 +327,7 @@ def _render_runs(runs: list[Any]) -> list[str]:
                 f"  - Status: `{run['status']}`",
                 f"  - Started: `{run['started_at']}`",
                 f"  - Finished: `{run['finished_at'] or 'not recorded'}`",
-                f"  - Test status: `{metadata.get('test_status', 'not recorded')}`",
+                f"  - Test status: `{test_status}`",
                 f"  - Test command: `{metadata.get('test_command', 'not recorded')}`",
                 f"  - Risk level: `{metadata.get('risk_level', 'not recorded')}`",
             ]
@@ -406,10 +434,31 @@ def _sanitize_filename(value: str) -> str:
 
 def _evidence_artifact_path(evidence: Any) -> str:
     metadata = loads_metadata(evidence["artifact_metadata_json"])
+    artifact_relative_path = metadata.get("artifact_relative_path")
+    if isinstance(artifact_relative_path, str) and artifact_relative_path:
+        return artifact_relative_path
     path = metadata.get("path")
     if isinstance(path, str) and path:
         return path
     return evidence["artifact_uri"] or "not recorded"
+
+
+def _evidence_artifact_relative_path(evidence: Any) -> str:
+    metadata = loads_metadata(evidence["artifact_metadata_json"])
+    artifact_relative_path = metadata.get("artifact_relative_path")
+    if isinstance(artifact_relative_path, str) and artifact_relative_path:
+        return artifact_relative_path
+    return "not recorded"
+
+
+def _render_test_status(metadata: dict[str, Any]) -> str:
+    test_status = metadata.get("test_status", "not recorded")
+    if (
+        test_status == "not_run"
+        and metadata.get("test_command_policy") == "not_run_by_ci_design"
+    ):
+        return "not_run_by_ci_design"
+    return str(test_status)
 
 
 def _collect_untracked_policy_notes(case: Any, artifacts: list[Any]) -> list[dict[str, Any]]:

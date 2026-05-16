@@ -55,14 +55,26 @@ The workflow:
 - checks out the repository with full history,
 - installs `backend/requirements.txt`,
 - runs `scripts/ci_agentguard_review.py` against the PR base SHA,
-- stores the Proof Packet markdown and `summary.json` as the
+- stores the Proof Packet markdown, raw `artifacts/git-diff.patch`,
+  `artifacts/manifest.json`, and schema v2 `summary.json` as the
   `proofflow-agentguard-review` workflow artifact,
 - publishes or updates one PR comment marked with
   `<!-- proofflow-agentguard-review -->`.
 
 The PR comment reports status, risk level, changed file count, claim count,
-evidence count, artifact name, Proof Packet path, and any failure or skipped
-reason. This is audit-only visibility; it does not block merges.
+evidence count, artifact name, workflow run, base/head SHA, test command policy,
+diff artifact path, Proof Packet path, and any failure or skipped reason. This
+is audit-only visibility; it does not block merges.
+
+The artifact is intended to be usable offline:
+
+- `summary.json` uses `schema_version: "2"` and includes PR/run/base/head
+  provenance plus legacy fields for compatibility.
+- `artifacts/git-diff.patch` is the raw review evidence for tracked changes.
+- `artifacts/manifest.json` records relative paths, SHA-256 hashes, and sizes
+  for exported artifacts.
+- `data/proof_packets/*.md` includes CI provenance and points evidence back to
+  artifact-relative paths such as `artifacts/git-diff.patch`.
 
 The workflow needs `contents: read` to inspect the repository,
 `pull-requests: write` to read PR metadata, and `issues: write` because GitHub
