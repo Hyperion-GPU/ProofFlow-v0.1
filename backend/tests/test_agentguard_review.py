@@ -408,6 +408,13 @@ def test_agentguard_review_keeps_docs_only_change_info_risk(monkeypatch):
         asset_path = repo / "docs" / "assets" / "review.svg"
         asset_path.parent.mkdir(parents=True)
         asset_path.write_text("<svg xmlns=\"http://www.w3.org/2000/svg\" />\n", encoding="utf-8")
+        release_path = repo / "docs" / "releases" / "V0_1_7_RELEASE_DRAFT.md"
+        release_path.parent.mkdir(parents=True)
+        release_path.write_text(
+            "Validation mentions `npm run build`, `python -m pytest`, "
+            "`actions/upload-artifact@v7`, and `test_command` as documentation.\n",
+            encoding="utf-8",
+        )
 
         payload = _review_repo(monkeypatch, temp_root, repo)
 
@@ -415,5 +422,7 @@ def test_agentguard_review_keeps_docs_only_change_info_risk(monkeypatch):
         evidence_text = _claim_evidence_text(payload["case_id"])
         assert "Documentation or media-only change detected." in evidence_text
         assert "docs_only_change" in evidence_text
+        assert "script_or_command_surface_changed" not in evidence_text
         assert "README.md" in evidence_text
         assert "docs/assets/review.svg" in evidence_text
+        assert "docs/releases/V0_1_7_RELEASE_DRAFT.md" in evidence_text
