@@ -50,7 +50,7 @@ jobs:
             --output-dir "$PROOFFLOW_CI_OUTPUT_DIR"
 
       - name: Upload ProofFlow review artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: proofflow-agentguard-review
           path: |
