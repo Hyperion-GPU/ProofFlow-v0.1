@@ -2,11 +2,15 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-**Local-first audit layer for Codex-compatible AI coding agent workflows.**
+**CI Proof Packets for AI code review.**
 
 Vibe coding is fast. Blind trust is not enough.
 
-ProofFlow makes AI coding agents reviewable, traceable, and reversible through evidence-backed claims, policy gates, undo metadata, and human maintainer review.
+ProofFlow makes AI-generated pull requests reviewable, traceable, and
+reversible through evidence-backed claims, CI review artifacts, policy gates,
+undo metadata, and human maintainer review.
+
+**Latest release:** [v0.1.6 - CI Proof Packets for AI Code Review](https://github.com/Hyperion-GPU/ProofFlow-v0.1/releases/tag/v0.1.6)
 
 ▶ **Watch the 72s demo:** [From AI agent claims to verifiable Proof Packets](https://github.com/Hyperion-GPU/ProofFlow-v0.1/releases/tag/v0.1.3)<br>
 📦 **Example Proof Packet:** [`docs/examples/proof_packet_codex_review.md`](docs/examples/proof_packet_codex_review.md)
