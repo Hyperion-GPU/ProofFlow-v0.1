@@ -562,8 +562,9 @@ def _build_claim_specs(
         )
 
     script_paths = _paths_matching(changed_files, _is_script_path)
-    if script_paths or _diff_has_command_surface(snapshot.diff_text):
-        affected_paths = script_paths or _changed_paths(changed_files)
+    command_surface_paths = _diff_command_surface_paths(snapshot.diff_text)
+    if script_paths or command_surface_paths:
+        affected_paths = _unique_paths([*script_paths, *command_surface_paths])
         claims.append(
             ClaimSpec(
                 severity="medium",
@@ -676,6 +677,16 @@ def _test_status(test_result: TestCommandResult | None) -> str:
 
 def _changed_paths(changed_files: list[ChangedFile]) -> list[str]:
     return [item.path for item in changed_files]
+
+
+def _unique_paths(paths: list[str]) -> list[str]:
+    seen: set[str] = set()
+    unique: list[str] = []
+    for path in paths:
+        if path not in seen:
+            unique.append(path)
+            seen.add(path)
+    return unique
 
 
 def _paths_matching(
@@ -798,7 +809,7 @@ def _diff_header_is_workflow(line: str) -> bool:
     return any(_is_workflow_path(path) for path in paths)
 
 
-def _diff_has_command_surface(diff_text: str) -> bool:
+def _diff_command_surface_paths(diff_text: str) -> list[str]:
     command_keywords = (
         "run:",
         "subprocess",
@@ -812,8 +823,38 @@ def _diff_has_command_surface(diff_text: str) -> bool:
         "npm ",
         "pip ",
     )
-    normalized = diff_text.lower()
-    return any(keyword in normalized for keyword in command_keywords)
+    paths: list[str] = []
+    current_path: str | None = None
+    inspect_current_path = False
+    for line in diff_text.splitlines():
+        if line.startswith("diff --git "):
+            current_path = _diff_header_path(line)
+            inspect_current_path = current_path is not None and not _is_documentation_or_media_path(
+                current_path
+            )
+            continue
+        if current_path is None or not inspect_current_path:
+            continue
+        stripped = line.strip().lower()
+        if not stripped.startswith(("+", "-")):
+            continue
+        if stripped.startswith(("+++", "---")):
+            continue
+        if any(keyword in stripped for keyword in command_keywords):
+            paths.append(current_path)
+    return _unique_paths(paths)
+
+
+def _diff_header_path(line: str) -> str | None:
+    parts = line.split()
+    if len(parts) < 4:
+        return None
+    path = parts[3]
+    if path.startswith("b/"):
+        return path[2:]
+    if path.startswith("a/"):
+        return path[2:]
+    return path
 
 
 def _is_sensitive_path(path: str) -> bool:
