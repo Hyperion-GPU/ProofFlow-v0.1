@@ -10,12 +10,26 @@ ProofFlow makes AI-generated pull requests reviewable, traceable, and
 reversible through evidence-backed claims, CI review artifacts, policy gates,
 undo metadata, and human maintainer review.
 
-**Latest release:** [v0.1.6 - CI Proof Packets for AI Code Review](https://github.com/Hyperion-GPU/ProofFlow-v0.1/releases/tag/v0.1.6)
+**Latest release:** [v0.1.6.1 - Dogfood Polish for CI Review Comments](https://github.com/Hyperion-GPU/ProofFlow-v0.1/releases/tag/v0.1.6.1)
 
 ▶ **Watch the 72s demo:** [From AI agent claims to verifiable Proof Packets](https://github.com/Hyperion-GPU/ProofFlow-v0.1/releases/tag/v0.1.3)<br>
 📦 **Example Proof Packet:** [`docs/examples/proof_packet_codex_review.md`](docs/examples/proof_packet_codex_review.md)
 
 [![ProofFlow demo thumbnail](docs/assets/proofflow-demo-thumbnail.png)](https://github.com/Hyperion-GPU/ProofFlow-v0.1/releases/tag/v0.1.3)
+
+## ProofFlow Reviewed ProofFlow
+
+ProofFlow v0.1.6 was dogfooded on a real repository PR. The GitHub Actions
+workflow ran AgentGuard, posted a stable PR summary comment, uploaded
+`summary.json`, and exported a downloadable Proof Packet.
+
+[![ProofFlow AgentGuard review comment for PR #94](docs/assets/proofflow-pr94-agentguard-comment.svg)](https://github.com/Hyperion-GPU/ProofFlow-v0.1/pull/94#issuecomment-4465608299)
+
+- Real PR: [#94 Dogfood v0.1.6 CI review story](https://github.com/Hyperion-GPU/ProofFlow-v0.1/pull/94)
+- Review run: [ProofFlow PR Review #25953071865](https://github.com/Hyperion-GPU/ProofFlow-v0.1/actions/runs/25953071865)
+- Patch release from dogfood feedback: [v0.1.6.1](https://github.com/Hyperion-GPU/ProofFlow-v0.1/releases/tag/v0.1.6.1)
+- Result: one stable comment updated across pushes, one artifact containing the
+  Proof Packet and `summary.json`, no merge blocking.
 
 [![Backend](https://github.com/Hyperion-GPU/ProofFlow-v0.1/actions/workflows/backend.yml/badge.svg)](https://github.com/Hyperion-GPU/ProofFlow-v0.1/actions/workflows/backend.yml)
 [![Frontend](https://github.com/Hyperion-GPU/ProofFlow-v0.1/actions/workflows/frontend.yml/badge.svg)](https://github.com/Hyperion-GPU/ProofFlow-v0.1/actions/workflows/frontend.yml)
