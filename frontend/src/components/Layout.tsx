@@ -16,7 +16,7 @@ export function Layout() {
     <div className="app-frame">
       <aside className="sidebar" aria-label="Primary navigation">
         <div className="brand">
-          <span className="brand-mark">PF</span>
+          <img className="brand-mark" src="/proofflow-brand.png" alt="" aria-hidden="true" />
           <div>
             <strong>ProofFlow</strong>
             <span>Local MVP</span>

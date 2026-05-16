@@ -168,10 +168,139 @@ describe("LocalProof", () => {
     expect(await screen.findByText("Confirm receipt")).toBeInTheDocument();
     expect(buttonInAction("Confirm receipt", "Undo")).toBeDisabled();
   });
+
+  it("keeps action order stable after state changes", async () => {
+    let actions = [mkdirAction("pending"), moveAction("pending")];
+    mockApiPost.mockImplementation((path: string) => {
+      if (path === "/localproof/scan") {
+        return Promise.resolve({
+          case_id: "case-localproof",
+          files_seen: 1,
+          artifacts_created: 1,
+          artifacts_updated: 0,
+          text_chunks_created: 1,
+          skipped: 0,
+          skipped_items: [],
+        });
+      }
+      if (path === "/localproof/suggest-actions") {
+        return Promise.resolve({
+          case_id: "case-localproof",
+          target_root: "D:/sorted",
+          actions_created: 2,
+          skipped: 0,
+          skipped_items: [],
+          actions,
+        });
+      }
+      if (path === "/actions/mkdir-1/approve") {
+        actions = [mkdirAction("approved"), moveAction("pending")];
+        return Promise.resolve(actions[0]);
+      }
+      return Promise.reject(new Error(`unexpected post: ${path}`));
+    });
+    mockApiGet.mockImplementation((path: string) => {
+      if (path === "/cases/case-localproof/actions") {
+        return Promise.resolve(actions);
+      }
+      return Promise.reject(new Error(`unexpected get: ${path}`));
+    });
+
+    render(
+      <MemoryRouter>
+        <LocalProof />
+      </MemoryRouter>,
+    );
+
+    await userEvent.type(screen.getByLabelText("Folder path"), "D:/inbox");
+    await userEvent.click(screen.getByRole("button", { name: "Scan" }));
+    await userEvent.type(screen.getByLabelText("Target root"), "D:/sorted");
+    await userEvent.click(screen.getByRole("button", { name: "Suggest actions" }));
+
+    expect(actionTitles()).toEqual(["Create Notes directory", "Move notes.md to Notes"]);
+
+    await userEvent.click(buttonInAction("Create Notes directory", "Approve"));
+
+    expect(await statusInAction("Create Notes directory", "approved")).toBeInTheDocument();
+    expect(actionTitles()).toEqual(["Create Notes directory", "Move notes.md to Notes"]);
+  });
+
+  it("makes gated actions a clear two-step decision then execute flow", async () => {
+    let actions = [moveAction("pending_decision")];
+    mockApiPost.mockImplementation((path: string) => {
+      if (path === "/localproof/scan") {
+        return Promise.resolve({
+          case_id: "case-localproof",
+          files_seen: 1,
+          artifacts_created: 1,
+          artifacts_updated: 0,
+          text_chunks_created: 1,
+          skipped: 0,
+          skipped_items: [],
+        });
+      }
+      if (path === "/localproof/suggest-actions") {
+        return Promise.resolve({
+          case_id: "case-localproof",
+          target_root: "D:/sorted",
+          actions_created: 1,
+          skipped: 0,
+          skipped_items: [],
+          actions,
+        });
+      }
+      if (path === "/cases/case-localproof/decisions") {
+        return Promise.resolve({});
+      }
+      if (path === "/actions/move-1/execute") {
+        actions = [moveAction("executed")];
+        return Promise.resolve(actions[0]);
+      }
+      return Promise.reject(new Error(`unexpected post: ${path}`));
+    });
+    mockApiGet.mockImplementation((path: string) => {
+      if (path === "/cases/case-localproof/actions") {
+        return Promise.resolve(actions);
+      }
+      return Promise.reject(new Error(`unexpected get: ${path}`));
+    });
+
+    render(
+      <MemoryRouter>
+        <LocalProof />
+      </MemoryRouter>,
+    );
+
+    await userEvent.type(screen.getByLabelText("Folder path"), "D:/inbox");
+    await userEvent.click(screen.getByRole("button", { name: "Scan" }));
+    await userEvent.type(screen.getByLabelText("Target root"), "D:/sorted");
+    await userEvent.click(screen.getByRole("button", { name: "Suggest actions" }));
+
+    expect(await screen.findByText("Policy gate - action paused")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Step 1 of 2: record an owner decision. Step 2 will be a separate Execute click.",
+      ),
+    ).toBeInTheDocument();
+    expect(buttonInAction("Move notes.md to Notes", "Execute")).toBeDisabled();
+
+    await userEvent.click(screen.getByRole("button", { name: "Record Owner Decision" }));
+
+    expect(
+      await screen.findByText(
+        "Owner decision recorded. Step 2 of 2: click Execute to run this action.",
+      ),
+    ).toBeInTheDocument();
+    expect(buttonInAction("Move notes.md to Notes", "Execute")).toBeEnabled();
+
+    await userEvent.click(buttonInAction("Move notes.md to Notes", "Execute"));
+
+    expect(await statusInAction("Move notes.md to Notes", "executed")).toBeInTheDocument();
+  });
 });
 
 function buttonInAction(title: string, name: string): HTMLButtonElement {
-  return within(actionItem(title)).getByRole("button", { name });
+  return within(actionItem(title)).getByRole("button", { name: `${name} ${title}` });
 }
 
 async function statusInAction(title: string, status: string) {
@@ -185,6 +314,13 @@ function actionItem(title: string): HTMLElement {
     throw new Error(`action item not found: ${title}`);
   }
   return item;
+}
+
+function actionTitles(): string[] {
+  return screen
+    .getAllByRole("listitem")
+    .filter((item) => item.className.includes("packet-item"))
+    .map((item) => within(item).getByText(/^(Create|Move|Confirm)/).textContent ?? "");
 }
 
 function mkdirAction(status: string): ActionResponse {
@@ -244,6 +380,17 @@ function moveAction(status: string): ActionResponse {
       rule: "note",
       depends_on_action_id: "mkdir-1",
       depends_on_dir_path: "D:/sorted/Notes",
+      ...(status === "pending_decision"
+        ? {
+            policy_gate: {
+              status: "pending_decision",
+              pipeline_id: "pipe-123",
+              preview_hash: "hash-abc",
+              categories: ["destructive_local_operation"],
+              reason: "high-risk action requires owner decision: move_file",
+            },
+          }
+        : {}),
     },
     created_at: "2026-01-01T00:00:00Z",
     updated_at: "2026-01-01T00:00:00Z",
