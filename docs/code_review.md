@@ -86,3 +86,7 @@ data. It also intentionally does not pass `test_command` to AgentGuard. If a
 future workflow needs test command execution, enable it explicitly and review
 that command execution boundary separately.
 
+After dependency refreshes, keep one small documentation-only dogfood PR in the
+loop. It verifies that the current backend, frontend, and GitHub Actions toolchain
+still produce a low-risk Proof Packet with reproducible CI provenance.
+
