@@ -35,6 +35,12 @@ jobs:
       - name: Run AgentGuard review
         env:
           PROOFFLOW_CI_BASE_REF: ${{ github.event.pull_request.base.sha }}
+          PROOFFLOW_CI_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PROOFFLOW_CI_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PROOFFLOW_CI_PR_NUMBER: ${{ github.event.pull_request.number }}
+          PROOFFLOW_CI_REPO: ${{ github.repository }}
+          PROOFFLOW_CI_RUN_ID: ${{ github.run_id }}
+          PROOFFLOW_CI_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           PROOFFLOW_CI_OUTPUT_DIR: prooflow-ci-output
           PROOFFLOW_CI_ARTIFACT_NAME: proofflow-agentguard-review
         run: |
@@ -49,6 +55,7 @@ jobs:
           name: proofflow-agentguard-review
           path: |
             prooflow-ci-output/summary.json
+            prooflow-ci-output/artifacts/**
             prooflow-ci-output/data/proof_packets/*.md
           if-no-files-found: warn
 
@@ -65,7 +72,12 @@ jobs:
           summary = json.loads(Path(os.environ["SUMMARY_PATH"]).read_text(encoding="utf-8"))
           artifact = summary.get("artifact_name", "proofflow-agentguard-review")
           error = summary.get("error") or "None"
-          packet = f"Included in workflow artifact `{artifact}`" if summary.get("proof_packet_path") else "Not generated"
+          packet = summary.get("proof_packet_relative_path") or "Not generated"
+          diff_artifact = summary.get("diff_artifact_path") or "Not generated"
+          workflow_run = summary.get("workflow_run_url") or "Not recorded"
+          base_sha = (summary.get("base_sha") or "unknown")[:12]
+          head_sha = (summary.get("head_sha") or "unknown")[:12]
+          test_policy = summary.get("test_command_policy", "not recorded")
           body = f"""{marker}
           ## ProofFlow AgentGuard review
 
@@ -77,7 +89,11 @@ jobs:
           | Claims | `{summary.get("claims_created", 0)}` |
           | Evidence | `{summary.get("evidence_created", 0)}` |
           | Artifact | `{artifact}` |
-          | Proof Packet | {packet} |
+          | Workflow run | {workflow_run} |
+          | Base / Head | `{base_sha}` / `{head_sha}` |
+          | Test command | `{test_policy}` |
+          | Diff artifact | `{diff_artifact}` |
+          | Proof Packet | `{packet}` |
           | Failure / skip reason | `{error}` |
 
           ProofFlow generated this audit only for review visibility. It does not block merge.

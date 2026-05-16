@@ -514,6 +514,102 @@ def _build_claim_specs(
             )
         )
 
+    if changed_files and _docs_only_change(changed_files):
+        paths = _changed_paths(changed_files)
+        claims.append(
+            ClaimSpec(
+                severity="info",
+                text="Documentation or media-only change detected.",
+                evidence_type="git_diff",
+                evidence_content=_format_paths_evidence(
+                    "All changed paths are documentation or media assets.",
+                    paths,
+                    "docs_only_change",
+                ),
+                source_ref=paths[0],
+            )
+        )
+
+    workflow_paths = _paths_matching(changed_files, _is_workflow_path)
+    if workflow_paths:
+        claims.append(
+            ClaimSpec(
+                severity="medium",
+                text="GitHub Actions workflow files changed.",
+                evidence_type="git_diff",
+                evidence_content=_format_paths_evidence(
+                    "Workflow files changed.",
+                    workflow_paths,
+                    "workflow_changed",
+                ),
+                source_ref=workflow_paths[0],
+            )
+        )
+
+    if workflow_paths and _workflow_permissions_changed(snapshot.diff_text):
+        claims.append(
+            ClaimSpec(
+                severity="medium",
+                text="GitHub Actions workflow permissions changed.",
+                evidence_type="git_diff",
+                evidence_content=_format_paths_evidence(
+                    "Workflow permission surface changed.",
+                    workflow_paths,
+                    "ci_permissions_changed",
+                ),
+                source_ref=workflow_paths[0],
+            )
+        )
+
+    script_paths = _paths_matching(changed_files, _is_script_path)
+    if script_paths or _diff_has_command_surface(snapshot.diff_text):
+        affected_paths = script_paths or _changed_paths(changed_files)
+        claims.append(
+            ClaimSpec(
+                severity="medium",
+                text="Script or command execution surface changed.",
+                evidence_type="git_diff",
+                evidence_content=_format_paths_evidence(
+                    "Script paths or command-like diff content changed.",
+                    affected_paths,
+                    "script_or_command_surface_changed",
+                ),
+                source_ref=affected_paths[0] if affected_paths else None,
+            )
+        )
+
+    backend_service_paths = _paths_matching(changed_files, _is_backend_service_path)
+    if backend_service_paths and not _backend_tests_changed(changed_files):
+        claims.append(
+            ClaimSpec(
+                severity="medium",
+                text="Backend service code changed without backend test changes.",
+                evidence_type="git_diff",
+                evidence_content=_format_paths_evidence(
+                    "Backend implementation paths changed but backend tests did not.",
+                    backend_service_paths,
+                    "backend_service_changed_without_tests",
+                ),
+                source_ref=backend_service_paths[0],
+            )
+        )
+
+    frontend_source_paths = _paths_matching(changed_files, _is_frontend_source_path)
+    if frontend_source_paths and not _frontend_tests_changed(changed_files):
+        claims.append(
+            ClaimSpec(
+                severity="medium",
+                text="Frontend source code changed without frontend test changes.",
+                evidence_type="git_diff",
+                evidence_content=_format_paths_evidence(
+                    "Frontend source paths changed but frontend tests did not.",
+                    frontend_source_paths,
+                    "frontend_changed_without_tests",
+                ),
+                source_ref=frontend_source_paths[0],
+            )
+        )
+
     if _file_operation_code_changed(changed_files, snapshot.diff_text) and not _tests_changed(changed_files):
         file_paths = [item.path for item in changed_files]
         claims.append(
@@ -576,6 +672,148 @@ def _test_status(test_result: TestCommandResult | None) -> str:
     if test_result.returncode == 0:
         return "passed"
     return "failed"
+
+
+def _changed_paths(changed_files: list[ChangedFile]) -> list[str]:
+    return [item.path for item in changed_files]
+
+
+def _paths_matching(
+    changed_files: list[ChangedFile],
+    predicate: Any,
+) -> list[str]:
+    return [item.path for item in changed_files if predicate(item.path)]
+
+
+def _format_paths_evidence(summary: str, paths: list[str], trigger: str) -> str:
+    lines = [summary, f"Trigger: {trigger}", "Affected paths:"]
+    lines.extend(f"- {path}" for path in paths)
+    return "\n".join(lines)
+
+
+def _docs_only_change(changed_files: list[ChangedFile]) -> bool:
+    return all(_is_documentation_or_media_path(item.path) for item in changed_files)
+
+
+def _is_documentation_or_media_path(path: str) -> bool:
+    normalized = path.lower().replace("\\", "/")
+    name = Path(normalized).name
+    suffix = Path(normalized).suffix
+    if name in {"readme.md", "readme.zh-cn.md", "changelog.md"}:
+        return True
+    if normalized.startswith("docs/"):
+        return True
+    if name.startswith("release_notes") and suffix == ".md":
+        return True
+    return suffix in {
+        ".md",
+        ".markdown",
+        ".txt",
+        ".rst",
+        ".svg",
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".gif",
+        ".webp",
+    }
+
+
+def _is_workflow_path(path: str) -> bool:
+    return path.lower().replace("\\", "/").startswith(".github/workflows/")
+
+
+def _is_script_path(path: str) -> bool:
+    return path.lower().replace("\\", "/").startswith("scripts/")
+
+
+def _is_backend_service_path(path: str) -> bool:
+    normalized = path.lower().replace("\\", "/")
+    return normalized.startswith("backend/proofflow/")
+
+
+def _is_frontend_source_path(path: str) -> bool:
+    normalized = path.lower().replace("\\", "/")
+    return normalized.startswith("frontend/src/") and not _is_frontend_test_path(path)
+
+
+def _backend_tests_changed(changed_files: list[ChangedFile]) -> bool:
+    return any(_is_backend_test_path(item.path) for item in changed_files)
+
+
+def _frontend_tests_changed(changed_files: list[ChangedFile]) -> bool:
+    return any(_is_frontend_test_path(item.path) for item in changed_files)
+
+
+def _is_backend_test_path(path: str) -> bool:
+    normalized = path.lower().replace("\\", "/")
+    return normalized.startswith("backend/tests/") or normalized.startswith("tests/")
+
+
+def _is_frontend_test_path(path: str) -> bool:
+    normalized = path.lower().replace("\\", "/")
+    return (
+        normalized.startswith("frontend/src/")
+        and (
+            ".test." in Path(normalized).name
+            or ".spec." in Path(normalized).name
+            or "/__tests__/" in normalized
+        )
+    ) or normalized.startswith("frontend/tests/")
+
+
+def _workflow_permissions_changed(diff_text: str) -> bool:
+    permission_keys = (
+        "permissions:",
+        "contents:",
+        "pull-requests:",
+        "issues:",
+        "actions:",
+        "checks:",
+        "id-token:",
+        "security-events:",
+    )
+    in_workflow_file = False
+    for line in diff_text.splitlines():
+        if line.startswith("diff --git "):
+            in_workflow_file = _diff_header_is_workflow(line)
+            continue
+        if not in_workflow_file:
+            continue
+        stripped = line.strip().lower()
+        if not stripped.startswith(("+", "-")):
+            continue
+        if stripped.startswith(("+++", "---")):
+            continue
+        if any(key in stripped for key in permission_keys):
+            return True
+    return False
+
+
+def _diff_header_is_workflow(line: str) -> bool:
+    parts = line.split()
+    if len(parts) < 4:
+        return False
+    paths = [part[2:] if part.startswith(("a/", "b/")) else part for part in parts[2:4]]
+    return any(_is_workflow_path(path) for path in paths)
+
+
+def _diff_has_command_surface(diff_text: str) -> bool:
+    command_keywords = (
+        "run:",
+        "subprocess",
+        "invoke-restmethod",
+        "curl ",
+        "wget ",
+        "bash ",
+        "powershell",
+        "cmd /c",
+        "python -m",
+        "npm ",
+        "pip ",
+    )
+    normalized = diff_text.lower()
+    return any(keyword in normalized for keyword in command_keywords)
 
 
 def _is_sensitive_path(path: str) -> bool:
