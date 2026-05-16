@@ -4,6 +4,19 @@ All notable changes for ProofFlow v0.1 are tracked here.
 
 ## Unreleased
 
+## v0.1.6.1
+
+### Fixed
+
+- Improved the ProofFlow PR review comment after dogfooding v0.1.6: the Proof
+  Packet row now points maintainers to the downloadable workflow artifact
+  instead of showing a runner-local filesystem path.
+
+### Docs
+
+- Updated the README first-screen story to emphasize CI Proof Packets for AI
+  code review and link directly to the v0.1.6 release.
+
 ## v0.1.6
 
 ### Added

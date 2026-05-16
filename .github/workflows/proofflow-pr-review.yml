@@ -63,8 +63,9 @@ jobs:
 
           marker = "<!-- proofflow-agentguard-review -->"
           summary = json.loads(Path(os.environ["SUMMARY_PATH"]).read_text(encoding="utf-8"))
+          artifact = summary.get("artifact_name", "proofflow-agentguard-review")
           error = summary.get("error") or "None"
-          packet = summary.get("proof_packet_path") or "Not generated"
+          packet = f"Included in workflow artifact `{artifact}`" if summary.get("proof_packet_path") else "Not generated"
           body = f"""{marker}
           ## ProofFlow AgentGuard review
 
@@ -75,8 +76,8 @@ jobs:
           | Changed files | `{summary.get("changed_files", 0)}` |
           | Claims | `{summary.get("claims_created", 0)}` |
           | Evidence | `{summary.get("evidence_created", 0)}` |
-          | Artifact | `{summary.get("artifact_name", "proofflow-agentguard-review")}` |
-          | Proof Packet | `{packet}` |
+          | Artifact | `{artifact}` |
+          | Proof Packet | {packet} |
           | Failure / skip reason | `{error}` |
 
           ProofFlow generated this audit only for review visibility. It does not block merge.
