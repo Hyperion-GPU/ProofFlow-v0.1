@@ -160,8 +160,16 @@ describe("CaseDetail", () => {
     const pill = screen.getByText("pending_decision");
     expect(pill.className).toContain("warn");
 
-    // Click approve button
-    await userEvent.click(screen.getByRole("button", { name: "Approve & Resolve Gate" }));
+    expect(
+      screen.getByText(
+        "Step 1 of 2: record an owner decision. Step 2 will be a separate Execute click.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Execute Move important file" }),
+    ).toBeDisabled();
+
+    await userEvent.click(screen.getByRole("button", { name: "Record Owner Decision" }));
 
     expect(mockApiPost).toHaveBeenCalledWith("/cases/case-detail/decisions", {
       title: "Approve gated action: Move important file",

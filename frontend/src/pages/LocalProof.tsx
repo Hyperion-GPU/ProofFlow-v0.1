@@ -33,6 +33,9 @@ export function LocalProof() {
   const [scanLoading, setScanLoading] = useState(false);
   const [suggestLoading, setSuggestLoading] = useState(false);
   const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [gateDecisionReady, setGateDecisionReady] = useState<Set<string>>(
+    () => new Set(),
+  );
 
   function scanFolder(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -62,6 +65,7 @@ export function LocalProof() {
       .then((response) => {
         setSuggestResult(response);
         setCaseId(response.case_id);
+        setGateDecisionReady(new Set());
         setError(null);
       })
       .catch((requestError: unknown) => setError(formatApiError(requestError)))
@@ -82,7 +86,18 @@ export function LocalProof() {
     const actionKey = `${action.id}:${operation}`;
     setBusyAction(actionKey);
     apiPost<ActionResponse>(`/actions/${action.id}/${operation}`)
-      .then(() => refreshActions(action.case_id))
+      .then(() =>
+        refreshActions(action.case_id).then(() => {
+          if (operation === "execute" || operation === "reject") {
+            setGateDecisionReady((current) => {
+              if (!current.has(action.id)) return current;
+              const next = new Set(current);
+              next.delete(action.id);
+              return next;
+            });
+          }
+        }),
+      )
       .catch((requestError: unknown) => setError(formatApiError(requestError)))
       .finally(() => setBusyAction(null));
   }
@@ -248,7 +263,7 @@ export function LocalProof() {
         ) : (
           <ul className="packet-list">
             {actions.map((action) => (
-              <li key={action.id} className="packet-item">
+              <li key={action.id} className="packet-item" data-action-id={action.id}>
                 <div className="section-heading compact">
                   <div>
                     <strong>{action.title}</strong>
@@ -258,7 +273,10 @@ export function LocalProof() {
                   </div>
                   <span className={`status-pill${action.status === "pending_decision" ? " warn" : ""}`}>{action.status}</span>
                 </div>
-                <ActionStatusSummary action={action} />
+                <ActionStatusSummary
+                  action={action}
+                  gateDecisionReady={gateDecisionReady.has(action.id)}
+                />
                 <div className="path-preview-grid">
                   <ActionPathPreview action={action} />
                 </div>
@@ -272,7 +290,16 @@ export function LocalProof() {
                 {action.status === "pending_decision" && (
                   <PolicyGateBanner
                     action={action}
-                    onDecisionCreated={() => refreshActions(action.case_id)}
+                    decisionReady={gateDecisionReady.has(action.id)}
+                    onDecisionCreated={() =>
+                      refreshActions(action.case_id).then(() =>
+                        setGateDecisionReady((current) => {
+                          const next = new Set(current);
+                          next.add(action.id);
+                          return next;
+                        }),
+                      )
+                    }
                     busy={busyAction !== null}
                   />
                 )}
@@ -283,9 +310,14 @@ export function LocalProof() {
                       type="button"
                       disabled={
                         busyAction !== null ||
-                        !canRunAction(action, operation) ||
+                        !canRunAction(
+                          action,
+                          operation,
+                          gateDecisionReady.has(action.id),
+                        ) ||
                         busyAction === `${action.id}:${operation}`
                       }
+                      aria-label={`${ACTION_LABELS[operation]} ${action.title}`}
                       onClick={() => runAction(action, operation)}
                     >
                       {busyAction === `${action.id}:${operation}`
@@ -376,9 +408,15 @@ function ActionDependencyMetadata({ metadata }: { metadata: JsonObject }) {
   );
 }
 
-function canRunAction(action: ActionResponse, operation: ActionOperation): boolean {
+function canRunAction(
+  action: ActionResponse,
+  operation: ActionOperation,
+  gateDecisionReady = false,
+): boolean {
   if (operation === "approve") return action.status === "pending" || action.status === "previewed";
-  if (operation === "execute") return action.status === "approved" || action.status === "pending_decision";
+  if (operation === "execute") {
+    return action.status === "approved" || (action.status === "pending_decision" && gateDecisionReady);
+  }
   if (operation === "undo") {
     return action.status === "executed" && action.kind !== "manual_check";
   }
@@ -400,10 +438,12 @@ function previewText(preview: JsonObject, key: string): string {
 
 function PolicyGateBanner({
   action,
+  decisionReady,
   onDecisionCreated,
   busy,
 }: {
   action: ActionResponse;
+  decisionReady: boolean;
   onDecisionCreated: () => void;
   busy: boolean;
 }) {
@@ -436,28 +476,51 @@ function PolicyGateBanner({
   }
 
   return (
-    <div className="gate-banner">
+    <div className={`gate-banner${decisionReady ? " ready" : ""}`}>
       <strong>Policy gate - action paused</strong>
       {reason && <span>{reason}</span>}
       {categories && <span>Categories: {categories}</span>}
-      <button type="button" onClick={createGateDecision} disabled={busy || creating}>
-        {creating ? "Creating decision..." : "Approve & Resolve Gate"}
+      <span>
+        {decisionReady
+          ? "Owner decision recorded. Step 2 of 2: click Execute to run this action."
+          : "Step 1 of 2: record an owner decision. Step 2 will be a separate Execute click."}
+      </span>
+      <button
+        type="button"
+        onClick={createGateDecision}
+        disabled={busy || creating || decisionReady}
+      >
+        {creating
+          ? "Recording decision..."
+          : decisionReady
+            ? "Owner Decision Recorded"
+            : "Record Owner Decision"}
       </button>
     </div>
   );
 }
 
-function ActionStatusSummary({ action }: { action: ActionResponse }) {
+function ActionStatusSummary({
+  action,
+  gateDecisionReady,
+}: {
+  action: ActionResponse;
+  gateDecisionReady: boolean;
+}) {
   return (
     <div className="action-summary">
-      <strong>{actionStatusText(action)}</strong>
-      <span>{nextActionText(action)}</span>
+      <strong>{actionStatusText(action, gateDecisionReady)}</strong>
+      <span>{nextActionText(action, gateDecisionReady)}</span>
     </div>
   );
 }
 
-function actionStatusText(action: ActionResponse): string {
-  if (action.status === "pending_decision") return "Owner decision required before execution.";
+function actionStatusText(action: ActionResponse, gateDecisionReady = false): string {
+  if (action.status === "pending_decision") {
+    return gateDecisionReady
+      ? "Owner decision recorded; execute is now available."
+      : "Owner decision required before execution.";
+  }
   if (action.status === "pending" || action.status === "previewed") return "Preview is ready for approval.";
   if (action.status === "approved") return "Approved and ready to execute.";
   if (action.status === "executed") return "Executed with undo metadata recorded.";
@@ -466,28 +529,19 @@ function actionStatusText(action: ActionResponse): string {
   return "Action state recorded.";
 }
 
-function nextActionText(action: ActionResponse): string {
+function nextActionText(action: ActionResponse, gateDecisionReady = false): string {
+  if (action.status === "pending_decision" && !gateDecisionReady) {
+    return "Next: Record Owner Decision or Reject.";
+  }
   const available = (["approve", "execute", "undo", "reject"] as ActionOperation[])
-    .filter((operation) => canRunAction(action, operation))
+    .filter((operation) => canRunAction(action, operation, gateDecisionReady))
     .map((operation) => ACTION_LABELS[operation]);
   if (available.length === 0) return "No further action is currently available.";
   return `Next: ${available.join(" or ")}.`;
 }
 
 function sortActionsForReview(actions: ActionResponse[]): ActionResponse[] {
-  const order: Record<string, number> = {
-    pending_decision: 0,
-    approved: 1,
-    pending: 2,
-    previewed: 3,
-    executed: 4,
-    undone: 5,
-    rejected: 6,
-  };
   return [...actions].sort((left, right) => {
-    const leftOrder = order[left.status] ?? 9;
-    const rightOrder = order[right.status] ?? 9;
-    if (leftOrder !== rightOrder) return leftOrder - rightOrder;
     return left.created_at.localeCompare(right.created_at) || left.title.localeCompare(right.title);
   });
 }

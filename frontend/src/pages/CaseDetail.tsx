@@ -26,6 +26,9 @@ export function CaseDetail() {
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [gateDecisionReady, setGateDecisionReady] = useState<Set<string>>(
+    () => new Set(),
+  );
 
   useEffect(() => {
     if (!caseId) return;
@@ -75,7 +78,18 @@ export function CaseDetail() {
   function runAction(actionId: string, operation: ActionOperation) {
     setBusyAction(`${actionId}:${operation}`);
     apiPost<ActionResponse>(`/actions/${actionId}/${operation}`)
-      .then(() => refreshPacket())
+      .then(() =>
+        refreshPacket().then(() => {
+          if (operation === "execute" || operation === "reject") {
+            setGateDecisionReady((current) => {
+              if (!current.has(actionId)) return current;
+              const next = new Set(current);
+              next.delete(actionId);
+              return next;
+            });
+          }
+        }),
+      )
       .catch((requestError: unknown) => {
         setError(formatApiError(requestError));
       })
@@ -299,7 +313,10 @@ export function CaseDetail() {
                       </div>
                       <span className={`status-pill${action.status === "pending_decision" ? " warn" : ""}`}>{action.status}</span>
                     </div>
-                    <ActionStatusSummary action={action} />
+                    <ActionStatusSummary
+                      action={action}
+                      gateDecisionReady={gateDecisionReady.has(action.id)}
+                    />
                     <div className="path-preview-grid">
                       <ActionPathPreview action={action} />
                     </div>
@@ -313,7 +330,16 @@ export function CaseDetail() {
                       <PolicyGateBanner
                         action={action}
                         caseId={caseId!}
-                        onDecisionCreated={() => refreshPacket()}
+                        decisionReady={gateDecisionReady.has(action.id)}
+                        onDecisionCreated={() =>
+                          refreshPacket().then(() =>
+                            setGateDecisionReady((current) => {
+                              const next = new Set(current);
+                              next.add(action.id);
+                              return next;
+                            }),
+                          )
+                        }
                         busy={busyAction !== null}
                       />
                     )}
@@ -325,9 +351,14 @@ export function CaseDetail() {
                             type="button"
                             disabled={
                               busyAction !== null ||
-                              !canRunAction(action, operation) ||
+                              !canRunAction(
+                                action,
+                                operation,
+                                gateDecisionReady.has(action.id),
+                              ) ||
                               busyAction === `${action.id}:${operation}`
                             }
+                            aria-label={`${ACTION_LABELS[operation]} ${action.title}`}
                             onClick={() => runAction(action.id, operation)}
                           >
                             {busyAction === `${action.id}:${operation}`
@@ -410,9 +441,15 @@ export function CaseDetail() {
   );
 }
 
-function canRunAction(action: ActionResponse, operation: ActionOperation): boolean {
+function canRunAction(
+  action: ActionResponse,
+  operation: ActionOperation,
+  gateDecisionReady = false,
+): boolean {
   if (operation === "approve") return action.status === "pending" || action.status === "previewed";
-  if (operation === "execute") return action.status === "approved" || action.status === "pending_decision";
+  if (operation === "execute") {
+    return action.status === "approved" || (action.status === "pending_decision" && gateDecisionReady);
+  }
   if (operation === "undo") {
     return action.status === "executed" && action.kind !== "manual_check";
   }
@@ -442,17 +479,27 @@ function ActionPathPreview({ action }: { action: ActionResponse }) {
   return <PathValue label="Preview" value={previewText(action.preview, "path")} />;
 }
 
-function ActionStatusSummary({ action }: { action: ActionResponse }) {
+function ActionStatusSummary({
+  action,
+  gateDecisionReady,
+}: {
+  action: ActionResponse;
+  gateDecisionReady: boolean;
+}) {
   return (
     <div className="action-summary">
-      <strong>{actionStatusText(action)}</strong>
-      <span>{nextActionText(action)}</span>
+      <strong>{actionStatusText(action, gateDecisionReady)}</strong>
+      <span>{nextActionText(action, gateDecisionReady)}</span>
     </div>
   );
 }
 
-function actionStatusText(action: ActionResponse): string {
-  if (action.status === "pending_decision") return "Owner decision required before execution.";
+function actionStatusText(action: ActionResponse, gateDecisionReady = false): string {
+  if (action.status === "pending_decision") {
+    return gateDecisionReady
+      ? "Owner decision recorded; execute is now available."
+      : "Owner decision required before execution.";
+  }
   if (action.status === "pending" || action.status === "previewed") return "Preview is ready for approval.";
   if (action.status === "approved") return "Approved and ready to execute.";
   if (action.status === "executed") return "Executed with undo metadata recorded.";
@@ -461,9 +508,12 @@ function actionStatusText(action: ActionResponse): string {
   return "Action state recorded.";
 }
 
-function nextActionText(action: ActionResponse): string {
+function nextActionText(action: ActionResponse, gateDecisionReady = false): string {
+  if (action.status === "pending_decision" && !gateDecisionReady) {
+    return "Next: Record Owner Decision or Reject.";
+  }
   const available = (["approve", "execute", "undo", "reject"] as ActionOperation[])
-    .filter((operation) => canRunAction(action, operation))
+    .filter((operation) => canRunAction(action, operation, gateDecisionReady))
     .map((operation) => ACTION_LABELS[operation]);
   if (available.length === 0) return "No further action is currently available.";
   return `Next: ${available.join(" or ")}.`;
@@ -493,11 +543,13 @@ function metadataTextFallback(metadata: JsonObject, primaryKey: string, fallback
 function PolicyGateBanner({
   action,
   caseId,
+  decisionReady,
   onDecisionCreated,
   busy,
 }: {
   action: ActionResponse;
   caseId: string;
+  decisionReady: boolean;
   onDecisionCreated: () => void;
   busy: boolean;
 }) {
@@ -530,12 +582,25 @@ function PolicyGateBanner({
   }
 
   return (
-    <div className="gate-banner">
+    <div className={`gate-banner${decisionReady ? " ready" : ""}`}>
       <strong>Policy gate - action paused</strong>
       {reason && <span>{reason}</span>}
       {categories && <span>Categories: {categories}</span>}
-      <button type="button" onClick={createGateDecision} disabled={busy || creating}>
-        {creating ? "Creating decision..." : "Approve & Resolve Gate"}
+      <span>
+        {decisionReady
+          ? "Owner decision recorded. Step 2 of 2: click Execute to run this action."
+          : "Step 1 of 2: record an owner decision. Step 2 will be a separate Execute click."}
+      </span>
+      <button
+        type="button"
+        onClick={createGateDecision}
+        disabled={busy || creating || decisionReady}
+      >
+        {creating
+          ? "Recording decision..."
+          : decisionReady
+            ? "Owner Decision Recorded"
+            : "Record Owner Decision"}
       </button>
     </div>
   );

@@ -73,14 +73,10 @@ button:disabled {
 }
 
 .brand-mark {
-  display: inline-grid;
+  display: block;
   width: 38px;
   height: 38px;
-  place-items: center;
-  border-radius: 8px;
-  background: #173429;
-  color: #ffffff;
-  font-weight: 800;
+  object-fit: cover;
 }
 
 .brand strong,
@@ -609,6 +605,12 @@ pre {
   color: #92600f;
   padding: 10px 12px;
   font-size: 0.88rem;
+}
+
+.gate-banner.ready {
+  border-color: #b8decf;
+  background: #eaf8f1;
+  color: #1f6f56;
 }
 
 .gate-banner strong {
