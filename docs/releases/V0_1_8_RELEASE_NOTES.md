@@ -1,6 +1,6 @@
-# ProofFlow v0.1.8 Release Draft
+# ProofFlow v0.1.8 Release Notes
 
-Status: draft
+Release date: 2026-05-18
 
 ProofFlow v0.1.8 reframes the project around Agent Work Ledger for AI coding:
 contract first, evidence-backed claims, done criteria evaluation, and Proof
@@ -78,6 +78,7 @@ Relevant PRs:
 - PR #108: Agent Work Ledger adoption docs
 - PR #109: Ledger MCP quickstart
 - PR #110: Ledger dogfood examples and PR comment template
+- PR #114: v0.1.8 release closure checklist and ship decision
 
 ## Documentation
 
@@ -89,6 +90,10 @@ Relevant PRs:
   [`docs/examples/proof_packet_agent_work_ledger_dogfood.md`](../examples/proof_packet_agent_work_ledger_dogfood.md)
 - PR comment template:
   [`docs/examples/pr_comment_agent_work_ledger.md`](../examples/pr_comment_agent_work_ledger.md)
+- Release closure checklist:
+  [`docs/releases/V0_1_8_CLOSURE_CHECKLIST.md`](V0_1_8_CLOSURE_CHECKLIST.md)
+- Release decision:
+  [`docs/releases/V0_1_8_RELEASE_DECISION.md`](V0_1_8_RELEASE_DECISION.md)
 
 ## Validation
 
@@ -101,10 +106,12 @@ Relevant PRs:
   - `backend/tests/test_search_api.py`
   - `backend/tests/test_agentguard_review.py`
 - MCP tests: `40 passed`
+- Frontend tests: `29 passed`
+- Frontend build: passed
 - `python -m compileall backend\proofflow mcp-server\src\proofflow_mcp` -> passed
-- `git diff --check` -> passed with only Git LF/CRLF warnings
-- GitHub CI for PRs #107 through #110 passed Backend, Frontend, Lint, MCP
-  Server, and ProofFlow PR Review checks.
+- `git diff --check` -> passed
+- GitHub CI for PRs #107 through #114 passed the required release-chain
+  checks.
 
 ## Breaking Changes
 

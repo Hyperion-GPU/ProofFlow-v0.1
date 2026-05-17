@@ -2,14 +2,20 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-**面向 Codex-compatible AI coding agent 工作流的本地优先审计层。**
+**面向 AI coding 的 Agent Work Ledger。**
 
 Vibe coding is fast. Blind trust is not enough.
 
-ProofFlow 让 AI coding agents 的行为变得可评审、可追踪、可回退：每个 claim 都需要 evidence，每个高风险 action 都需要 policy gate、undo metadata 和 human maintainer review。
+ProofFlow 让 AI coding agents 的行为变得可评审、可追踪、可回退：先记录 work contract，再捕获 snapshot，把 claim 绑定到 evidence，评估 done criteria，最后导出 Proof Packet。
+
+**最新版本：** [v0.1.8 - Agent Work Ledger for AI coding](https://github.com/Hyperion-GPU/ProofFlow-v0.1/releases/tag/v0.1.8)
 
 ▶ **观看 72 秒演示：** [From AI agent claims to verifiable Proof Packets](https://github.com/Hyperion-GPU/ProofFlow-v0.1/releases/tag/v0.1.3)<br>
-📦 **Proof Packet 示例：** [`docs/examples/proof_packet_codex_review.md`](docs/examples/proof_packet_codex_review.md)
+📦 **Proof Packet 示例：** [`code review`](docs/examples/proof_packet_codex_review.md) · [`issue triage`](docs/examples/proof_packet_issue_triage.md) · [`agent work ledger`](docs/examples/proof_packet_agent_work_ledger.md) · [`ledger dogfood`](docs/examples/proof_packet_agent_work_ledger_dogfood.md)
+
+**Agent Work Ledger 指南：** [`docs/agent_work_ledger.md`](docs/agent_work_ledger.md)
+
+**5 分钟 MCP quickstart：** [`docs/ledger_quickstart_mcp.md`](docs/ledger_quickstart_mcp.md)
 
 [![ProofFlow AgentGuard demo screenshot](docs/assets/proofflow-demo-thumbnail.png)](https://github.com/Hyperion-GPU/ProofFlow-v0.1/releases/tag/v0.1.3)
 
