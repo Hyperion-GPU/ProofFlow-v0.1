@@ -121,6 +121,22 @@ class ProofFlowClient:
             body["test_command"] = test_command
         return await self._request("POST", "/agentguard/review", json=body)
 
+    async def triage_issue(
+        self,
+        title: str,
+        body: str = "",
+        source_url: str | None = None,
+        labels: list[str] | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "title": title,
+            "body": body,
+            "labels": labels or [],
+        }
+        if source_url is not None:
+            payload["source_url"] = source_url
+        return await self._request("POST", "/issue-triage", json=payload)
+
     # --- Actions ---
 
     async def list_actions(self, case_id: str) -> list[dict[str, Any]]:

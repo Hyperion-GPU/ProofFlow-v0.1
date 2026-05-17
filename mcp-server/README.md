@@ -10,6 +10,7 @@ Lets AI coding assistants trigger ProofFlow workflows directly:
 
 - **Scan folders** — index files with SHA-256 hashes, create audit Cases
 - **Code review** — analyze git diffs, generate evidence-backed risk claims
+- **Issue triage** — capture issue reports as Cases with deterministic triage Claims
 - **Suggest actions** — generate file organization suggestions
 - **Approve & execute** — run pending actions (with policy gate awareness)
 - **Export Proof Packets** — generate shareable markdown audit reports
@@ -100,6 +101,7 @@ MCP clients to run local test commands during review.
 | `proofflow_scan` | Scan a folder, create Case + Artifacts |
 | `proofflow_suggest` | Generate cleanup suggestions for a scanned Case |
 | `proofflow_review` | AgentGuard code review on a git repo |
+| `proofflow_triage_issue` | Triage issue text into a Case with Claims and Evidence |
 | `proofflow_status` | Get full Case status (artifacts, claims, actions) |
 | `proofflow_approve_execute` | Approve and execute a pending action |
 | `proofflow_export_packet` | Export Case as Proof Packet (markdown) |

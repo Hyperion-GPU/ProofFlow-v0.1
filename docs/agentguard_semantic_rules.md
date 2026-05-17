@@ -34,7 +34,7 @@ The current deterministic semantic rules cover Codex plugin maintenance:
 | Codex plugin manifest parses as JSON and declares required metadata, skills, MCP server path, and default prompts | info or medium | `plugin.json` |
 | ProofFlow plugin MCP config points to `proofflow-mcp` and `http://127.0.0.1:8787` | info or medium | `.mcp.json` |
 | Repo-local Codex marketplace exposes `proofflow-maintainer` with the expected local path and install policy | info or medium | `.agents/plugins/marketplace.json` |
-| Codex skill includes ProofFlow health, review, export, PR base, `GITHUB_BASE_REF`, `merge-base`, and `base_ref` guardrails | info or medium | `SKILL.md` |
+| Codex skill includes ProofFlow health, review, issue triage, export, PR base, `GITHUB_BASE_REF`, `merge-base`, and `base_ref` guardrails | info or medium | `SKILL.md` |
 | Markdown changed-file count statements match the actual reviewed diff | medium when inconsistent | changed file list and markdown text |
 
 The rules are narrow on purpose. A passing info Claim means the rule checked a
@@ -79,8 +79,8 @@ Useful next rules should stay deterministic and evidence-backed:
 - validate plugin path references against actual files,
 - record base branch and resolved merge-base separately when the caller provides
   both,
-- add first-class issue triage Claims once an `issue_triage` backend/MCP tool
-  exists,
+- add deeper issue triage checks for owner, milestone, duplicate-link, and
+  follow-up action readiness,
 - add structured checks for GitHub Actions workflow permissions and artifact
   paths,
 - add schema-aware checks for Proof Packet summary JSON.

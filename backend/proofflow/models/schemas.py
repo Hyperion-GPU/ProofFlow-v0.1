@@ -8,6 +8,7 @@ CaseKind = Literal[
     "file_cleanup",
     "code_review",
     "managed_backup",
+    "issue_triage",
 ]
 CaseStatus = Literal["open", "active", "closed", "archived"]
 ArtifactKind = Literal[
@@ -25,6 +26,7 @@ ArtifactKind = Literal[
     "test_output",
     "proof_packet",
     "screenshot",
+    "issue",
 ]
 CaseArtifactRole = Literal["primary", "supporting", "reference"]
 ActionKind = Literal["move_file", "rename_file", "manual_check", "mkdir_dir"]
@@ -238,6 +240,27 @@ class AgentGuardReviewResponse(BaseModel):
     claims_created: int
     evidence_created: int
     artifacts: list[AgentGuardArtifactRef]
+
+
+class IssueTriageRequest(StrictRequest):
+    title: str = Field(min_length=1)
+    body: str = ""
+    source_url: str | None = Field(default=None, min_length=1)
+    labels: list[str] = Field(default_factory=list)
+
+
+class IssueTriageResponse(BaseModel):
+    case_id: str
+    run_id: str
+    risk_level: RiskLevel
+    artifact_id: str
+    component: str
+    suggested_labels: list[str]
+    has_reproduction_steps: bool
+    has_expected_behavior: bool
+    has_environment_details: bool
+    claims_created: int
+    evidence_created: int
 
 
 class DecisionCreate(StrictRequest):

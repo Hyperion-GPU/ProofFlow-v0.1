@@ -87,6 +87,33 @@ async def test_review_success(client):
 
 @pytest.mark.asyncio
 @respx.mock
+async def test_triage_issue_success(client):
+    respx.post("http://127.0.0.1:8787/issue-triage").mock(
+        return_value=httpx.Response(200, json={
+            "case_id": "case-issue",
+            "run_id": "run-issue",
+            "risk_level": "medium",
+            "artifact_id": "artifact-issue",
+            "component": "mcp_server",
+            "suggested_labels": ["bug", "component:mcp_server"],
+            "has_reproduction_steps": False,
+            "has_expected_behavior": False,
+            "has_environment_details": True,
+            "claims_created": 4,
+            "evidence_created": 4,
+        })
+    )
+    result = await client.triage_issue(
+        title="MCP tool fails",
+        body="Environment: Windows 11",
+        labels=["bug"],
+    )
+    assert result["case_id"] == "case-issue"
+    assert result["component"] == "mcp_server"
+
+
+@pytest.mark.asyncio
+@respx.mock
 async def test_approve_action(client):
     respx.post("http://127.0.0.1:8787/actions/act-1/approve").mock(
         return_value=httpx.Response(200, json={

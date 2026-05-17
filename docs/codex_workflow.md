@@ -40,7 +40,7 @@ Add to your project's `.mcp.json`:
 pip install -e mcp-server/
 ```
 
-## Available MCP Tools (12 total)
+## Available MCP Tools (13 total)
 
 | Tool | Purpose | Verified |
 |------|---------|----------|
@@ -48,6 +48,7 @@ pip install -e mcp-server/
 | `proofflow_scan` | Scan folder, create Case + Artifacts with SHA-256 | Yes |
 | `proofflow_suggest` | Generate file organization actions | Yes |
 | `proofflow_review` | AgentGuard code review on git repo | Yes |
+| `proofflow_triage_issue` | Triage issue text into a Case | Yes |
 | `proofflow_approve_execute` | Approve and execute a pending action | Yes |
 | `proofflow_decide` | Resolve a policy gate (approve/reject) | Yes |
 | `proofflow_export_packet` | Export Case as Proof Packet (Markdown) | Yes |
