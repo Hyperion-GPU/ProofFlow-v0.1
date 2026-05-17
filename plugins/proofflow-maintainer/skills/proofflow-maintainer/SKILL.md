@@ -12,6 +12,7 @@ maintenance, including:
 - create or export a Proof Packet for a PR,
 - triage issue text into a ProofFlow Case,
 - inspect or continue an existing ProofFlow Case,
+- keep an Agent Work Ledger for complex code tasks,
 - preserve evidence, decisions, actions, and policy gates while maintaining a
   repository.
 
@@ -140,6 +141,31 @@ bug report and wants it captured in ProofFlow.
    - recommended next step.
 7. Do not create temporary issue markdown files unless the direct triage tool is
    unavailable and the user agrees to the fallback path.
+
+## Agent Work Ledger For Complex Code Tasks
+
+Use this path when the task spans multiple files, requires several tool calls,
+or changes behavior that should be auditable later.
+
+1. Start from a Case. If no suitable Case exists, create one with the most
+   relevant ProofFlow workflow before making claims about the work.
+2. Keep a short ledger while working:
+   - Goal: the user-requested outcome.
+   - Scope: files or modules intentionally touched.
+   - Evidence: commands run, test results, diffs, screenshots, or source
+     material used to support claims.
+   - Decisions: user approvals, policy gate decisions, or notable tradeoffs.
+   - Open risks: assumptions, skipped tests, or evidence still missing.
+3. Use ProofFlow tools for durable records when available:
+   - `proofflow_review` for code changes,
+   - `proofflow_status` to inspect Claims and Evidence,
+   - `proofflow_export_packet` for the final handoff packet.
+4. Keep claims evidence-backed. Do not say a behavior is fixed unless a command,
+   test, diff, or review artifact supports it.
+5. If tests are required for the workflow, run them outside ProofFlow unless
+   the user explicitly asks ProofFlow to execute a `test_command`.
+6. Close the handoff with the Case ID, packet path if exported, tests or checks
+   run, known gaps, and the recommended next step.
 
 ## Policy Gates
 

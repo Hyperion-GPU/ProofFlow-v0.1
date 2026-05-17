@@ -76,6 +76,18 @@ def inspect_working_tree(
     )
 
 
+def current_head_sha(repo_path: str) -> str:
+    repo_root = resolve_repo_root(repo_path)
+    result = _run_git(repo_root, ["rev-parse", "HEAD"])
+    return result.stdout.strip()
+
+
+def status_short(repo_path: str) -> str:
+    repo_root = resolve_repo_root(repo_path)
+    result = _run_git(repo_root, ["status", "--short"])
+    return result.stdout
+
+
 def resolve_repo_root(repo_path: str) -> Path:
     path = Path(repo_path).expanduser()
     if not path.exists() or not path.is_dir():

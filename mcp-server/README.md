@@ -11,6 +11,7 @@ Lets AI coding assistants trigger ProofFlow workflows directly:
 - **Scan folders** — index files with SHA-256 hashes, create audit Cases
 - **Code review** — analyze git diffs, generate evidence-backed risk claims
 - **Issue triage** — capture issue reports as Cases with deterministic triage Claims
+- **Agent Work Ledger** — record work contracts, events, snapshots, Evidence, Claims, evaluations, and finish state
 - **Suggest actions** — generate file organization suggestions
 - **Approve & execute** — run pending actions (with policy gate awareness)
 - **Export Proof Packets** — generate shareable markdown audit reports
@@ -102,6 +103,13 @@ MCP clients to run local test commands during review.
 | `proofflow_suggest` | Generate cleanup suggestions for a scanned Case |
 | `proofflow_review` | AgentGuard code review on a git repo |
 | `proofflow_triage_issue` | Triage issue text into a Case with Claims and Evidence |
+| `proofflow_start_work_contract` | Start an Agent Work Ledger Case with a work contract |
+| `proofflow_record_event` | Record an Agent Work Ledger event |
+| `proofflow_capture_snapshot` | Capture a git snapshot for an Agent Work Ledger Case |
+| `proofflow_record_evidence` | Record Evidence for an Agent Work Ledger Case |
+| `proofflow_record_claim` | Record an Evidence-backed Claim for an Agent Work Ledger Case |
+| `proofflow_evaluate_contract` | Evaluate an Agent Work Ledger Case against its contract |
+| `proofflow_finish_work_ledger` | Finish an Agent Work Ledger Case |
 | `proofflow_status` | Get full Case status (artifacts, claims, actions) |
 | `proofflow_approve_execute` | Approve and execute a pending action |
 | `proofflow_export_packet` | Export Case as Proof Packet (markdown) |

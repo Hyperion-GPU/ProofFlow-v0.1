@@ -137,6 +137,121 @@ class ProofFlowClient:
             payload["source_url"] = source_url
         return await self._request("POST", "/issue-triage", json=payload)
 
+    # --- Agent Work Ledger ---
+
+    async def start_work_contract(
+        self,
+        objective: str,
+        repo_path: str,
+        allowed_scope: list[str] | None = None,
+        forbidden_actions: list[str] | None = None,
+        required_tests: list[str] | None = None,
+        done_criteria: list[str] | None = None,
+        evidence_requirements: list[str] | None = None,
+    ) -> dict[str, Any]:
+        return await self._request(
+            "POST",
+            "/ledger/start",
+            json={
+                "objective": objective,
+                "repo_path": repo_path,
+                "allowed_scope": allowed_scope or [],
+                "forbidden_actions": forbidden_actions or [],
+                "required_tests": required_tests or [],
+                "done_criteria": done_criteria or [],
+                "evidence_requirements": evidence_requirements or [],
+            },
+        )
+
+    async def record_event(
+        self,
+        case_id: str,
+        event_type: str,
+        summary: str,
+        content: str = "",
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return await self._request(
+            "POST",
+            f"/ledger/cases/{case_id}/events",
+            json={
+                "event_type": event_type,
+                "summary": summary,
+                "content": content,
+                "metadata": metadata or {},
+            },
+        )
+
+    async def capture_snapshot(
+        self,
+        case_id: str,
+        repo_path: str,
+        phase: str,
+        base_ref: str = "HEAD",
+        include_untracked: bool = True,
+    ) -> dict[str, Any]:
+        return await self._request(
+            "POST",
+            f"/ledger/cases/{case_id}/snapshots",
+            json={
+                "repo_path": repo_path,
+                "phase": phase,
+                "base_ref": base_ref,
+                "include_untracked": include_untracked,
+            },
+        )
+
+    async def record_evidence(
+        self,
+        case_id: str,
+        evidence_type: str,
+        content: str,
+        source_ref: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        body: dict[str, Any] = {
+            "evidence_type": evidence_type,
+            "content": content,
+            "metadata": metadata or {},
+        }
+        if source_ref is not None:
+            body["source_ref"] = source_ref
+        return await self._request(
+            "POST", f"/ledger/cases/{case_id}/evidence", json=body
+        )
+
+    async def record_claim(
+        self,
+        case_id: str,
+        claim_text: str,
+        evidence_ids: list[str],
+        severity: str = "info",
+    ) -> dict[str, Any]:
+        return await self._request(
+            "POST",
+            f"/ledger/cases/{case_id}/claims",
+            json={
+                "claim_text": claim_text,
+                "severity": severity,
+                "evidence_ids": evidence_ids,
+            },
+        )
+
+    async def evaluate_contract(self, case_id: str) -> dict[str, Any]:
+        return await self._request(
+            "POST", f"/ledger/cases/{case_id}/evaluate"
+        )
+
+    async def finish_work_ledger(
+        self, case_id: str, summary: str | None = None
+    ) -> dict[str, Any]:
+        body: dict[str, Any] = {}
+        if summary is not None:
+            body["summary"] = summary
+        return await self._request(
+            "POST", f"/ledger/cases/{case_id}/finish", json=body
+        )
+
     # --- Actions ---
 
     async def list_actions(self, case_id: str) -> list[dict[str, Any]]:

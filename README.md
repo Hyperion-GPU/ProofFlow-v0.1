@@ -2,24 +2,49 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-**CI Proof Packets for AI code review.**
+**Agent Work Ledger for AI coding.**
 
 Vibe coding is fast. Blind trust is not enough.
 
-ProofFlow makes AI-generated pull requests reviewable, traceable, and
-reversible through evidence-backed claims, CI review artifacts, policy gates,
-undo metadata, and human maintainer review.
+ProofFlow makes AI-generated work reviewable, traceable, and reversible by
+recording the full chain from work contract to proof packet: contract first,
+snapshot the code state, bind claims to evidence, evaluate done criteria, then
+export an auditable packet.
 
 **Latest release:** [v0.1.6.1 - Dogfood Polish for CI Review Comments](https://github.com/Hyperion-GPU/ProofFlow-v0.1/releases/tag/v0.1.6.1)
 
 ▶ **Watch the 72s demo:** [From AI agent claims to verifiable Proof Packets](https://github.com/Hyperion-GPU/ProofFlow-v0.1/releases/tag/v0.1.3)<br>
-📦 **Example Proof Packets:** [`code review`](docs/examples/proof_packet_codex_review.md) · [`issue triage`](docs/examples/proof_packet_issue_triage.md)
+📦 **Example Proof Packets:** [`code review`](docs/examples/proof_packet_codex_review.md) · [`issue triage`](docs/examples/proof_packet_issue_triage.md) · [`agent work ledger`](docs/examples/proof_packet_agent_work_ledger.md)
 
 **Maintainer workflow:** [`docs/maintainer_evidence_workflow.md`](docs/maintainer_evidence_workflow.md)
 
 **AgentGuard semantic rules:** [`docs/agentguard_semantic_rules.md`](docs/agentguard_semantic_rules.md)
 
 [![ProofFlow demo thumbnail](docs/assets/proofflow-demo-thumbnail.png)](https://github.com/Hyperion-GPU/ProofFlow-v0.1/releases/tag/v0.1.3)
+
+## Agent Work Ledger
+
+ProofFlow is not only a PR review helper. It is a local-first ledger for AI
+coding work. A Ledger Case captures the workflow before, during, and after an
+agent changes code:
+
+1. **Work Contract** - record the objective, repo path, allowed scope,
+   forbidden actions, required tests, done criteria, and evidence requirements.
+2. **Snapshot** - capture the git diff, changed files, HEAD SHA, base ref, and
+   diff hash so reviewers know exactly what code state was examined.
+3. **Evidence** - store command output, test output, diffs, notes, screenshots,
+   or other artifacts as searchable evidence.
+4. **Claim** - require every agent claim to bind to evidence before it is
+   trusted.
+5. **Evaluation** - deterministically check required tests, scope boundaries,
+   missing evidence, and unaccepted risks.
+6. **Proof Packet** - export the contract, timeline, snapshots, claims,
+   evidence, evaluation, decisions, and remaining risks into markdown.
+
+Main chain: Work Contract -> Snapshot -> Evidence -> Claim -> Evaluation ->
+Proof Packet. This keeps the core product invariant sharp: no Case, no
+workflow; no Evidence, no trusted Claim; no done criteria evaluation, no quiet
+success.
 
 ## ProofFlow Reviewed ProofFlow
 
@@ -110,7 +135,9 @@ Add to your project's `.mcp.json`:
 }
 ```
 
-Now your AI agent can scan files, review code, triage issues, suggest actions, and export audit reports — all with enforced safety gates.
+Now your AI agent can keep an Agent Work Ledger, scan files, review code,
+triage issues, suggest actions, and export audit reports - all with enforced
+safety gates.
 
 ### Codex Maintainer Plugin
 
@@ -120,10 +147,14 @@ starter prompts and a maintainer-focused skill for:
 
 - reviewing the current diff with ProofFlow,
 - creating a Proof Packet for a PR,
-- triaging issue text into a ProofFlow Case.
+- triaging issue text into a ProofFlow Case,
+- keeping an Agent Work Ledger for complex code tasks.
 
 The plugin uses the same local `proofflow-mcp` server and keeps the backend
 trust boundary at `http://127.0.0.1:8787`.
+See the public-safe
+[`Agent Work Ledger` example](docs/examples/proof_packet_agent_work_ledger.md)
+for the expected handoff shape.
 
 ## Architecture
 
@@ -132,12 +163,13 @@ AI Agent (Claude Code / Codex / Custom)
     |
     | MCP Protocol (stdio)
     v
-ProofFlow MCP Server (13 tools)
+ProofFlow MCP Server (20 tools)
     |
     | HTTP REST API
     v
 ProofFlow Backend (FastAPI + SQLite)
     |
+    |--- Agent Work Ledger: Contract > Snapshot > Evidence > Claim > Evaluation > Packet
     |--- Evidence Graph: Cases > Artifacts > Claims > Evidence
     |--- Action Pipeline: Preview > Approve > Execute > Undo
     |--- Policy Gates: Risk classification > Owner decision
@@ -147,6 +179,12 @@ Local Filesystem (scanned files, git repos)
 ```
 
 ## Core Capabilities
+
+### Agent Work Ledger
+Records complex AI coding work as a first-class Case. The main flow is Work
+Contract -> Snapshot -> Evidence -> Claim -> Evaluation -> Proof Packet, so
+maintainers can see what the agent promised, what changed, what evidence backs
+its claims, and whether the done criteria were satisfied.
 
 ### Evidence-Backed Code Review (AgentGuard)
 Analyzes git diffs, generates risk-scored claims, and links each claim to specific evidence (changed lines, test results). No claim exists without supporting evidence.
@@ -161,12 +199,15 @@ Captures issue text as a first-class Case with source Artifact, deterministic tr
 High-risk filesystem actions (moves to system paths, bulk operations) are automatically paused at `pending_decision` status. Requires explicit owner approval before execution.
 
 ### Safety Invariants
+- **No Contract, no Ledger** - AI coding work starts with explicit scope and done criteria
+- **No Final Snapshot, no Finish** - finished ledgers must prove the reviewed repo state
 - **No Preview, no Action** — destructive operations require two-phase confirmation
 - **No Evidence, no Claim** — every assertion links to verifiable data
+- **No Ready Evaluation, no Quiet Success** - failed ledgers finish as `finished_with_risks`
 - **No Undo, no Destructive Action** — executed actions carry rollback metadata
 - **No Case, no Workflow** — all work is tracked in auditable containers
 
-### MCP Tool Suite (13 tools)
+### MCP Tool Suite (20 tools)
 `health` · `scan` · `suggest` · `review` · `triage_issue` · `status` · `approve_execute` · `export_packet` · `search` · `list_cases` · `list_actions` · `undo` · `decide`
 
 ## Technical Stack

@@ -153,6 +153,11 @@ def _render_markdown(packet: dict[str, Any], created_at: str) -> str:
 
     lines.extend(_render_ci_provenance(case))
     lines.extend(_render_agentguard_provenance(case))
+    if case["case_type"] == "agent_work_ledger":
+        lines.extend(_render_ledger_work_contract(case))
+        lines.extend(_render_ledger_timeline(packet["artifacts"]))
+        lines.extend(_render_ledger_snapshots(packet["artifacts"]))
+        lines.extend(_render_ledger_evaluation(packet["runs"]))
     lines.extend(_render_artifacts(packet["artifacts"]))
     lines.extend(_render_untracked_policy(packet["case"], packet["artifacts"]))
     lines.extend(_render_claims_and_evidence(packet["claims"], packet["evidence"]))
@@ -223,6 +228,115 @@ def _render_agentguard_provenance(case: Any) -> list[str]:
         f"- Changed file count: `{_metadata_value(metadata.get('changed_file_count'))}`",
         f"- Risk level: `{_metadata_value(metadata.get('risk_level'))}`",
         "",
+    ]
+
+
+def _render_ledger_work_contract(case: Any) -> list[str]:
+    if case["case_type"] != "agent_work_ledger":
+        return []
+
+    metadata = loads_metadata(case["metadata_json"])
+    contract = metadata.get("contract")
+    if not isinstance(contract, dict):
+        contract = metadata
+
+    lines = [
+        "## Work Contract",
+        "",
+        f"- Objective: {_md(contract.get('objective', 'not recorded'))}",
+        f"- Repository path: `{_metadata_value(contract.get('repo_path'))}`",
+        f"- Status: `{_metadata_value(metadata.get('status'))}`",
+        f"- Allowed scope: `{_metadata_list(contract.get('allowed_scope'))}`",
+        f"- Forbidden actions: `{_metadata_list(contract.get('forbidden_actions'))}`",
+        f"- Required tests: `{_metadata_list(contract.get('required_tests'))}`",
+        f"- Done criteria: `{_metadata_list(contract.get('done_criteria'))}`",
+        f"- Evidence requirements: `{_metadata_list(contract.get('evidence_requirements'))}`",
+    ]
+    if metadata.get("finish_summary"):
+        lines.append(f"- Finish summary: {_md(metadata.get('finish_summary'))}")
+    if metadata.get("finished_at"):
+        lines.append(f"- Finished at: `{_metadata_value(metadata.get('finished_at'))}`")
+    return lines + [""]
+
+
+def _render_ledger_timeline(artifacts: list[Any]) -> list[str]:
+    events = _ledger_artifacts(artifacts, "event")
+    if not events:
+        return ["## Ledger Timeline", "", "No ledger events recorded.", ""]
+
+    lines = ["## Ledger Timeline", ""]
+    for event in events:
+        metadata = loads_metadata(event["metadata_json"])
+        lines.extend(
+            [
+                f"- `{metadata.get('sequence', '?')}` {_md(metadata.get('summary', event['name']))}",
+                f"  - Type: `{_metadata_value(metadata.get('event_type'))}`",
+                f"  - Artifact: `{event['id']}` {_md(event['name'])}",
+                f"  - Created: `{event['created_at']}`",
+            ]
+        )
+    return lines + [""]
+
+
+def _render_ledger_snapshots(artifacts: list[Any]) -> list[str]:
+    snapshots = _ledger_artifacts(artifacts, "snapshot")
+    if not snapshots:
+        return ["## Snapshots", "", "No snapshots recorded.", ""]
+
+    lines = ["## Snapshots", ""]
+    for snapshot in snapshots:
+        metadata = loads_metadata(snapshot["metadata_json"])
+        lines.extend(
+            [
+                f"- `{_metadata_value(metadata.get('phase'))}` snapshot",
+                f"  - Artifact: `{snapshot['id']}` {_md(snapshot['name'])}",
+                f"  - Repository path: `{_metadata_value(metadata.get('repo_path'))}`",
+                f"  - Base ref: `{_metadata_value(metadata.get('base_ref'))}`",
+                f"  - HEAD SHA: `{_metadata_value(metadata.get('head_sha'))}`",
+                f"  - Changed files: `{_metadata_value(metadata.get('changed_file_count'))}`",
+                f"  - Diff SHA-256: `{_metadata_value(metadata.get('diff_sha256'))}`",
+            ]
+        )
+        changed_files = metadata.get("changed_files")
+        if isinstance(changed_files, list) and changed_files:
+            lines.append("  - Changed file list:")
+            for changed in changed_files[:20]:
+                if isinstance(changed, dict):
+                    path = changed.get("path", "unknown")
+                    status = changed.get("status", "unknown")
+                    lines.append(f"    - `{_md(path)}` ({_md(status)})")
+    return lines + [""]
+
+
+def _render_ledger_evaluation(runs: list[Any]) -> list[str]:
+    evaluation_runs = [
+        run for run in runs if run["run_type"] == "ledger_evaluation"
+    ]
+    if not evaluation_runs:
+        return ["## Done Criteria Evaluation", "", "No evaluation recorded.", ""]
+
+    lines = ["## Done Criteria Evaluation", ""]
+    for run in evaluation_runs:
+        metadata = loads_metadata(run["metadata_json"])
+        lines.extend(
+            [
+                f"- Run `{run['id']}`",
+                f"  - Status: `{_metadata_value(metadata.get('status'))}`",
+                f"  - Passed: `{_metadata_list(metadata.get('passed'))}`",
+                f"  - Failed: `{_metadata_list(metadata.get('failed'))}`",
+                f"  - Missing evidence: `{_metadata_list(metadata.get('missing_evidence'))}`",
+                f"  - Scope violations: `{_metadata_list(metadata.get('scope_violations'))}`",
+                f"  - Warnings: `{_metadata_list(metadata.get('warnings'))}`",
+            ]
+        )
+    return lines + [""]
+
+
+def _ledger_artifacts(artifacts: list[Any], item_type: str) -> list[Any]:
+    return [
+        artifact
+        for artifact in artifacts
+        if loads_metadata(artifact["metadata_json"]).get("ledger_item_type") == item_type
     ]
 
 
@@ -550,6 +664,12 @@ def _metadata_value(value: Any) -> str:
     if value is None:
         return "not recorded"
     return str(value)
+
+
+def _metadata_list(value: Any) -> str:
+    if not isinstance(value, list) or not value:
+        return "not recorded"
+    return ", ".join(str(item) for item in value)
 
 
 def _quote_block(content: str) -> list[str]:
