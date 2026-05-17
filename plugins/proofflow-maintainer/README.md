@@ -74,6 +74,9 @@ default prompts are:
   diff, changed files, risk status, and Proof Packet, but it should not be
   described as a complete semantic code review unless the claims and evidence
   actually support that.
+- PR Proof Packets must be reviewed against the PR base ref. A clean committed
+  PR checkout has no uncommitted diff, so relying on the ProofFlow default
+  `HEAD` base would produce an empty packet instead of the PR changes.
 - Issue triage currently uses a scan fallback: issue text is saved as a local
   Artifact and indexed into a Case. A future dedicated `issue_triage` backend
   and MCP tool could turn issue content into first-class triage Claims and

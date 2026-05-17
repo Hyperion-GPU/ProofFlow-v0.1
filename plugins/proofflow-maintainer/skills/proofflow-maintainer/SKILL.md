@@ -51,16 +51,29 @@ python -m uvicorn proofflow.main:app --port 8787
 Use this path for prompts like "review current diff with ProofFlow".
 
 1. Identify the repository root from the current workspace.
-2. Choose the base ref conservatively. Use the user's requested base when
-   provided; otherwise let ProofFlow use its default behavior.
-3. Call `proofflow_review` with `repo_path`.
-4. Do not pass a `test_command` unless the user asked for ProofFlow to run one.
-5. Export the resulting Case with `proofflow_export_packet`.
-6. Read the returned Claims before describing review depth. If the only Claim is
+2. Decide whether the user means uncommitted work or a committed PR/branch:
+   - For uncommitted local work, the ProofFlow default base is acceptable.
+   - For a PR, branch review, or clean committed checkout, require a PR base ref
+     and pass it to ProofFlow. Do not rely on the MCP/backend default, because
+     the default is `HEAD` and a clean PR checkout would produce an empty diff.
+3. Choose the base ref conservatively:
+   - Use the user's requested base when provided.
+   - Otherwise infer it from PR context when available, such as
+     `gh pr view --json baseRefName`, `GITHUB_BASE_REF`, or the repository's
+     tracked default branch.
+   - If a PR/branch review needs a base ref and it cannot be inferred, ask for
+     the base ref before calling ProofFlow.
+4. Call `proofflow_review` with `repo_path`. Include `base_ref` whenever the
+   workflow is reviewing committed PR or branch changes.
+5. Do not pass a `test_command` unless the user asked for ProofFlow to run one.
+6. Export the resulting Case with `proofflow_export_packet`.
+7. Read the returned Claims before describing review depth. If the only Claim is
    a broad provenance claim such as changed file count, say that the packet
    captures review provenance but does not yet contain a deep semantic review.
-7. Summarize:
+8. Summarize:
    - Case ID,
+   - base ref used, or that the workflow reviewed uncommitted work against the
+     default base,
    - risk level or review status,
    - changed file count,
    - claim and evidence counts,
@@ -74,10 +87,18 @@ Use this path when a review Case already exists or when the user wants a packet
 for the current PR.
 
 1. If the user gives a Case ID, call `proofflow_status` for that Case.
-2. If no Case ID exists, run the current-diff review workflow first.
-3. Call `proofflow_export_packet`.
-4. Return the packet path and a concise PR-ready summary.
-5. Do not post to GitHub unless the user explicitly asks.
+2. If no Case ID exists, run a PR-base review before exporting:
+   - Use the user's requested base ref when provided.
+   - Otherwise infer the PR base from `gh pr view --json baseRefName`,
+     `GITHUB_BASE_REF`, or the tracked default branch.
+   - If the base cannot be inferred, ask for it instead of falling back to a
+     default `HEAD` diff.
+3. Call `proofflow_review` with `repo_path` and the inferred or requested
+   `base_ref`. This is required for clean PR checkouts, where an unqualified
+   current-diff review would omit committed PR changes.
+4. Call `proofflow_export_packet`.
+5. Return the packet path, base ref used, and a concise PR-ready summary.
+6. Do not post to GitHub unless the user explicitly asks.
 
 ## Triage Issue Text Into A Case
 
