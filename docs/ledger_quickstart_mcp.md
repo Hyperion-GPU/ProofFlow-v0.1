@@ -9,6 +9,12 @@ Prerequisites:
 - `proofflow-mcp` installed and configured for your agent
 - A local git repository path, such as `D:\ProofFlow v0.1`
 
+For a one-command release smoke test, run:
+
+```bash
+python scripts/ledger_mcp_smoke.py --cleanup
+```
+
 ## 1. Start The Contract
 
 Tool: `proofflow_start_work_contract`
