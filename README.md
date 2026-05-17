@@ -20,6 +20,8 @@ export an auditable packet.
 
 **Agent Work Ledger guide:** [`docs/agent_work_ledger.md`](docs/agent_work_ledger.md)
 
+**5-minute MCP quickstart:** [`docs/ledger_quickstart_mcp.md`](docs/ledger_quickstart_mcp.md)
+
 **AgentGuard semantic rules:** [`docs/agentguard_semantic_rules.md`](docs/agentguard_semantic_rules.md)
 
 [![ProofFlow demo thumbnail](docs/assets/proofflow-demo-thumbnail.png)](https://github.com/Hyperion-GPU/ProofFlow-v0.1/releases/tag/v0.1.3)
@@ -49,7 +51,9 @@ workflow; no Evidence, no trusted Claim; no done criteria evaluation, no quiet
 success.
 
 See [`docs/agent_work_ledger.md`](docs/agent_work_ledger.md) for the full
-architecture and evaluation model.
+architecture and evaluation model, or
+[`docs/ledger_quickstart_mcp.md`](docs/ledger_quickstart_mcp.md) to run the
+full MCP flow.
 
 ## ProofFlow Reviewed ProofFlow
 
