@@ -11,7 +11,7 @@ recording the full chain from work contract to proof packet: contract first,
 snapshot the code state, bind claims to evidence, evaluate done criteria, then
 export an auditable packet.
 
-**Latest release:** [v0.1.6.1 - Dogfood Polish for CI Review Comments](https://github.com/Hyperion-GPU/ProofFlow-v0.1/releases/tag/v0.1.6.1)
+**Latest release:** [v0.1.8 - Agent Work Ledger for AI coding](https://github.com/Hyperion-GPU/ProofFlow-v0.1/releases/tag/v0.1.8)
 
 ▶ **Watch the 72s demo:** [From AI agent claims to verifiable Proof Packets](https://github.com/Hyperion-GPU/ProofFlow-v0.1/releases/tag/v0.1.3)<br>
 📦 **Example Proof Packets:** [`code review`](docs/examples/proof_packet_codex_review.md) · [`issue triage`](docs/examples/proof_packet_issue_triage.md) · [`agent work ledger`](docs/examples/proof_packet_agent_work_ledger.md) · [`ledger dogfood`](docs/examples/proof_packet_agent_work_ledger_dogfood.md)

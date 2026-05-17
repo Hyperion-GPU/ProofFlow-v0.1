@@ -21,20 +21,19 @@ Work Ledger story is complete enough to publish:
 | Validated ref | `bf955d6d3e3ca260a4687e7c90bacdfd5e2ff213` |
 | Scope | Agent Work Ledger adoption, packaging, validation, and release decision |
 
-## Release Draft Checklist
+## Release Notes Checklist
 
-- [x] Release draft exists:
-  [`docs/releases/V0_1_8_RELEASE_DRAFT.md`](V0_1_8_RELEASE_DRAFT.md).
-- [x] Release draft explains the main product narrative:
+- [x] Release notes exist:
+  [`docs/releases/V0_1_8_RELEASE_NOTES.md`](V0_1_8_RELEASE_NOTES.md).
+- [x] Release notes explain the main product narrative:
   Agent Work Ledger for AI coding.
-- [x] Release draft includes the main flow:
+- [x] Release notes include the main flow:
   Work Contract -> Snapshot -> Evidence -> Claim -> Evaluation -> Packet.
-- [x] Release draft lists hard rules:
+- [x] Release notes list hard rules:
   evidence-bound Claims, final snapshot before finish, risk-aware finish state,
   and snapshot diff/hash in Proof Packets.
-- [x] Release draft lists intentionally excluded scope.
-- [ ] If publishing a GitHub Release, convert the draft into final release notes
-  in a follow-up PR before tagging `v0.1.8`.
+- [x] Release notes list intentionally excluded scope.
+- [x] README release pointers are ready for the `v0.1.8` tag.
 
 ## Automated Validation Checklist
 
@@ -86,9 +85,6 @@ Work Ledger story is complete enough to publish:
 
 ## Known Gaps
 
-- `README.md` still lists `v0.1.6.1` as the latest release. Updating the
-  public latest-release pointer should be part of the final release-notes PR.
-- `README.zh-CN.md` does not yet mirror the v0.1.8 Ledger release entry.
 - No dedicated Ledger database table. The Ledger intentionally reuses the
   existing Evidence Graph for v0.1.8.
 - No VS Code Ledger panel, standalone Ledger CLI, or GitHub Action Ledger
@@ -97,5 +93,4 @@ Work Ledger story is complete enough to publish:
 
 ## Closure Result
 
-v0.1.8 is ready for a final release-notes PR and tag decision after this
-closure checklist and release decision are reviewed.
+v0.1.8 is ready to tag after the final release-notes PR is reviewed and merged.
