@@ -14,13 +14,15 @@ export an auditable packet.
 **Latest release:** [v0.1.6.1 - Dogfood Polish for CI Review Comments](https://github.com/Hyperion-GPU/ProofFlow-v0.1/releases/tag/v0.1.6.1)
 
 ▶ **Watch the 72s demo:** [From AI agent claims to verifiable Proof Packets](https://github.com/Hyperion-GPU/ProofFlow-v0.1/releases/tag/v0.1.3)<br>
-📦 **Example Proof Packets:** [`code review`](docs/examples/proof_packet_codex_review.md) · [`issue triage`](docs/examples/proof_packet_issue_triage.md) · [`agent work ledger`](docs/examples/proof_packet_agent_work_ledger.md)
+📦 **Example Proof Packets:** [`code review`](docs/examples/proof_packet_codex_review.md) · [`issue triage`](docs/examples/proof_packet_issue_triage.md) · [`agent work ledger`](docs/examples/proof_packet_agent_work_ledger.md) · [`ledger dogfood`](docs/examples/proof_packet_agent_work_ledger_dogfood.md)
 
 **Maintainer workflow:** [`docs/maintainer_evidence_workflow.md`](docs/maintainer_evidence_workflow.md)
 
 **Agent Work Ledger guide:** [`docs/agent_work_ledger.md`](docs/agent_work_ledger.md)
 
 **5-minute MCP quickstart:** [`docs/ledger_quickstart_mcp.md`](docs/ledger_quickstart_mcp.md)
+
+**Ledger PR comment template:** [`docs/examples/pr_comment_agent_work_ledger.md`](docs/examples/pr_comment_agent_work_ledger.md)
 
 **AgentGuard semantic rules:** [`docs/agentguard_semantic_rules.md`](docs/agentguard_semantic_rules.md)
 
