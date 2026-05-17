@@ -17,6 +17,8 @@ undo metadata, and human maintainer review.
 
 **Maintainer workflow:** [`docs/maintainer_evidence_workflow.md`](docs/maintainer_evidence_workflow.md)
 
+**AgentGuard semantic rules:** [`docs/agentguard_semantic_rules.md`](docs/agentguard_semantic_rules.md)
+
 [![ProofFlow demo thumbnail](docs/assets/proofflow-demo-thumbnail.png)](https://github.com/Hyperion-GPU/ProofFlow-v0.1/releases/tag/v0.1.3)
 
 ## ProofFlow Reviewed ProofFlow
