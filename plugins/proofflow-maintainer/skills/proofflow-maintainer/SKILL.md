@@ -21,6 +21,10 @@ maintenance, including:
   `http://127.0.0.1:8787`.
 - Prefer ProofFlow MCP tools over ad hoc notes when recording Cases, Artifacts,
   Claims, Actions, Decisions, or Proof Packets.
+- Treat the current AgentGuard review as provenance-first unless the returned
+  Claims contain specific semantic findings. It proves what diff was reviewed
+  and what evidence was captured; it does not by itself guarantee a complete
+  semantic code review.
 - Do not treat AI output as trusted unless it points to evidence. If evidence
   is missing, label the statement as an assumption.
 - Do not run tests through ProofFlow unless the user explicitly asks and the
@@ -52,7 +56,10 @@ Use this path for prompts like "review current diff with ProofFlow".
 3. Call `proofflow_review` with `repo_path`.
 4. Do not pass a `test_command` unless the user asked for ProofFlow to run one.
 5. Export the resulting Case with `proofflow_export_packet`.
-6. Summarize:
+6. Read the returned Claims before describing review depth. If the only Claim is
+   a broad provenance claim such as changed file count, say that the packet
+   captures review provenance but does not yet contain a deep semantic review.
+7. Summarize:
    - Case ID,
    - risk level or review status,
    - changed file count,
@@ -81,9 +88,16 @@ bug report and wants it captured in ProofFlow.
 2. Otherwise, create a temporary local text file only after explaining the path
    and purpose, then call `proofflow_scan` on the containing folder to create a
    Case and Artifact.
-3. Record follow-up actions only when the available ProofFlow tools support the
+3. State clearly that this fallback captures the issue as source evidence and
+   makes it searchable, but does not create first-class triage Claims or Actions
+   unless another ProofFlow tool records them.
+4. Record follow-up actions only when the available ProofFlow tools support the
    action type. Otherwise summarize recommended next actions in the response.
-4. Export a Proof Packet if the user asks for a shareable triage record.
+5. Export a Proof Packet if the user asks for a shareable triage record.
+
+Future improvement: a dedicated `issue_triage` backend and MCP tool could
+create an issue Case directly, preserve issue metadata, extract reproduction
+steps, and record follow-up Actions without the temporary-file fallback.
 
 ## Policy Gates
 
@@ -102,6 +116,7 @@ For completed ProofFlow workflows, report:
 
 - what Case was created or used,
 - what evidence was captured,
+- whether the packet is provenance-only or contains semantic Claims,
 - what packet or action was produced,
 - what was intentionally not done,
 - the recommended next step.

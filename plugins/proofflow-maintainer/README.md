@@ -16,6 +16,20 @@ and adds a skill that keeps maintenance work evidence-backed.
 - ProofFlow backend running on `http://127.0.0.1:8787`
 - `proofflow-mcp` available on `PATH`
 
+## Repo-Local Discovery
+
+This repository includes a Codex marketplace entry at
+[`../../.agents/plugins/marketplace.json`](../../.agents/plugins/marketplace.json).
+It points to this plugin with `installation: AVAILABLE`, so Codex can discover
+the repo-local plugin without a global install.
+
+The plugin itself lives entirely under `plugins/proofflow-maintainer/`:
+
+- `.codex-plugin/plugin.json` defines the plugin metadata and default prompts.
+- `.mcp.json` declares the local ProofFlow MCP server.
+- `skills/proofflow-maintainer/SKILL.md` defines the maintainer workflow
+  behavior Codex should follow.
+
 Install the MCP server from PyPI:
 
 ```bash
@@ -56,7 +70,32 @@ default prompts are:
 ## Workflow Boundaries
 
 - The plugin keeps ProofFlow's localhost trust boundary.
+- The current review workflow is provenance-first: it captures the reviewed
+  diff, changed files, risk status, and Proof Packet, but it should not be
+  described as a complete semantic code review unless the claims and evidence
+  actually support that.
+- Issue triage currently uses a scan fallback: issue text is saved as a local
+  Artifact and indexed into a Case. A future dedicated `issue_triage` backend
+  and MCP tool could turn issue content into first-class triage Claims and
+  follow-up Actions.
 - It does not execute tests unless the user explicitly asks for that workflow
   and the backend allows test command execution.
 - It does not merge PRs, close issues, or bypass policy gates.
 - It should report missing evidence as an assumption rather than a final claim.
+
+## Dogfood Result
+
+The first dogfood pass covered the three default prompts against this plugin
+PR:
+
+- `Review the current diff with ProofFlow.` created a code review Case and
+  exported a Proof Packet for the five plugin files changed in the PR.
+- `Create a Proof Packet for this PR.` worked when given the existing Case ID.
+- `Triage this issue into a ProofFlow Case.` worked by scanning a temporary
+  issue markdown file, indexing it as an Artifact, and exporting a Proof
+  Packet.
+
+The result was usable for maintainer provenance and packet creation. The main
+comfort gap is that issue triage is not yet a first-class workflow, and the
+review output is only as semantic as the Claims and Evidence produced by
+AgentGuard.
