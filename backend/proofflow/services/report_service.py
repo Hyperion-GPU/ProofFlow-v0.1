@@ -152,6 +152,7 @@ def _render_markdown(packet: dict[str, Any], created_at: str) -> str:
     ]
 
     lines.extend(_render_ci_provenance(case))
+    lines.extend(_render_agentguard_provenance(case))
     lines.extend(_render_artifacts(packet["artifacts"]))
     lines.extend(_render_untracked_policy(packet["case"], packet["artifacts"]))
     lines.extend(_render_claims_and_evidence(packet["claims"], packet["evidence"]))
@@ -203,6 +204,26 @@ def _render_ci_provenance(case: Any) -> list[str]:
     if diff_artifact_path:
         lines.append(f"- Diff artifact: `{_md(diff_artifact_path)}`")
     return lines + [""]
+
+
+def _render_agentguard_provenance(case: Any) -> list[str]:
+    if case["case_type"] != "code_review":
+        return []
+
+    metadata = loads_metadata(case["metadata_json"])
+    if metadata.get("repo_path") is None and metadata.get("base_ref") is None:
+        return []
+
+    return [
+        "## AgentGuard Provenance",
+        "",
+        f"- Repository path: `{_metadata_value(metadata.get('repo_path'))}`",
+        f"- Base ref: `{_metadata_value(metadata.get('base_ref'))}`",
+        f"- Include untracked: `{_metadata_value(metadata.get('include_untracked'))}`",
+        f"- Changed file count: `{_metadata_value(metadata.get('changed_file_count'))}`",
+        f"- Risk level: `{_metadata_value(metadata.get('risk_level'))}`",
+        "",
+    ]
 
 
 def _render_untracked_policy(case: Any, artifacts: list[Any]) -> list[str]:

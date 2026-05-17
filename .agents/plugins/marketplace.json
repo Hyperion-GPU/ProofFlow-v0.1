@@ -1,0 +1,20 @@
+{
+  "name": "proofflow-repo",
+  "interface": {
+    "displayName": "ProofFlow Repository Plugins"
+  },
+  "plugins": [
+    {
+      "name": "proofflow-maintainer",
+      "source": {
+        "source": "local",
+        "path": "./plugins/proofflow-maintainer"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

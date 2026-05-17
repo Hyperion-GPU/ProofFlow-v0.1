@@ -3,7 +3,9 @@ from pathlib import Path
 from typing import Any
 
 import hashlib
+import json
 import os
+import re
 import shlex
 import subprocess
 
@@ -56,6 +58,12 @@ class ArtifactRecord:
     id: str
     kind: str
     name: str
+
+
+@dataclass(frozen=True)
+class JsonReadResult:
+    data: Any
+    error: str | None = None
 
 
 def review_repository(payload: AgentGuardReviewRequest) -> AgentGuardReviewResponse:
@@ -623,6 +631,8 @@ def _build_claim_specs(
             )
         )
 
+    claims.extend(_semantic_claim_specs(snapshot))
+
     if test_result is not None and (test_result.timed_out or test_result.returncode != 0):
         detail = "timed out" if test_result.timed_out else f"exited with {test_result.returncode}"
         claims.append(
@@ -644,6 +654,277 @@ def _build_claim_specs(
             source_ref=None,
         )
     )
+    return claims
+
+
+def _semantic_claim_specs(snapshot: GitSnapshot) -> list[ClaimSpec]:
+    claims: list[ClaimSpec] = []
+    claims.extend(_codex_plugin_manifest_claims(snapshot))
+    claims.extend(_codex_plugin_mcp_claims(snapshot))
+    claims.extend(_codex_plugin_marketplace_claims(snapshot))
+    claims.extend(_codex_skill_claims(snapshot))
+    claims.extend(_changed_file_count_text_claims(snapshot))
+    return claims
+
+
+def _codex_plugin_manifest_claims(snapshot: GitSnapshot) -> list[ClaimSpec]:
+    claims: list[ClaimSpec] = []
+    for path in _changed_paths_matching(snapshot.changed_files, _is_codex_plugin_manifest_path):
+        result = _read_json_file(snapshot.repo_root, path)
+        if result.error:
+            claims.append(
+                ClaimSpec(
+                    severity="medium",
+                    text=f"Codex plugin manifest is not valid JSON: {path}",
+                    evidence_type="git_diff",
+                    evidence_content=f"{path}: {result.error}",
+                    source_ref=path,
+                )
+            )
+            continue
+
+        data = result.data if isinstance(result.data, dict) else {}
+        required = ("name", "version", "description", "skills", "mcpServers", "interface")
+        missing = [field for field in required if not data.get(field)]
+        interface = data.get("interface") if isinstance(data.get("interface"), dict) else {}
+        interface_required = ("displayName", "shortDescription", "defaultPrompt")
+        missing.extend(
+            f"interface.{field}" for field in interface_required if not interface.get(field)
+        )
+        default_prompts = interface.get("defaultPrompt")
+        if not isinstance(default_prompts, list) or len(default_prompts) == 0:
+            missing.append("interface.defaultPrompt[]")
+        if missing:
+            claims.append(
+                ClaimSpec(
+                    severity="medium",
+                    text=f"Codex plugin manifest is missing required fields: {path}",
+                    evidence_type="git_diff",
+                    evidence_content=f"Missing fields: {', '.join(missing)}",
+                    source_ref=path,
+                )
+            )
+            continue
+
+        claims.append(
+            ClaimSpec(
+                severity="info",
+                text=f"Codex plugin manifest declares required metadata and prompts: {path}",
+                evidence_type="git_diff",
+                evidence_content="\n".join(
+                    [
+                        f"Manifest: {path}",
+                        f"name={data.get('name')}",
+                        f"version={data.get('version')}",
+                        f"skills={data.get('skills')}",
+                        f"mcpServers={data.get('mcpServers')}",
+                        "defaultPrompt:",
+                        *[f"- {prompt}" for prompt in default_prompts],
+                    ]
+                ),
+                source_ref=path,
+            )
+        )
+    return claims
+
+
+def _codex_plugin_mcp_claims(snapshot: GitSnapshot) -> list[ClaimSpec]:
+    claims: list[ClaimSpec] = []
+    for path in _changed_paths_matching(snapshot.changed_files, _is_plugin_mcp_config_path):
+        result = _read_json_file(snapshot.repo_root, path)
+        if result.error:
+            claims.append(
+                ClaimSpec(
+                    severity="medium",
+                    text=f"Codex plugin MCP config is not valid JSON: {path}",
+                    evidence_type="git_diff",
+                    evidence_content=f"{path}: {result.error}",
+                    source_ref=path,
+                )
+            )
+            continue
+
+        data = result.data if isinstance(result.data, dict) else {}
+        servers = data.get("mcpServers") if isinstance(data.get("mcpServers"), dict) else {}
+        proofflow = servers.get("proofflow") if isinstance(servers.get("proofflow"), dict) else {}
+        command = proofflow.get("command")
+        env = proofflow.get("env") if isinstance(proofflow.get("env"), dict) else {}
+        base_url = env.get("PROOFFLOW_BASE_URL")
+        if command != "proofflow-mcp" or base_url != "http://127.0.0.1:8787":
+            claims.append(
+                ClaimSpec(
+                    severity="medium",
+                    text=f"ProofFlow MCP config does not point to the expected local server: {path}",
+                    evidence_type="git_diff",
+                    evidence_content=(
+                        f"command={command!r}\n"
+                        f"PROOFFLOW_BASE_URL={base_url!r}\n"
+                        "Expected command='proofflow-mcp' and "
+                        "PROOFFLOW_BASE_URL='http://127.0.0.1:8787'."
+                    ),
+                    source_ref=path,
+                )
+            )
+            continue
+
+        claims.append(
+            ClaimSpec(
+                severity="info",
+                text=f"ProofFlow MCP config keeps the localhost trust boundary: {path}",
+                evidence_type="git_diff",
+                evidence_content=(
+                    f"command={command}\n"
+                    f"PROOFFLOW_BASE_URL={base_url}\n"
+                    "The plugin points Codex at the local ProofFlow MCP server."
+                ),
+                source_ref=path,
+            )
+        )
+    return claims
+
+
+def _codex_plugin_marketplace_claims(snapshot: GitSnapshot) -> list[ClaimSpec]:
+    claims: list[ClaimSpec] = []
+    for path in _changed_paths_matching(snapshot.changed_files, _is_marketplace_config_path):
+        result = _read_json_file(snapshot.repo_root, path)
+        if result.error:
+            claims.append(
+                ClaimSpec(
+                    severity="medium",
+                    text=f"Codex marketplace config is not valid JSON: {path}",
+                    evidence_type="git_diff",
+                    evidence_content=f"{path}: {result.error}",
+                    source_ref=path,
+                )
+            )
+            continue
+
+        data = result.data if isinstance(result.data, dict) else {}
+        plugins = data.get("plugins") if isinstance(data.get("plugins"), list) else []
+        entry = next(
+            (
+                item
+                for item in plugins
+                if isinstance(item, dict) and item.get("name") == "proofflow-maintainer"
+            ),
+            None,
+        )
+        source = entry.get("source") if isinstance(entry, dict) and isinstance(entry.get("source"), dict) else {}
+        policy = entry.get("policy") if isinstance(entry, dict) and isinstance(entry.get("policy"), dict) else {}
+        if (
+            entry is None
+            or source.get("path") != "./plugins/proofflow-maintainer"
+            or policy.get("installation") != "AVAILABLE"
+            or policy.get("authentication") != "ON_INSTALL"
+        ):
+            claims.append(
+                ClaimSpec(
+                    severity="medium",
+                    text=f"Codex marketplace entry for ProofFlow Maintainer is incomplete: {path}",
+                    evidence_type="git_diff",
+                    evidence_content=(
+                        "Expected plugin entry name='proofflow-maintainer', "
+                        "source.path='./plugins/proofflow-maintainer', "
+                        "installation='AVAILABLE', authentication='ON_INSTALL'."
+                    ),
+                    source_ref=path,
+                )
+            )
+            continue
+
+        claims.append(
+            ClaimSpec(
+                severity="info",
+                text=f"Codex marketplace exposes the repo-local ProofFlow plugin: {path}",
+                evidence_type="git_diff",
+                evidence_content=(
+                    "Marketplace entry:\n"
+                    "name=proofflow-maintainer\n"
+                    f"source.path={source.get('path')}\n"
+                    f"installation={policy.get('installation')}\n"
+                    f"authentication={policy.get('authentication')}"
+                ),
+                source_ref=path,
+            )
+        )
+    return claims
+
+
+def _codex_skill_claims(snapshot: GitSnapshot) -> list[ClaimSpec]:
+    claims: list[ClaimSpec] = []
+    for path in _changed_paths_matching(snapshot.changed_files, _is_codex_skill_path):
+        text = _read_text_file(snapshot.repo_root, path)
+        required_terms = (
+            "proofflow_health",
+            "proofflow_review",
+            "proofflow_export_packet",
+            "merge-base",
+            "base_ref",
+            "GITHUB_BASE_REF",
+        )
+        missing = [term for term in required_terms if term not in text]
+        if missing:
+            claims.append(
+                ClaimSpec(
+                    severity="medium",
+                    text=f"Codex skill is missing ProofFlow review guardrails: {path}",
+                    evidence_type="git_diff",
+                    evidence_content=f"Missing required terms: {', '.join(missing)}",
+                    source_ref=path,
+                )
+            )
+            continue
+
+        claims.append(
+            ClaimSpec(
+                severity="info",
+                text=f"Codex skill documents PR-base review and Proof Packet export guardrails: {path}",
+                evidence_type="git_diff",
+                evidence_content=(
+                    "Skill includes ProofFlow health, review, export, PR base, "
+                    "GITHUB_BASE_REF, and merge-base guidance."
+                ),
+                source_ref=path,
+            )
+        )
+    return claims
+
+
+def _changed_file_count_text_claims(snapshot: GitSnapshot) -> list[ClaimSpec]:
+    claims: list[ClaimSpec] = []
+    changed_paths = _changed_paths(snapshot.changed_files)
+    total_count = len(changed_paths)
+    for path in _changed_paths_matching(snapshot.changed_files, _is_markdown_path):
+        text = _read_text_file(snapshot.repo_root, path)
+        for match in _count_claim_pattern().finditer(text):
+            expected = _count_word_value(match.group("count"))
+            if expected is None:
+                continue
+            scope = match.group("scope") or ""
+            actual = (
+                _changed_files_under_prefix(changed_paths, "plugins/proofflow-maintainer/")
+                if "plugin" in scope.lower()
+                else total_count
+            )
+            if expected == actual:
+                continue
+            claims.append(
+                ClaimSpec(
+                    severity="medium",
+                    text=f"Markdown changed-file count statement appears inconsistent: {path}",
+                    evidence_type="git_diff",
+                    evidence_content="\n".join(
+                        [
+                            f"Statement: {match.group(0).strip()}",
+                            f"Stated count: {expected}",
+                            f"Actual {'plugin ' if 'plugin' in scope.lower() else ''}changed file count: {actual}",
+                            "Changed files:",
+                            *[f"- {changed_path}" for changed_path in changed_paths],
+                        ]
+                    ),
+                    source_ref=path,
+                )
+            )
     return claims
 
 
@@ -694,6 +975,13 @@ def _paths_matching(
     predicate: Any,
 ) -> list[str]:
     return [item.path for item in changed_files if predicate(item.path)]
+
+
+def _changed_paths_matching(
+    changed_files: list[ChangedFile],
+    predicate: Any,
+) -> list[str]:
+    return _paths_matching(changed_files, predicate)
 
 
 def _format_paths_evidence(summary: str, paths: list[str], trigger: str) -> str:
@@ -771,6 +1059,28 @@ def _is_frontend_test_path(path: str) -> bool:
             or "/__tests__/" in normalized
         )
     ) or normalized.startswith("frontend/tests/")
+
+
+def _is_codex_plugin_manifest_path(path: str) -> bool:
+    return _normalize_path(path).endswith("/.codex-plugin/plugin.json")
+
+
+def _is_plugin_mcp_config_path(path: str) -> bool:
+    normalized = _normalize_path(path)
+    return normalized.startswith("plugins/") and normalized.endswith("/.mcp.json")
+
+
+def _is_marketplace_config_path(path: str) -> bool:
+    return _normalize_path(path) == ".agents/plugins/marketplace.json"
+
+
+def _is_codex_skill_path(path: str) -> bool:
+    normalized = _normalize_path(path)
+    return normalized.startswith("plugins/") and normalized.endswith("/skill.md")
+
+
+def _is_markdown_path(path: str) -> bool:
+    return Path(_normalize_path(path)).suffix.lower() in {".md", ".markdown"}
 
 
 def _workflow_permissions_changed(diff_text: str) -> bool:
@@ -895,6 +1205,69 @@ def _tests_changed(changed_files: list[ChangedFile]) -> bool:
         if Path(normalized).name.startswith("test_"):
             return True
     return False
+
+
+def _normalize_path(path: str) -> str:
+    return path.replace("\\", "/").lower()
+
+
+def _repo_file_path(repo_root: Path, relative_path: str) -> Path:
+    return repo_root / relative_path.replace("/", os.sep)
+
+
+def _read_text_file(repo_root: Path, relative_path: str) -> str:
+    path = _repo_file_path(repo_root, relative_path)
+    try:
+        return path.read_text(encoding="utf-8")
+    except OSError:
+        return ""
+
+
+def _read_json_file(repo_root: Path, relative_path: str) -> JsonReadResult:
+    text = _read_text_file(repo_root, relative_path)
+    if not text:
+        return JsonReadResult(data=None, error="file is missing or empty")
+    try:
+        return JsonReadResult(data=json.loads(text))
+    except json.JSONDecodeError as error:
+        return JsonReadResult(data=None, error=str(error))
+
+
+def _changed_files_under_prefix(paths: list[str], prefix: str) -> int:
+    normalized_prefix = _normalize_path(prefix)
+    return sum(1 for path in paths if _normalize_path(path).startswith(normalized_prefix))
+
+
+def _count_claim_pattern() -> re.Pattern[str]:
+    count_words = "one|two|three|four|five|six|seven|eight|nine|ten"
+    return re.compile(
+        rf"\b(?P<count>{count_words}|\d+)\s+"
+        r"(?P<scope>plugin\s+)?"
+        r"files?\s+(?:changed|in\s+the\s+PR)",
+        re.IGNORECASE,
+    )
+
+
+def _count_word_value(value: str) -> int | None:
+    words = {
+        "one": 1,
+        "two": 2,
+        "three": 3,
+        "four": 4,
+        "five": 5,
+        "six": 6,
+        "seven": 7,
+        "eight": 8,
+        "nine": 9,
+        "ten": 10,
+    }
+    lowered = value.lower()
+    if lowered in words:
+        return words[lowered]
+    try:
+        return int(value)
+    except ValueError:
+        return None
 
 
 def _changed_file_metadata(changed_files: list[ChangedFile]) -> list[dict[str, str]]:

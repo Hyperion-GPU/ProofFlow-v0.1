@@ -1,0 +1,39 @@
+{
+  "name": "proofflow-maintainer",
+  "version": "0.1.0",
+  "description": "Codex plugin for running ProofFlow maintainer evidence workflows from a repository.",
+  "author": {
+    "name": "Hyperion-GPU",
+    "url": "https://github.com/Hyperion-GPU"
+  },
+  "homepage": "https://github.com/Hyperion-GPU/ProofFlow-v0.1/tree/main/plugins/proofflow-maintainer",
+  "repository": "https://github.com/Hyperion-GPU/ProofFlow-v0.1",
+  "license": "MIT",
+  "keywords": [
+    "proofflow",
+    "maintainer",
+    "evidence",
+    "code-review",
+    "mcp"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "ProofFlow Maintainer",
+    "shortDescription": "Run evidence-backed maintenance workflows from Codex.",
+    "longDescription": "Use ProofFlow from Codex to review the current diff, export proof packets, and triage issue text into local evidence workflows.",
+    "developerName": "Hyperion-GPU",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/Hyperion-GPU/ProofFlow-v0.1",
+    "defaultPrompt": [
+      "Review the current diff with ProofFlow.",
+      "Create a Proof Packet for this PR.",
+      "Triage this issue into a ProofFlow Case."
+    ],
+    "brandColor": "#2563EB"
+  }
+}
