@@ -108,6 +108,20 @@ export type AgentGuardReviewResponse = {
   }>;
 };
 
+export type IssueTriageResponse = {
+  case_id: string;
+  run_id: string;
+  risk_level: RiskLevel;
+  artifact_id: string;
+  component: string;
+  suggested_labels: string[];
+  has_reproduction_steps: boolean;
+  has_expected_behavior: boolean;
+  has_environment_details: boolean;
+  claims_created: number;
+  evidence_created: number;
+};
+
 export type DecisionStatus = "proposed" | "accepted" | "rejected" | "superseded";
 
 export type DecisionResponse = {

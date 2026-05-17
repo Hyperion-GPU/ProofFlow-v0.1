@@ -7,6 +7,7 @@ const navItems = [
   { to: "/search", label: "Search" },
   { to: "/localproof", label: "LocalProof" },
   { to: "/agentguard", label: "AgentGuard" },
+  { to: "/issue-triage", label: "Issue Triage" },
   { to: "/decisions", label: "Decisions" },
   { to: "/managed-backup-restore", label: "Backup / Restore" },
 ];
