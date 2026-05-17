@@ -108,6 +108,19 @@ Add to your project's `.mcp.json`:
 
 Now your AI agent can scan files, review code, suggest actions, and export audit reports — all with enforced safety gates.
 
+### Codex Maintainer Plugin
+
+ProofFlow also includes a repo-local Codex plugin at
+[`plugins/proofflow-maintainer`](plugins/proofflow-maintainer). It provides
+starter prompts and a maintainer-focused skill for:
+
+- reviewing the current diff with ProofFlow,
+- creating a Proof Packet for a PR,
+- triaging issue text into a ProofFlow Case.
+
+The plugin uses the same local `proofflow-mcp` server and keeps the backend
+trust boundary at `http://127.0.0.1:8787`.
+
 ## Architecture
 
 ```
