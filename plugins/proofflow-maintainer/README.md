@@ -77,6 +77,11 @@ default prompts are:
 - PR Proof Packets must be reviewed against the PR base ref. A clean committed
   PR checkout has no uncommitted diff, so relying on the ProofFlow default
   `HEAD` base would produce an empty packet instead of the PR changes.
+- Short PR base names such as `main` must be resolved before review. In GitHub
+  Actions, `GITHUB_BASE_REF` is a target branch name, and a clean checkout may
+  not have a local branch with that name. Fetch or resolve the base to a local
+  ref, compute `git merge-base HEAD <resolved-base-ref>`, and pass that SHA as
+  `base_ref`.
 - Issue triage currently uses a scan fallback: issue text is saved as a local
   Artifact and indexed into a Case. A future dedicated `issue_triage` backend
   and MCP tool could turn issue content into first-class triage Claims and

@@ -58,22 +58,32 @@ Use this path for prompts like "review current diff with ProofFlow".
      the default is `HEAD` and a clean PR checkout would produce an empty diff.
 3. Choose the base ref conservatively:
    - Use the user's requested base when provided.
-   - Otherwise infer it from PR context when available, such as
+   - Otherwise infer the base branch name from PR context when available, such as
      `gh pr view --json baseRefName`, `GITHUB_BASE_REF`, or the repository's
      tracked default branch.
-   - If a PR/branch review needs a base ref and it cannot be inferred, ask for
-     the base ref before calling ProofFlow.
-4. Call `proofflow_review` with `repo_path`. Include `base_ref` whenever the
-   workflow is reviewing committed PR or branch changes.
-5. Do not pass a `test_command` unless the user asked for ProofFlow to run one.
-6. Export the resulting Case with `proofflow_export_packet`.
-7. Read the returned Claims before describing review depth. If the only Claim is
+   - Treat short names like `main` as branch names, not backend-ready refs.
+4. Resolve the PR base before calling ProofFlow:
+   - Prefer an existing local ref such as `refs/remotes/origin/<base>` or a
+     verified user-provided commit SHA.
+   - If only a short branch name is available and no matching local ref exists,
+     fetch the base branch from `origin` first, for example
+     `git fetch --no-tags origin +refs/heads/<base>:refs/remotes/origin/<base>`.
+   - Compute `git merge-base HEAD <resolved-base-ref>` and pass that merge-base
+     SHA as `base_ref`.
+   - If the base cannot be resolved or fetched, ask for a usable base ref before
+     calling ProofFlow.
+5. Call `proofflow_review` with `repo_path`. Include the resolved merge-base
+   `base_ref` whenever the workflow is reviewing committed PR or branch changes.
+6. Do not pass a `test_command` unless the user asked for ProofFlow to run one.
+7. Export the resulting Case with `proofflow_export_packet`.
+8. Read the returned Claims before describing review depth. If the only Claim is
    a broad provenance claim such as changed file count, say that the packet
    captures review provenance but does not yet contain a deep semantic review.
-8. Summarize:
+9. Summarize:
    - Case ID,
-   - base ref used, or that the workflow reviewed uncommitted work against the
-     default base,
+   - base branch inferred or requested,
+   - resolved base ref or merge-base SHA used, or that the workflow reviewed
+     uncommitted work against the default base,
    - risk level or review status,
    - changed file count,
    - claim and evidence counts,
@@ -88,16 +98,23 @@ for the current PR.
 
 1. If the user gives a Case ID, call `proofflow_status` for that Case.
 2. If no Case ID exists, run a PR-base review before exporting:
-   - Use the user's requested base ref when provided.
-   - Otherwise infer the PR base from `gh pr view --json baseRefName`,
-     `GITHUB_BASE_REF`, or the tracked default branch.
-   - If the base cannot be inferred, ask for it instead of falling back to a
-     default `HEAD` diff.
-3. Call `proofflow_review` with `repo_path` and the inferred or requested
+   - Use the user's requested base when provided.
+   - Otherwise infer the PR base branch name from
+     `gh pr view --json baseRefName`, `GITHUB_BASE_REF`, or the tracked default
+     branch.
+   - Resolve the base to an existing local ref or commit. If only a short branch
+     name is available, fetch `origin/<base>` before reviewing.
+   - Compute `git merge-base HEAD <resolved-base-ref>` and pass that SHA as
+     `base_ref`.
+   - If the base cannot be inferred, resolved, or fetched, ask for it instead of
+     falling back to a default `HEAD` diff.
+3. Call `proofflow_review` with `repo_path` and the resolved merge-base
    `base_ref`. This is required for clean PR checkouts, where an unqualified
-   current-diff review would omit committed PR changes.
+   current-diff review would omit committed PR changes or fail when a short
+   branch name is not available locally.
 4. Call `proofflow_export_packet`.
-5. Return the packet path, base ref used, and a concise PR-ready summary.
+5. Return the packet path, base branch, resolved base ref or merge-base SHA, and
+   a concise PR-ready summary.
 6. Do not post to GitHub unless the user explicitly asks.
 
 ## Triage Issue Text Into A Case
