@@ -3,6 +3,7 @@
 This Codex plugin gives maintainers a small set of ProofFlow-first workflows
 inside a repository:
 
+- keep an Agent Work Ledger for complex AI coding tasks,
 - review the current diff with ProofFlow,
 - create or export a Proof Packet for a PR,
 - triage issue text into a local ProofFlow Case.
@@ -10,6 +11,9 @@ inside a repository:
 It is intentionally thin. The plugin does not embed a backend, upload data, or
 replace maintainer judgment. It connects Codex to the local ProofFlow MCP server
 and adds a skill that keeps maintenance work evidence-backed.
+
+The default path for complex coding work is Ledger-first:
+Work Contract -> Snapshot -> Evidence -> Claim -> Evaluation -> Proof Packet.
 
 ## Requirements
 
@@ -63,9 +67,19 @@ The plugin declares a `proofflow` MCP server:
 It also contributes a Codex skill with maintainer-oriented workflows. The
 default prompts are:
 
+- `Use Agent Work Ledger for this task.`
 - `Review the current diff with ProofFlow.`
 - `Create a Proof Packet for this PR.`
 - `Triage this issue into a ProofFlow Case.`
+
+## Which Workflow To Use
+
+| User intent | Use | Why |
+| --- | --- | --- |
+| Complex code task, multi-step fix, feature work, or risky local changes | Agent Work Ledger | Captures the contract, snapshots, evidence-backed claims, done criteria evaluation, and exported packet. |
+| Review the current diff or PR changes | AgentGuard review | Creates a code review Case with diff provenance, deterministic Claims, Evidence, risk level, and packet export. |
+| Turn bug report, issue text, logs, or reproduction notes into a Case | Issue Triage | Captures source issue text as an Artifact and creates deterministic triage Claims and Evidence. |
+| Inspect an existing Case or produce a handoff artifact | Status / Proof Packet export | Reads the Evidence Graph and exports a durable markdown packet. |
 
 ## Workflow Boundaries
 

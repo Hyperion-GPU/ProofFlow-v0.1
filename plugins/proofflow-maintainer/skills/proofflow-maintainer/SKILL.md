@@ -1,6 +1,6 @@
 ---
 name: proofflow-maintainer
-description: Use ProofFlow from Codex for maintainer workflows: review the current git diff, export Proof Packets, triage issue text into a Case, and keep claims evidence-backed.
+description: Use ProofFlow from Codex for Agent Work Ledger and maintainer workflows: wrap complex AI coding tasks in a Ledger, review diffs, export Proof Packets, triage issue text, and keep claims evidence-backed.
 ---
 
 # ProofFlow Maintainer
@@ -8,13 +8,17 @@ description: Use ProofFlow from Codex for maintainer workflows: review the curre
 Use this skill when the user asks to use ProofFlow from Codex for repository
 maintenance, including:
 
+- keep an Agent Work Ledger for complex code tasks,
 - review the current diff with ProofFlow,
 - create or export a Proof Packet for a PR,
 - triage issue text into a ProofFlow Case,
 - inspect or continue an existing ProofFlow Case,
-- keep an Agent Work Ledger for complex code tasks,
 - preserve evidence, decisions, actions, and policy gates while maintaining a
   repository.
+
+Default to Agent Work Ledger for complex coding work. Use narrower workflows
+when the user's intent is clearly review-only, issue-intake-only, or packet
+export-only.
 
 ## Operating Principles
 
@@ -46,6 +50,18 @@ pip install proofflow-mcp
 cd backend
 python -m uvicorn proofflow.main:app --port 8787
 ```
+
+## Choose The Workflow
+
+- Use **Agent Work Ledger** for complex code tasks, multi-file changes, feature
+  work, behavior changes, risky local actions, or any task that needs contract,
+  snapshots, Evidence, Claims, done criteria evaluation, and packet export.
+- Use **AgentGuard review** when the user only asks to review a current diff,
+  PR, or branch changes.
+- Use **Issue Triage** when the user provides issue text, logs, reproduction
+  steps, or a bug report and wants it captured as a ProofFlow Case.
+- Use **Status / Proof Packet export** when a Case already exists and the user
+  wants a handoff artifact or review summary.
 
 ## Review The Current Diff
 
