@@ -1,0 +1,70 @@
+# Agent Work Ledger
+
+ProofFlow records AI coding work as a local, evidence-backed delivery ledger.
+The goal is not only to review a final diff, but to preserve the contract,
+code state, claims, evidence, evaluation, and exported packet that explain why
+the work should be trusted.
+
+## Main Flow
+
+```mermaid
+flowchart LR
+  A["Work Contract"] --> B["Snapshot"]
+  B --> C["Evidence"]
+  C --> D["Claim"]
+  D --> E["Done Criteria Evaluation"]
+  E --> F["Proof Packet"]
+```
+
+## What Each Step Proves
+
+| Step | Purpose | Stored as |
+| --- | --- | --- |
+| Work Contract | Objective, repo path, allowed scope, forbidden actions, required tests, done criteria, and evidence requirements | `agent_work_ledger` Case metadata |
+| Snapshot | Git diff, changed files, HEAD SHA, base ref, status, and diff hash | `git_diff` Artifact |
+| Evidence | Test output, command output, notes, screenshots, or supporting files | Artifact + Evidence row |
+| Claim | A statement the agent wants the maintainer to trust | Claim bound to Evidence |
+| Evaluation | Deterministic check for tests, scope, evidence, and open risks | `ledger_evaluation` Run |
+| Proof Packet | Exported markdown handoff for review, audit, and PR comments | `proof_packet` Artifact |
+
+## Relationship To Existing Workflows
+
+Agent Work Ledger is the container workflow for complex AI coding tasks.
+AgentGuard, Issue Triage, LocalProof, and policy gates still matter, but the
+Ledger gives them a shared delivery context:
+
+- **AgentGuard** reviews diffs and creates evidence-backed review claims.
+- **Issue Triage** turns issue text into a source Artifact with deterministic
+  Claims and Evidence.
+- **LocalProof** scans and indexes local files for searchable Artifacts.
+- **Policy gates** preserve preview, approval, decision, execution, and undo
+  evidence for risky actions.
+- **Ledger** connects those artifacts to the original contract and final done
+  criteria evaluation.
+
+## Hard Rules
+
+- No Contract, no Ledger.
+- No final Snapshot, no Finish.
+- No Evidence, no trusted Claim.
+- No ready Evaluation, no quiet success.
+- Snapshot diff/hash must appear in the Proof Packet.
+- Unaccepted medium/high risks require explicit Decision evidence.
+
+## Evaluation Outcomes
+
+| Status | Meaning |
+| --- | --- |
+| `ready_for_review` | Contract checks passed and the Ledger can be reviewed as complete. |
+| `needs_tests` | A required test command is missing from Evidence or Artifacts. |
+| `scope_violation` | Final snapshot changed files outside `allowed_scope`. |
+| `incomplete_evidence` | Required evidence types are missing. |
+| `risk_acceptance_required` | Open medium/high Claims need an accepted Decision. |
+| `finished_with_risks` | Finish was allowed, but the latest evaluation was not ready. |
+
+## Why This Matters
+
+AI agents can change code quickly, but maintainers need a compact record of
+what was promised, what changed, what was tested, what was claimed, and what
+risks remain. The Ledger gives AI coding work a local, verifiable, exportable
+handoff instead of an unstructured chat transcript.
