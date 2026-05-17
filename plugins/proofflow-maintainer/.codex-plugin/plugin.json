@@ -1,7 +1,7 @@
 {
   "name": "proofflow-maintainer",
   "version": "0.1.0",
-  "description": "Codex plugin for running ProofFlow maintainer evidence workflows from a repository.",
+  "description": "Codex plugin for Agent Work Ledger and ProofFlow maintainer evidence workflows.",
   "author": {
     "name": "Hyperion-GPU",
     "url": "https://github.com/Hyperion-GPU"
@@ -12,6 +12,7 @@
   "keywords": [
     "proofflow",
     "maintainer",
+    "agent-work-ledger",
     "evidence",
     "code-review",
     "mcp"
@@ -20,8 +21,8 @@
   "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "ProofFlow Maintainer",
-    "shortDescription": "Run evidence-backed maintenance workflows from Codex.",
-    "longDescription": "Use ProofFlow from Codex to review the current diff, export proof packets, and triage issue text into local evidence workflows.",
+    "shortDescription": "Keep Agent Work Ledgers and evidence-backed maintenance workflows from Codex.",
+    "longDescription": "Use ProofFlow from Codex to wrap complex AI coding work in an Agent Work Ledger, review the current diff, export proof packets, and triage issue text into local evidence workflows.",
     "developerName": "Hyperion-GPU",
     "category": "Productivity",
     "capabilities": [
@@ -30,6 +31,7 @@
     ],
     "websiteURL": "https://github.com/Hyperion-GPU/ProofFlow-v0.1",
     "defaultPrompt": [
+      "Use Agent Work Ledger for this task.",
       "Review the current diff with ProofFlow.",
       "Create a Proof Packet for this PR.",
       "Triage this issue into a ProofFlow Case."
