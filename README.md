@@ -18,6 +18,8 @@ export an auditable packet.
 
 **Maintainer workflow:** [`docs/maintainer_evidence_workflow.md`](docs/maintainer_evidence_workflow.md)
 
+**Agent Work Ledger guide:** [`docs/agent_work_ledger.md`](docs/agent_work_ledger.md)
+
 **AgentGuard semantic rules:** [`docs/agentguard_semantic_rules.md`](docs/agentguard_semantic_rules.md)
 
 [![ProofFlow demo thumbnail](docs/assets/proofflow-demo-thumbnail.png)](https://github.com/Hyperion-GPU/ProofFlow-v0.1/releases/tag/v0.1.3)
@@ -45,6 +47,9 @@ Main chain: Work Contract -> Snapshot -> Evidence -> Claim -> Evaluation ->
 Proof Packet. This keeps the core product invariant sharp: no Case, no
 workflow; no Evidence, no trusted Claim; no done criteria evaluation, no quiet
 success.
+
+See [`docs/agent_work_ledger.md`](docs/agent_work_ledger.md) for the full
+architecture and evaluation model.
 
 ## ProofFlow Reviewed ProofFlow
 
