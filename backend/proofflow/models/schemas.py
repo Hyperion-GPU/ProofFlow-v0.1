@@ -7,6 +7,7 @@ CaseKind = Literal[
     "agent_guard",
     "file_cleanup",
     "code_review",
+    "agent_work_ledger",
     "managed_backup",
     "issue_triage",
 ]
@@ -240,6 +241,108 @@ class AgentGuardReviewResponse(BaseModel):
     claims_created: int
     evidence_created: int
     artifacts: list[AgentGuardArtifactRef]
+
+
+class WorkContractStartRequest(StrictRequest):
+    objective: str = Field(min_length=1)
+    repo_path: str = Field(min_length=1)
+    allowed_scope: list[str] = Field(default_factory=list)
+    forbidden_actions: list[str] = Field(default_factory=list)
+    required_tests: list[str] = Field(default_factory=list)
+    done_criteria: list[str] = Field(default_factory=list)
+    evidence_requirements: list[str] = Field(default_factory=list)
+
+
+class WorkContractStartResponse(BaseModel):
+    case_id: str
+    status: str
+    case: CaseResponse
+
+
+class LedgerEventCreateRequest(StrictRequest):
+    event_type: str = Field(min_length=1)
+    summary: str = Field(min_length=1)
+    content: str = ""
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class LedgerEventResponse(BaseModel):
+    case_id: str
+    artifact_id: str
+    sequence: int
+    event_type: str
+    name: str
+    created_at: str
+
+
+class LedgerFinishRequest(StrictRequest):
+    summary: str | None = Field(default=None, min_length=1)
+
+
+class LedgerFinishResponse(BaseModel):
+    case_id: str
+    status: str
+    finished_at: str
+    metadata: dict[str, Any]
+
+
+SnapshotPhase = Literal["start", "checkpoint", "final"]
+
+
+class WorkSnapshotRequest(StrictRequest):
+    repo_path: str = Field(min_length=1)
+    phase: SnapshotPhase
+    base_ref: str = Field(default="HEAD", min_length=1)
+    include_untracked: bool = True
+
+
+class WorkSnapshotResponse(BaseModel):
+    case_id: str
+    artifact_id: str
+    phase: SnapshotPhase
+    head_sha: str
+    base_ref: str
+    changed_files: list[str]
+    diff_sha256: str
+
+
+class LedgerEvidenceCreateRequest(StrictRequest):
+    evidence_type: str = Field(min_length=1)
+    content: str = Field(min_length=1)
+    source_ref: str | None = Field(default=None, min_length=1)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class LedgerEvidenceCreateResponse(BaseModel):
+    case_id: str
+    artifact_id: str
+    evidence_id: str
+    evidence_type: str
+    created_at: str
+
+
+class LedgerClaimCreateRequest(StrictRequest):
+    claim_text: str = Field(min_length=1)
+    severity: RiskLevel = "info"
+    evidence_ids: list[str] = Field(min_length=1)
+
+
+class LedgerClaimCreateResponse(BaseModel):
+    case_id: str
+    claim_id: str
+    evidence_ids: list[str]
+    created_at: str
+
+
+class LedgerEvaluationResponse(BaseModel):
+    case_id: str
+    run_id: str
+    status: str
+    passed: list[str]
+    failed: list[str]
+    warnings: list[str]
+    missing_evidence: list[str]
+    scope_violations: list[str]
 
 
 class IssueTriageRequest(StrictRequest):

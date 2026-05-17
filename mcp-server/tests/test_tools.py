@@ -102,6 +102,184 @@ async def test_triage_issue_tool():
 
 @pytest.mark.asyncio
 @respx.mock
+async def test_start_work_contract_tool():
+    respx.post("http://127.0.0.1:8787/ledger/start").mock(
+        return_value=httpx.Response(200, json={
+            "case_id": "case-ledger",
+            "status": "active",
+            "case": {
+                "id": "case-ledger",
+                "title": "Implement MCP ledger tools",
+                "kind": "agent_work_ledger",
+                "status": "active",
+                "summary": None,
+                "metadata": {},
+                "created_at": "t",
+                "updated_at": "t",
+            },
+        })
+    )
+    result = await call_tool(
+        "proofflow_start_work_contract",
+        {
+            "objective": "Implement MCP ledger tools",
+            "repo_path": "D:/ProofFlow v0.1",
+            "allowed_scope": ["mcp-server"],
+        },
+    )
+    text = result[0].text
+    assert "Agent Work Ledger started" in text
+    assert "case-ledger" in text
+    assert "D:/ProofFlow v0.1" in text
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_record_event_tool():
+    respx.post("http://127.0.0.1:8787/ledger/cases/c1/events").mock(
+        return_value=httpx.Response(200, json={
+            "case_id": "c1",
+            "artifact_id": "artifact-event",
+            "sequence": 2,
+            "event_type": "progress",
+            "name": "progress-002",
+            "created_at": "t",
+        })
+    )
+    result = await call_tool(
+        "proofflow_record_event",
+        {"case_id": "c1", "event_type": "progress", "summary": "Added handlers"},
+    )
+    text = result[0].text
+    assert "Ledger event recorded" in text
+    assert "artifact-event" in text
+    assert "Sequence: 2" in text
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_capture_snapshot_tool():
+    respx.post("http://127.0.0.1:8787/ledger/cases/c1/snapshots").mock(
+        return_value=httpx.Response(200, json={
+            "case_id": "c1",
+            "artifact_id": "artifact-snapshot",
+            "phase": "checkpoint",
+            "head_sha": "abc123",
+            "base_ref": "HEAD",
+            "changed_files": ["mcp-server/src/proofflow_mcp/server.py"],
+            "diff_sha256": "diff-sha",
+        })
+    )
+    result = await call_tool(
+        "proofflow_capture_snapshot",
+        {
+            "case_id": "c1",
+            "repo_path": "D:/ProofFlow v0.1",
+            "phase": "checkpoint",
+        },
+    )
+    text = result[0].text
+    assert "Ledger snapshot captured" in text
+    assert "abc123" in text
+    assert "mcp-server/src/proofflow_mcp/server.py" in text
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_record_evidence_tool():
+    respx.post("http://127.0.0.1:8787/ledger/cases/c1/evidence").mock(
+        return_value=httpx.Response(200, json={
+            "case_id": "c1",
+            "artifact_id": "artifact-evidence",
+            "evidence_id": "ev-1",
+            "evidence_type": "command_output",
+            "created_at": "t",
+        })
+    )
+    result = await call_tool(
+        "proofflow_record_evidence",
+        {
+            "case_id": "c1",
+            "evidence_type": "command_output",
+            "content": "pytest passed",
+        },
+    )
+    text = result[0].text
+    assert "Ledger evidence recorded" in text
+    assert "ev-1" in text
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_record_claim_tool():
+    respx.post("http://127.0.0.1:8787/ledger/cases/c1/claims").mock(
+        return_value=httpx.Response(200, json={
+            "case_id": "c1",
+            "claim_id": "claim-1",
+            "evidence_ids": ["ev-1"],
+            "created_at": "t",
+        })
+    )
+    result = await call_tool(
+        "proofflow_record_claim",
+        {
+            "case_id": "c1",
+            "claim_text": "Tests cover the new tools",
+            "evidence_ids": ["ev-1"],
+        },
+    )
+    text = result[0].text
+    assert "Ledger claim recorded" in text
+    assert "claim-1" in text
+    assert "ev-1" in text
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_evaluate_contract_tool():
+    respx.post("http://127.0.0.1:8787/ledger/cases/c1/evaluate").mock(
+        return_value=httpx.Response(200, json={
+            "case_id": "c1",
+            "run_id": "run-1",
+            "status": "needs_attention",
+            "passed": ["scope"],
+            "failed": ["required_tests"],
+            "warnings": ["final snapshot missing"],
+            "missing_evidence": ["pytest output"],
+            "scope_violations": [],
+        })
+    )
+    result = await call_tool("proofflow_evaluate_contract", {"case_id": "c1"})
+    text = result[0].text
+    assert "Ledger contract evaluated" in text
+    assert "needs_attention" in text
+    assert "required_tests" in text
+    assert "pytest output" in text
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_finish_work_ledger_tool():
+    respx.post("http://127.0.0.1:8787/ledger/cases/c1/finish").mock(
+        return_value=httpx.Response(200, json={
+            "case_id": "c1",
+            "status": "closed",
+            "finished_at": "t",
+            "metadata": {"evaluated": True},
+        })
+    )
+    result = await call_tool(
+        "proofflow_finish_work_ledger",
+        {"case_id": "c1", "summary": "Done"},
+    )
+    text = result[0].text
+    assert "Agent Work Ledger finished" in text
+    assert "closed" in text
+    assert "evaluated" in text
+
+
+@pytest.mark.asyncio
+@respx.mock
 async def test_approve_execute_tool_preview_first():
     """Without confirmed_preview, tool returns preview without executing."""
     respx.post("http://127.0.0.1:8787/actions/act-1/approve").mock(

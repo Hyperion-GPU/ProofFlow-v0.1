@@ -119,6 +119,146 @@ TOOLS: list[Tool] = [
         },
     ),
     Tool(
+        name="proofflow_start_work_contract",
+        description=(
+            "Start an Agent Work Ledger Case with an explicit work contract. "
+            "Use this before recording agent work events, snapshots, Evidence, or Claims."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "objective": {"type": "string", "description": "The work objective."},
+                "repo_path": {"type": "string", "description": "Absolute path to the repository."},
+                "allowed_scope": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Paths, modules, or workflows in scope.",
+                    "default": [],
+                },
+                "forbidden_actions": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Actions the agent must not perform.",
+                    "default": [],
+                },
+                "required_tests": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Tests required before the ledger can be trusted.",
+                    "default": [],
+                },
+                "done_criteria": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Criteria for considering the work complete.",
+                    "default": [],
+                },
+                "evidence_requirements": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Evidence required to support final claims.",
+                    "default": [],
+                },
+            },
+            "required": ["objective", "repo_path"],
+        },
+    ),
+    Tool(
+        name="proofflow_record_event",
+        description="Record an Agent Work Ledger event as an Artifact on a ledger Case.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "case_id": {"type": "string", "description": "Agent Work Ledger Case ID."},
+                "event_type": {"type": "string", "description": "Event type, such as plan, progress, or decision."},
+                "summary": {"type": "string", "description": "Short event summary."},
+                "content": {"type": "string", "description": "Detailed event content.", "default": ""},
+                "metadata": {"type": "object", "description": "Optional event metadata.", "default": {}},
+            },
+            "required": ["case_id", "event_type", "summary"],
+        },
+    ),
+    Tool(
+        name="proofflow_capture_snapshot",
+        description="Capture a git work snapshot for an Agent Work Ledger Case.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "case_id": {"type": "string", "description": "Agent Work Ledger Case ID."},
+                "repo_path": {"type": "string", "description": "Absolute path to the repository."},
+                "phase": {
+                    "type": "string",
+                    "enum": ["start", "checkpoint", "final"],
+                    "description": "Snapshot phase.",
+                },
+                "base_ref": {"type": "string", "description": "Git ref to diff against.", "default": "HEAD"},
+                "include_untracked": {"type": "boolean", "description": "Include untracked files.", "default": True},
+            },
+            "required": ["case_id", "repo_path", "phase"],
+        },
+    ),
+    Tool(
+        name="proofflow_record_evidence",
+        description="Record Evidence for an Agent Work Ledger Case.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "case_id": {"type": "string", "description": "Agent Work Ledger Case ID."},
+                "evidence_type": {"type": "string", "description": "Evidence type, such as command_output or note."},
+                "content": {"type": "string", "description": "Evidence content."},
+                "source_ref": {"type": "string", "description": "Optional source reference."},
+                "metadata": {"type": "object", "description": "Optional evidence metadata.", "default": {}},
+            },
+            "required": ["case_id", "evidence_type", "content"],
+        },
+    ),
+    Tool(
+        name="proofflow_record_claim",
+        description="Record a Claim for an Agent Work Ledger Case, bound to Evidence IDs.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "case_id": {"type": "string", "description": "Agent Work Ledger Case ID."},
+                "claim_text": {"type": "string", "description": "Claim text."},
+                "severity": {
+                    "type": "string",
+                    "enum": ["low", "info", "medium", "high"],
+                    "description": "Claim severity.",
+                    "default": "info",
+                },
+                "evidence_ids": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Evidence IDs supporting this Claim.",
+                },
+            },
+            "required": ["case_id", "claim_text", "evidence_ids"],
+        },
+    ),
+    Tool(
+        name="proofflow_evaluate_contract",
+        description="Evaluate an Agent Work Ledger Case against its work contract.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "case_id": {"type": "string", "description": "Agent Work Ledger Case ID."},
+            },
+            "required": ["case_id"],
+        },
+    ),
+    Tool(
+        name="proofflow_finish_work_ledger",
+        description="Finish an Agent Work Ledger Case after contract evaluation and Evidence capture.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "case_id": {"type": "string", "description": "Agent Work Ledger Case ID."},
+                "summary": {"type": "string", "description": "Optional final summary."},
+            },
+            "required": ["case_id"],
+        },
+    ),
+    Tool(
         name="proofflow_status",
         description=(
             "Get the full status of a ProofFlow Case including artifacts, claims, "
@@ -266,6 +406,20 @@ async def _dispatch(name: str, args: dict[str, Any]) -> list[TextContent]:
         return await _handle_review(args)
     elif name == "proofflow_triage_issue":
         return await _handle_triage_issue(args)
+    elif name == "proofflow_start_work_contract":
+        return await _handle_start_work_contract(args)
+    elif name == "proofflow_record_event":
+        return await _handle_record_event(args)
+    elif name == "proofflow_capture_snapshot":
+        return await _handle_capture_snapshot(args)
+    elif name == "proofflow_record_evidence":
+        return await _handle_record_evidence(args)
+    elif name == "proofflow_record_claim":
+        return await _handle_record_claim(args)
+    elif name == "proofflow_evaluate_contract":
+        return await _handle_evaluate_contract(args)
+    elif name == "proofflow_finish_work_ledger":
+        return await _handle_finish_work_ledger(args)
     elif name == "proofflow_status":
         return await _handle_status(args)
     elif name == "proofflow_approve_execute":
@@ -388,6 +542,141 @@ async def _handle_triage_issue(args: dict[str, Any]) -> list[TextContent]:
         f"Environment details: {result['has_environment_details']}",
     ]
     return _text("\n".join(lines))
+
+
+async def _handle_start_work_contract(args: dict[str, Any]) -> list[TextContent]:
+    result = await _client.start_work_contract(
+        objective=args["objective"],
+        repo_path=args["repo_path"],
+        allowed_scope=args.get("allowed_scope", []),
+        forbidden_actions=args.get("forbidden_actions", []),
+        required_tests=args.get("required_tests", []),
+        done_criteria=args.get("done_criteria", []),
+        evidence_requirements=args.get("evidence_requirements", []),
+    )
+    case = result.get("case", {})
+    lines = [
+        f"Agent Work Ledger started. Case ID: {result['case_id']}",
+        f"Status: {result['status']}",
+        f"Title: {case.get('title', args['objective'])}",
+        f"Repo: {args['repo_path']}",
+    ]
+    return _text("\n".join(lines))
+
+
+async def _handle_record_event(args: dict[str, Any]) -> list[TextContent]:
+    result = await _client.record_event(
+        case_id=args["case_id"],
+        event_type=args["event_type"],
+        summary=args["summary"],
+        content=args.get("content", ""),
+        metadata=args.get("metadata", {}),
+    )
+    return _text(
+        f"Ledger event recorded.\n"
+        f"Case: {result['case_id']}\n"
+        f"Artifact: {result['artifact_id']}\n"
+        f"Sequence: {result['sequence']}\n"
+        f"Type: {result['event_type']}\n"
+        f"Name: {result['name']}"
+    )
+
+
+async def _handle_capture_snapshot(args: dict[str, Any]) -> list[TextContent]:
+    result = await _client.capture_snapshot(
+        case_id=args["case_id"],
+        repo_path=args["repo_path"],
+        phase=args["phase"],
+        base_ref=args.get("base_ref", "HEAD"),
+        include_untracked=args.get("include_untracked", True),
+    )
+    lines = [
+        "Ledger snapshot captured.",
+        f"Case: {result['case_id']}",
+        f"Artifact: {result['artifact_id']}",
+        f"Phase: {result['phase']}",
+        f"Head SHA: {result['head_sha']}",
+        f"Base ref: {result['base_ref']}",
+        f"Diff SHA-256: {result['diff_sha256']}",
+        f"Changed files: {len(result['changed_files'])}",
+    ]
+    if result["changed_files"]:
+        lines.append("\nChanged files:")
+        for path in result["changed_files"][:20]:
+            lines.append(f"  - {path}")
+    return _text("\n".join(lines))
+
+
+async def _handle_record_evidence(args: dict[str, Any]) -> list[TextContent]:
+    result = await _client.record_evidence(
+        case_id=args["case_id"],
+        evidence_type=args["evidence_type"],
+        content=args["content"],
+        source_ref=args.get("source_ref"),
+        metadata=args.get("metadata", {}),
+    )
+    return _text(
+        f"Ledger evidence recorded.\n"
+        f"Case: {result['case_id']}\n"
+        f"Artifact: {result['artifact_id']}\n"
+        f"Evidence: {result['evidence_id']}\n"
+        f"Type: {result['evidence_type']}"
+    )
+
+
+async def _handle_record_claim(args: dict[str, Any]) -> list[TextContent]:
+    result = await _client.record_claim(
+        case_id=args["case_id"],
+        claim_text=args["claim_text"],
+        severity=args.get("severity", "info"),
+        evidence_ids=args["evidence_ids"],
+    )
+    return _text(
+        f"Ledger claim recorded.\n"
+        f"Case: {result['case_id']}\n"
+        f"Claim: {result['claim_id']}\n"
+        f"Evidence IDs: {', '.join(result['evidence_ids'])}"
+    )
+
+
+async def _handle_evaluate_contract(args: dict[str, Any]) -> list[TextContent]:
+    result = await _client.evaluate_contract(args["case_id"])
+    lines = [
+        "Ledger contract evaluated.",
+        f"Case: {result['case_id']}",
+        f"Run: {result['run_id']}",
+        f"Status: {result['status']}",
+        f"Passed: {len(result['passed'])}",
+        f"Failed: {len(result['failed'])}",
+        f"Warnings: {len(result['warnings'])}",
+        f"Missing evidence: {len(result['missing_evidence'])}",
+        f"Scope violations: {len(result['scope_violations'])}",
+    ]
+    for label, key in (
+        ("Failed", "failed"),
+        ("Warnings", "warnings"),
+        ("Missing evidence", "missing_evidence"),
+        ("Scope violations", "scope_violations"),
+    ):
+        if result[key]:
+            lines.append(f"\n{label}:")
+            for item in result[key][:10]:
+                lines.append(f"  - {item}")
+    return _text("\n".join(lines))
+
+
+async def _handle_finish_work_ledger(args: dict[str, Any]) -> list[TextContent]:
+    result = await _client.finish_work_ledger(
+        case_id=args["case_id"],
+        summary=args.get("summary"),
+    )
+    return _text(
+        f"Agent Work Ledger finished.\n"
+        f"Case: {result['case_id']}\n"
+        f"Status: {result['status']}\n"
+        f"Finished at: {result['finished_at']}\n"
+        f"Metadata: {_format_json(result['metadata'])}"
+    )
 
 
 async def _handle_status(args: dict[str, Any]) -> list[TextContent]:

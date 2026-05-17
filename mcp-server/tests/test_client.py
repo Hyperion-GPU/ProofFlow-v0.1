@@ -1,5 +1,7 @@
 """Tests for ProofFlowClient HTTP wrapper."""
 
+import json
+
 import pytest
 import httpx
 import respx
@@ -110,6 +112,168 @@ async def test_triage_issue_success(client):
     )
     assert result["case_id"] == "case-issue"
     assert result["component"] == "mcp_server"
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_start_work_contract(client):
+    route = respx.post("http://127.0.0.1:8787/ledger/start").mock(
+        return_value=httpx.Response(200, json={
+            "case_id": "case-ledger",
+            "status": "active",
+            "case": {
+                "id": "case-ledger",
+                "title": "Implement MCP ledger tools",
+                "kind": "agent_work_ledger",
+                "status": "active",
+                "summary": None,
+                "metadata": {},
+                "created_at": "t",
+                "updated_at": "t",
+            },
+        })
+    )
+    result = await client.start_work_contract(
+        objective="Implement MCP ledger tools",
+        repo_path="D:/ProofFlow v0.1",
+        allowed_scope=["mcp-server"],
+        required_tests=["pytest"],
+    )
+    payload = json.loads(route.calls.last.request.content)
+    assert result["case_id"] == "case-ledger"
+    assert payload["allowed_scope"] == ["mcp-server"]
+    assert payload["required_tests"] == ["pytest"]
+    assert payload["forbidden_actions"] == []
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_record_event(client):
+    route = respx.post("http://127.0.0.1:8787/ledger/cases/c1/events").mock(
+        return_value=httpx.Response(200, json={
+            "case_id": "c1",
+            "artifact_id": "artifact-event",
+            "sequence": 1,
+            "event_type": "progress",
+            "name": "progress-001",
+            "created_at": "t",
+        })
+    )
+    result = await client.record_event(
+        case_id="c1",
+        event_type="progress",
+        summary="Added client methods",
+        metadata={"phase": "implementation"},
+    )
+    payload = json.loads(route.calls.last.request.content)
+    assert result["artifact_id"] == "artifact-event"
+    assert payload["content"] == ""
+    assert payload["metadata"] == {"phase": "implementation"}
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_capture_snapshot(client):
+    respx.post("http://127.0.0.1:8787/ledger/cases/c1/snapshots").mock(
+        return_value=httpx.Response(200, json={
+            "case_id": "c1",
+            "artifact_id": "artifact-snapshot",
+            "phase": "checkpoint",
+            "head_sha": "abc123",
+            "base_ref": "HEAD",
+            "changed_files": ["mcp-server/src/proofflow_mcp/client.py"],
+            "diff_sha256": "sha",
+        })
+    )
+    result = await client.capture_snapshot(
+        case_id="c1",
+        repo_path="D:/ProofFlow v0.1",
+        phase="checkpoint",
+    )
+    assert result["phase"] == "checkpoint"
+    assert result["changed_files"] == ["mcp-server/src/proofflow_mcp/client.py"]
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_record_evidence(client):
+    route = respx.post("http://127.0.0.1:8787/ledger/cases/c1/evidence").mock(
+        return_value=httpx.Response(200, json={
+            "case_id": "c1",
+            "artifact_id": "artifact-evidence",
+            "evidence_id": "ev-1",
+            "evidence_type": "command_output",
+            "created_at": "t",
+        })
+    )
+    result = await client.record_evidence(
+        case_id="c1",
+        evidence_type="command_output",
+        content="pytest passed",
+        source_ref="mcp-server/tests/test_client.py",
+    )
+    payload = json.loads(route.calls.last.request.content)
+    assert result["evidence_id"] == "ev-1"
+    assert payload["source_ref"] == "mcp-server/tests/test_client.py"
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_record_claim(client):
+    route = respx.post("http://127.0.0.1:8787/ledger/cases/c1/claims").mock(
+        return_value=httpx.Response(200, json={
+            "case_id": "c1",
+            "claim_id": "claim-1",
+            "evidence_ids": ["ev-1"],
+            "created_at": "t",
+        })
+    )
+    result = await client.record_claim(
+        case_id="c1",
+        claim_text="MCP tools are covered by tests",
+        severity="low",
+        evidence_ids=["ev-1"],
+    )
+    payload = json.loads(route.calls.last.request.content)
+    assert result["claim_id"] == "claim-1"
+    assert payload["severity"] == "low"
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_evaluate_contract(client):
+    respx.post("http://127.0.0.1:8787/ledger/cases/c1/evaluate").mock(
+        return_value=httpx.Response(200, json={
+            "case_id": "c1",
+            "run_id": "run-1",
+            "status": "passed",
+            "passed": ["required_tests"],
+            "failed": [],
+            "warnings": [],
+            "missing_evidence": [],
+            "scope_violations": [],
+        })
+    )
+    result = await client.evaluate_contract("c1")
+    assert result["status"] == "passed"
+    assert result["passed"] == ["required_tests"]
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_finish_work_ledger(client):
+    route = respx.post("http://127.0.0.1:8787/ledger/cases/c1/finish").mock(
+        return_value=httpx.Response(200, json={
+            "case_id": "c1",
+            "status": "closed",
+            "finished_at": "t",
+            "metadata": {"evaluated": True},
+        })
+    )
+    result = await client.finish_work_ledger("c1", summary="Done")
+    payload = json.loads(route.calls.last.request.content)
+    assert result["status"] == "closed"
+    assert payload["summary"] == "Done"
 
 
 @pytest.mark.asyncio
