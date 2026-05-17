@@ -6,6 +6,7 @@ import { CaseDetail } from "./pages/CaseDetail";
 import { Cases } from "./pages/Cases";
 import { Dashboard } from "./pages/Dashboard";
 import { Decisions } from "./pages/Decisions";
+import { IssueTriage } from "./pages/IssueTriage";
 import { LocalProof } from "./pages/LocalProof";
 import { ManagedBackupRestore } from "./pages/ManagedBackupRestore";
 import { Search } from "./pages/Search";
@@ -21,6 +22,7 @@ export default function App() {
         <Route path="search" element={<Search />} />
         <Route path="localproof" element={<LocalProof />} />
         <Route path="agentguard" element={<AgentGuard />} />
+        <Route path="issue-triage" element={<IssueTriage />} />
         <Route path="decisions" element={<Decisions />} />
         <Route path="managed-backup-restore" element={<ManagedBackupRestore />} />
         <Route path="*" element={<Navigate to="/" replace />} />
