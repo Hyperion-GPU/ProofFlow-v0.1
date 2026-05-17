@@ -97,7 +97,7 @@ The first dogfood pass covered the three default prompts against this plugin
 PR:
 
 - `Review the current diff with ProofFlow.` created a code review Case and
-  exported a Proof Packet for the five plugin files changed in the PR.
+  exported a Proof Packet for the plugin PR diff.
 - `Create a Proof Packet for this PR.` worked when given the existing Case ID.
 - `Triage this issue into a ProofFlow Case.` worked by scanning a temporary
   issue markdown file, indexing it as an Artifact, and exporting a Proof

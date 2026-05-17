@@ -426,3 +426,132 @@ def test_agentguard_review_keeps_docs_only_change_info_risk(monkeypatch):
         assert "README.md" in evidence_text
         assert "docs/assets/review.svg" in evidence_text
         assert "docs/releases/V0_1_7_RELEASE_DRAFT.md" in evidence_text
+
+
+def test_agentguard_review_adds_codex_plugin_semantic_claims(monkeypatch):
+    _require_git()
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_root = Path(temp_dir)
+        repo = _init_repo(temp_root / "repo")
+
+        marketplace_path = repo / ".agents" / "plugins" / "marketplace.json"
+        marketplace_path.parent.mkdir(parents=True)
+        marketplace_path.write_text(
+            json.dumps(
+                {
+                    "name": "proofflow-repo",
+                    "interface": {"displayName": "ProofFlow Repository Plugins"},
+                    "plugins": [
+                        {
+                            "name": "proofflow-maintainer",
+                            "source": {
+                                "source": "local",
+                                "path": "./plugins/proofflow-maintainer",
+                            },
+                            "policy": {
+                                "installation": "AVAILABLE",
+                                "authentication": "ON_INSTALL",
+                            },
+                            "category": "Productivity",
+                        }
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        plugin_root = repo / "plugins" / "proofflow-maintainer"
+        manifest_path = plugin_root / ".codex-plugin" / "plugin.json"
+        manifest_path.parent.mkdir(parents=True)
+        manifest_path.write_text(
+            json.dumps(
+                {
+                    "name": "proofflow-maintainer",
+                    "version": "0.1.0",
+                    "description": "Codex plugin for ProofFlow.",
+                    "skills": "./skills/",
+                    "mcpServers": "./.mcp.json",
+                    "interface": {
+                        "displayName": "ProofFlow Maintainer",
+                        "shortDescription": "Run ProofFlow workflows.",
+                        "defaultPrompt": [
+                            "Review the current diff with ProofFlow.",
+                            "Create a Proof Packet for this PR.",
+                        ],
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+        (plugin_root / ".mcp.json").write_text(
+            json.dumps(
+                {
+                    "mcpServers": {
+                        "proofflow": {
+                            "command": "proofflow-mcp",
+                            "env": {
+                                "PROOFFLOW_BASE_URL": "http://127.0.0.1:8787",
+                            },
+                        }
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
+        skill_path = plugin_root / "skills" / "proofflow-maintainer" / "SKILL.md"
+        skill_path.parent.mkdir(parents=True)
+        skill_path.write_text(
+            "Call `proofflow_health`, then `proofflow_review`, then "
+            "`proofflow_export_packet`. Resolve `GITHUB_BASE_REF` with "
+            "`git merge-base` and pass the SHA as `base_ref`.\n",
+            encoding="utf-8",
+        )
+        (plugin_root / "README.md").write_text(
+            "Dogfood exported a Proof Packet for the five plugin files changed in the PR.\n",
+            encoding="utf-8",
+        )
+
+        payload = _review_repo(monkeypatch, temp_root, repo)
+
+        assert payload["risk_level"] == "medium"
+        evidence_text = _claim_evidence_text(payload["case_id"])
+        assert "Codex plugin manifest declares required metadata and prompts" in evidence_text
+        assert "ProofFlow MCP config keeps the localhost trust boundary" in evidence_text
+        assert "Codex marketplace exposes the repo-local ProofFlow plugin" in evidence_text
+        assert "Codex skill documents PR-base review and Proof Packet export guardrails" in evidence_text
+        assert "Markdown changed-file count statement appears inconsistent" in evidence_text
+        assert "Stated count: 5" in evidence_text
+        assert "Actual plugin changed file count: 4" in evidence_text
+
+
+def test_agentguard_report_includes_base_ref_provenance(monkeypatch):
+    _require_git()
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_root = Path(temp_dir)
+        repo = _init_repo(temp_root / "repo")
+        base = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=repo,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+        (repo / "app.py").write_text("VALUE = 3\n", encoding="utf-8")
+
+        with _client(monkeypatch, temp_root) as client:
+            response = client.post(
+                "/agentguard/review",
+                json={"repo_path": str(repo), "base_ref": base},
+            )
+            payload = response.json()
+            report_response = client.post(
+                f"/reports/cases/{payload['case_id']}/export",
+                json={"format": "markdown"},
+            )
+
+        assert response.status_code == 200
+        assert report_response.status_code == 200
+        report_text = report_response.json()["content"]
+        assert "## AgentGuard Provenance" in report_text
+        assert f"- Base ref: `{base}`" in report_text
+        assert "- Changed file count: `1`" in report_text
