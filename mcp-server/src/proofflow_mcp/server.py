@@ -96,6 +96,29 @@ TOOLS: list[Tool] = [
         },
     ),
     Tool(
+        name="proofflow_triage_issue",
+        description=(
+            "Triage issue text into a ProofFlow Case. Captures the issue as an "
+            "Artifact, extracts deterministic triage Claims, and makes the issue "
+            "available for Proof Packet export."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "title": {"type": "string", "description": "Issue title."},
+                "body": {"type": "string", "description": "Issue body or report text.", "default": ""},
+                "source_url": {"type": "string", "description": "Optional source issue URL."},
+                "labels": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Optional issue labels.",
+                    "default": [],
+                },
+            },
+            "required": ["title"],
+        },
+    ),
+    Tool(
         name="proofflow_status",
         description=(
             "Get the full status of a ProofFlow Case including artifacts, claims, "
@@ -241,6 +264,8 @@ async def _dispatch(name: str, args: dict[str, Any]) -> list[TextContent]:
         return await _handle_suggest(args)
     elif name == "proofflow_review":
         return await _handle_review(args)
+    elif name == "proofflow_triage_issue":
+        return await _handle_triage_issue(args)
     elif name == "proofflow_status":
         return await _handle_status(args)
     elif name == "proofflow_approve_execute":
@@ -341,6 +366,27 @@ async def _handle_review(args: dict[str, Any]) -> list[TextContent]:
         lines.append("\nChanged files:")
         for f in result["changed_files"][:20]:
             lines.append(f"  - {f}")
+    return _text("\n".join(lines))
+
+
+async def _handle_triage_issue(args: dict[str, Any]) -> list[TextContent]:
+    result = await _client.triage_issue(
+        title=args["title"],
+        body=args.get("body", ""),
+        source_url=args.get("source_url"),
+        labels=args.get("labels", []),
+    )
+    lines = [
+        f"Issue triage complete. Case ID: {result['case_id']}",
+        f"Risk level: {result['risk_level']}",
+        f"Component: {result['component']}",
+        f"Suggested labels: {', '.join(result['suggested_labels']) or 'none'}",
+        f"Claims created: {result['claims_created']}",
+        f"Evidence created: {result['evidence_created']}",
+        f"Reproduction steps: {result['has_reproduction_steps']}",
+        f"Expected behavior: {result['has_expected_behavior']}",
+        f"Environment details: {result['has_environment_details']}",
+    ]
     return _text("\n".join(lines))
 
 

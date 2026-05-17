@@ -70,6 +70,38 @@ async def test_review_tool():
 
 @pytest.mark.asyncio
 @respx.mock
+async def test_triage_issue_tool():
+    respx.post("http://127.0.0.1:8787/issue-triage").mock(
+        return_value=httpx.Response(200, json={
+            "case_id": "case-issue",
+            "run_id": "run-issue",
+            "risk_level": "medium",
+            "artifact_id": "artifact-issue",
+            "component": "codex_plugin",
+            "suggested_labels": ["bug", "component:codex_plugin"],
+            "has_reproduction_steps": True,
+            "has_expected_behavior": False,
+            "has_environment_details": True,
+            "claims_created": 5,
+            "evidence_created": 5,
+        })
+    )
+    result = await call_tool(
+        "proofflow_triage_issue",
+        {
+            "title": "Codex plugin prompt is unclear",
+            "body": "Steps to Reproduce\n1. Open Codex\n2. Run plugin\nEnvironment: Windows 11",
+            "labels": ["bug"],
+        },
+    )
+    text = result[0].text
+    assert "case-issue" in text
+    assert "codex_plugin" in text
+    assert "Reproduction steps: True" in text
+
+
+@pytest.mark.asyncio
+@respx.mock
 async def test_approve_execute_tool_preview_first():
     """Without confirmed_preview, tool returns preview without executing."""
     respx.post("http://127.0.0.1:8787/actions/act-1/approve").mock(

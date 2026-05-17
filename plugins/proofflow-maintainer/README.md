@@ -82,10 +82,9 @@ default prompts are:
   not have a local branch with that name. Fetch or resolve the base to a local
   ref, compute `git merge-base HEAD <resolved-base-ref>`, and pass that SHA as
   `base_ref`.
-- Issue triage currently uses a scan fallback: issue text is saved as a local
-  Artifact and indexed into a Case. A future dedicated `issue_triage` backend
-  and MCP tool could turn issue content into first-class triage Claims and
-  follow-up Actions.
+- Issue triage uses `proofflow_triage_issue` to create a first-class
+  `issue_triage` Case with source issue text, deterministic triage Claims,
+  component inference, label suggestions, and Proof Packet export support.
 - It does not execute tests unless the user explicitly asks for that workflow
   and the backend allows test command execution.
 - It does not merge PRs, close issues, or bypass policy gates.
@@ -99,11 +98,11 @@ PR:
 - `Review the current diff with ProofFlow.` created a code review Case and
   exported a Proof Packet for the plugin PR diff.
 - `Create a Proof Packet for this PR.` worked when given the existing Case ID.
-- `Triage this issue into a ProofFlow Case.` worked by scanning a temporary
-  issue markdown file, indexing it as an Artifact, and exporting a Proof
-  Packet.
+- `Triage this issue into a ProofFlow Case.` creates a first-class
+  `issue_triage` Case with issue text as the primary Artifact and triage
+  Claims for component, reproduction steps, expected behavior, and environment
+  completeness.
 
 The result was usable for maintainer provenance and packet creation. The main
-comfort gap is that issue triage is not yet a first-class workflow, and the
-review output is only as semantic as the Claims and Evidence produced by
-AgentGuard.
+remaining review boundary is that AgentGuard output is only as semantic as the
+Claims and Evidence produced by deterministic rules.

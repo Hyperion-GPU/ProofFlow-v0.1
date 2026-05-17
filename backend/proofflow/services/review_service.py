@@ -857,6 +857,7 @@ def _codex_skill_claims(snapshot: GitSnapshot) -> list[ClaimSpec]:
         required_terms = (
             "proofflow_health",
             "proofflow_review",
+            "proofflow_triage_issue",
             "proofflow_export_packet",
             "merge-base",
             "base_ref",
@@ -881,8 +882,8 @@ def _codex_skill_claims(snapshot: GitSnapshot) -> list[ClaimSpec]:
                 text=f"Codex skill documents PR-base review and Proof Packet export guardrails: {path}",
                 evidence_type="git_diff",
                 evidence_content=(
-                    "Skill includes ProofFlow health, review, export, PR base, "
-                    "GITHUB_BASE_REF, and merge-base guidance."
+                    "Skill includes ProofFlow health, review, issue triage, export, "
+                    "PR base, GITHUB_BASE_REF, and merge-base guidance."
                 ),
                 source_ref=path,
             )

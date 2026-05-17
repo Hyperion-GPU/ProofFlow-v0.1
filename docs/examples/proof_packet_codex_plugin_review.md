@@ -115,7 +115,7 @@ Generated: `2026-05-17T11:48:43.140732Z`
   - Artifact relative path: `not recorded`
   - Source ref: `plugins/proofflow-maintainer/skills/proofflow-maintainer/SKILL.md`
 
-> Skill includes ProofFlow health, review, export, PR base, GITHUB_BASE_REF, and merge-base guidance.
+> Skill includes ProofFlow health, review, issue triage, export, PR base, GITHUB_BASE_REF, and merge-base guidance.
 
 ### Claim: Changed file count: 5.
 

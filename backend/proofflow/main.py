@@ -18,6 +18,7 @@ from proofflow.routers import (
     cases,
     decisions,
     health,
+    issue_triage,
     localproof,
     reports,
     restore,
@@ -98,6 +99,7 @@ def create_app() -> FastAPI:
     app.include_router(cases.router)
     app.include_router(artifacts.router)
     app.include_router(agentguard.router)
+    app.include_router(issue_triage.router)
     app.include_router(decisions.router)
     app.include_router(localproof.router)
     app.include_router(reports.router)

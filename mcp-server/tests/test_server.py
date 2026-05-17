@@ -4,13 +4,14 @@ from proofflow_mcp.server import TOOLS
 
 
 def test_all_tools_defined():
-    """All 12 MVP tools are registered."""
+    """All MVP tools are registered."""
     names = {t.name for t in TOOLS}
     expected = {
         "proofflow_health",
         "proofflow_scan",
         "proofflow_suggest",
         "proofflow_review",
+        "proofflow_triage_issue",
         "proofflow_status",
         "proofflow_approve_execute",
         "proofflow_export_packet",

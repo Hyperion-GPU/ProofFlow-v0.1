@@ -501,9 +501,10 @@ def test_agentguard_review_adds_codex_plugin_semantic_claims(monkeypatch):
         skill_path = plugin_root / "skills" / "proofflow-maintainer" / "SKILL.md"
         skill_path.parent.mkdir(parents=True)
         skill_path.write_text(
-            "Call `proofflow_health`, then `proofflow_review`, then "
-            "`proofflow_export_packet`. Resolve `GITHUB_BASE_REF` with "
-            "`git merge-base` and pass the SHA as `base_ref`.\n",
+            "Call `proofflow_health`, then `proofflow_review`, "
+            "`proofflow_triage_issue`, then `proofflow_export_packet`. "
+            "Resolve `GITHUB_BASE_REF` with `git merge-base` and pass the "
+            "SHA as `base_ref`.\n",
             encoding="utf-8",
         )
         (plugin_root / "README.md").write_text(

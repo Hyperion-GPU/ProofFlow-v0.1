@@ -122,20 +122,24 @@ for the current PR.
 Use this path when the user provides issue text, logs, reproduction steps, or a
 bug report and wants it captured in ProofFlow.
 
-1. If ProofFlow exposes a direct issue-triage tool, use it.
-2. Otherwise, create a temporary local text file only after explaining the path
-   and purpose, then call `proofflow_scan` on the containing folder to create a
-   Case and Artifact.
-3. State clearly that this fallback captures the issue as source evidence and
-   makes it searchable, but does not create first-class triage Claims or Actions
-   unless another ProofFlow tool records them.
-4. Record follow-up actions only when the available ProofFlow tools support the
-   action type. Otherwise summarize recommended next actions in the response.
-5. Export a Proof Packet if the user asks for a shareable triage record.
-
-Future improvement: a dedicated `issue_triage` backend and MCP tool could
-create an issue Case directly, preserve issue metadata, extract reproduction
-steps, and record follow-up Actions without the temporary-file fallback.
+1. Extract the issue `title`, `body`, optional `source_url`, and labels from the
+   user's text or the current issue context.
+2. Call `proofflow_triage_issue` with that data.
+3. Read the returned component, suggested labels, risk level, and completeness
+   signals for reproduction steps, expected behavior, and environment details.
+4. Call `proofflow_status` when you need the full Claims and Evidence.
+5. Export the Case with `proofflow_export_packet` if the user asks for a
+   shareable triage record.
+6. Summarize:
+   - Case ID,
+   - captured source issue URL if available,
+   - inferred component,
+   - suggested labels,
+   - missing triage evidence,
+   - evidence-backed Claims,
+   - recommended next step.
+7. Do not create temporary issue markdown files unless the direct triage tool is
+   unavailable and the user agrees to the fallback path.
 
 ## Policy Gates
 

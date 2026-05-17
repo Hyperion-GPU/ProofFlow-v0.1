@@ -110,7 +110,7 @@ Add to your project's `.mcp.json`:
 }
 ```
 
-Now your AI agent can scan files, review code, suggest actions, and export audit reports — all with enforced safety gates.
+Now your AI agent can scan files, review code, triage issues, suggest actions, and export audit reports — all with enforced safety gates.
 
 ### Codex Maintainer Plugin
 
@@ -132,7 +132,7 @@ AI Agent (Claude Code / Codex / Custom)
     |
     | MCP Protocol (stdio)
     v
-ProofFlow MCP Server (12 tools)
+ProofFlow MCP Server (13 tools)
     |
     | HTTP REST API
     v
@@ -154,6 +154,9 @@ Analyzes git diffs, generates risk-scored claims, and links each claim to specif
 ### File Audit & Organization (LocalProof)
 Scans directories, indexes files with SHA-256 hashes, extracts text for full-text search, and suggests organization actions — all tracked in an auditable Case.
 
+### Issue Triage
+Captures issue text as a first-class Case with source Artifact, deterministic triage Claims, component inference, label suggestions, and Proof Packet export.
+
 ### Policy Gate Enforcement
 High-risk filesystem actions (moves to system paths, bulk operations) are automatically paused at `pending_decision` status. Requires explicit owner approval before execution.
 
@@ -163,16 +166,16 @@ High-risk filesystem actions (moves to system paths, bulk operations) are automa
 - **No Undo, no Destructive Action** — executed actions carry rollback metadata
 - **No Case, no Workflow** — all work is tracked in auditable containers
 
-### MCP Tool Suite (12 tools)
-`health` · `scan` · `suggest` · `review` · `status` · `approve_execute` · `export_packet` · `search` · `list_cases` · `list_actions` · `undo` · `decide`
+### MCP Tool Suite (13 tools)
+`health` · `scan` · `suggest` · `review` · `triage_issue` · `status` · `approve_execute` · `export_packet` · `search` · `list_cases` · `list_actions` · `undo` · `decide`
 
 ## Technical Stack
 
 | Layer | Technology | Tests |
 |-------|-----------|-------|
-| Backend | Python 3.12, FastAPI, SQLite | 295 |
+| Backend | Python 3.12, FastAPI, SQLite | 300 |
 | Frontend | React 19, TypeScript, Vite | 25 |
-| MCP Server | Python, MCP SDK, httpx | 24 |
+| MCP Server | Python, MCP SDK, httpx | 26 |
 | CI | GitHub Actions (PR review + release gates) | Audit artifact + PR comment |
 
 ## Security Features
@@ -193,6 +196,7 @@ High-risk filesystem actions (moves to system paths, bulk operations) are automa
 | Core evidence graph (Case/Artifact/Claim/Evidence) | Done |
 | LocalProof file audit workflow | Done |
 | AgentGuard code review workflow | Done |
+| Issue triage workflow | Done |
 | Policy gate enforcement | Done |
 | MCP server for Claude Code/Codex | Done |
 | Backup/restore with safety preview | Done |
