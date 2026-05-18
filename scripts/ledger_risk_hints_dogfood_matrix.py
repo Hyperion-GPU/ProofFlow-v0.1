@@ -203,17 +203,25 @@ def run_matrix(temp_root: Path) -> dict[str, Any]:
     from proofflow_mcp import server as mcp_server
 
     with TestClient(app) as test_client:
+        headers: dict[str, str] = {}
+        api_key = os.getenv("PROOFFLOW_API_KEY")
+        if api_key:
+            headers["X-ProofFlow-Token"] = api_key
+
         patched_http = httpx.AsyncClient(
             transport=httpx.MockTransport(
                 lambda req: _sync_to_httpx_response(test_client, req)
             ),
             base_url="http://testserver",
+            headers=headers,
         )
         mcp_server._client._http = patched_http
         mcp_server._client._base_url = "http://testserver"
 
-        results = asyncio.run(_run_scenarios(temp_root))
-        asyncio.run(patched_http.aclose())
+        try:
+            results = asyncio.run(_run_scenarios(temp_root))
+        finally:
+            asyncio.run(patched_http.aclose())
 
     return {
         "db_path": str(db_path),
@@ -230,10 +238,9 @@ def _sync_to_httpx_response(test_client: Any, request: httpx.Request) -> httpx.R
     if parsed.query:
         path = f"{path}?{parsed.query}"
 
-    kwargs: dict[str, Any] = {}
+    kwargs: dict[str, Any] = {"headers": dict(request.headers)}
     if request.content:
         kwargs["content"] = request.content
-        kwargs["headers"] = dict(request.headers)
 
     response = getattr(test_client, method)(path, **kwargs)
     return httpx.Response(
