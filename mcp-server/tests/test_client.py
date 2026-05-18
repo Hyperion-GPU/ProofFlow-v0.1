@@ -325,6 +325,35 @@ async def test_evaluate_contract(client):
 
 @pytest.mark.asyncio
 @respx.mock
+async def test_explain_risk_hint(client):
+    route = respx.post("http://127.0.0.1:8787/ledger/cases/c1/risk-hints/decisions").mock(
+        return_value=httpx.Response(200, json={
+            "case_id": "c1",
+            "decision_id": "dec-1",
+            "hint_code": "cost_budget_possible_overrun",
+            "disposition": "accepted",
+            "evidence_ids": ["ev-1"],
+            "status": "accepted",
+            "created_at": "t",
+        })
+    )
+    result = await client.explain_risk_hint(
+        case_id="c1",
+        evaluation_run_id="run-1",
+        hint_code="cost_budget_possible_overrun",
+        disposition="accepted",
+        rationale="Owner accepted this overrun.",
+        evidence_ids=["ev-1"],
+    )
+    payload = json.loads(route.calls.last.request.content)
+    assert result["decision_id"] == "dec-1"
+    assert payload["evaluation_run_id"] == "run-1"
+    assert payload["hint_code"] == "cost_budget_possible_overrun"
+    assert payload["evidence_ids"] == ["ev-1"]
+
+
+@pytest.mark.asyncio
+@respx.mock
 async def test_finish_work_ledger(client):
     route = respx.post("http://127.0.0.1:8787/ledger/cases/c1/finish").mock(
         return_value=httpx.Response(200, json={

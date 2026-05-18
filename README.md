@@ -189,7 +189,7 @@ AI Agent (Claude Code / Codex / Custom)
     |
     | MCP Protocol (stdio)
     v
-ProofFlow MCP Server (22 tools)
+ProofFlow MCP Server (23 tools)
     |
     | HTTP REST API
     v
@@ -237,8 +237,11 @@ High-risk filesystem actions (moves to system paths, bulk operations) are automa
 - **No Undo, no Destructive Action** — executed actions carry rollback metadata
 - **No Case, no Workflow** — all work is tracked in auditable containers
 
-### MCP Tool Suite (22 tools)
+### MCP Tool Suite (23 tools)
 `health` · `scan` · `suggest` · `review` · `triage_issue` · `start_work_contract` · `record_algorithm_decision` · `record_cost_budget` · `capture_snapshot` · `record_evidence` · `record_claim` · `evaluate_contract` · `finish_work_ledger` · `status` · `approve_execute` · `export_packet` · `search` · `list_cases` · `list_actions` · `undo` · `decide`
+
+`explain_risk_hint` records an evidence-backed Decision for a Ledger Risk Hint
+without suppressing the hint.
 
 ## Technical Stack
 

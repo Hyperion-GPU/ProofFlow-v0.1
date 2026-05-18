@@ -292,6 +292,27 @@ class ProofFlowClient:
             "POST", f"/ledger/cases/{case_id}/evaluate"
         )
 
+    async def explain_risk_hint(
+        self,
+        case_id: str,
+        evaluation_run_id: str,
+        hint_code: str,
+        disposition: str,
+        rationale: str,
+        evidence_ids: list[str],
+    ) -> dict[str, Any]:
+        return await self._request(
+            "POST",
+            f"/ledger/cases/{case_id}/risk-hints/decisions",
+            json={
+                "evaluation_run_id": evaluation_run_id,
+                "hint_code": hint_code,
+                "disposition": disposition,
+                "rationale": rationale,
+                "evidence_ids": evidence_ids,
+            },
+        )
+
     async def finish_work_ledger(
         self, case_id: str, summary: str | None = None
     ) -> dict[str, Any]:

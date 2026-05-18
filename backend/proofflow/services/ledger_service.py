@@ -9,6 +9,7 @@ import re
 from proofflow.db import connect, new_uuid, utc_now_iso
 from proofflow.models.schemas import (
     CaseCreate,
+    DecisionCreate,
     LedgerAlgorithmDecisionCreateRequest,
     LedgerAlgorithmDecisionResponse,
     LedgerClaimCreateRequest,
@@ -22,13 +23,15 @@ from proofflow.models.schemas import (
     LedgerEvidenceCreateResponse,
     LedgerFinishRequest,
     LedgerFinishResponse,
+    LedgerRiskHintDecisionCreateRequest,
+    LedgerRiskHintDecisionResponse,
     LedgerRiskHint,
     WorkContractStartRequest,
     WorkContractStartResponse,
     WorkSnapshotRequest,
     WorkSnapshotResponse,
 )
-from proofflow.services import case_service
+from proofflow.services import case_service, decision_service
 from proofflow.services.errors import NotFoundError
 from proofflow.services.git_service import (
     current_head_sha,
@@ -440,7 +443,7 @@ def evaluate_contract(case_id: str) -> LedgerEvaluationResponse:
     _evaluate_cost_budget(contract, artifacts, passed, failed, missing_evidence)
     _evaluate_scope(contract, artifacts, passed, failed, warnings, scope_violations)
     _evaluate_open_risks(claims, decisions, passed, failed)
-    _evaluate_risk_hints(contract, artifacts, evidence_rows, risk_hints)
+    _evaluate_risk_hints(contract, artifacts, evidence_rows, decisions, risk_hints)
 
     status_value = _evaluation_status(failed)
     run_id = _insert_evaluation_run(
@@ -463,6 +466,56 @@ def evaluate_contract(case_id: str) -> LedgerEvaluationResponse:
         missing_evidence=missing_evidence,
         scope_violations=scope_violations,
         risk_hints=risk_hints,
+    )
+
+
+def explain_risk_hint(
+    case_id: str,
+    payload: LedgerRiskHintDecisionCreateRequest,
+) -> LedgerRiskHintDecisionResponse:
+    _require_ledger_case(case_id)
+    rows = _load_evidence_rows(case_id, payload.evidence_ids)
+    found_ids = {row["id"] for row in rows}
+    missing_ids = [evidence_id for evidence_id in payload.evidence_ids if evidence_id not in found_ids]
+    if missing_ids:
+        raise LedgerServiceError(f"evidence not found for case: {', '.join(missing_ids)}")
+
+    evaluation_metadata = _load_evaluation_metadata(case_id, payload.evaluation_run_id)
+    hint_codes = {
+        str(hint.get("code"))
+        for hint in evaluation_metadata.get("risk_hints", [])
+        if isinstance(hint, dict) and hint.get("code")
+    }
+    if payload.hint_code not in hint_codes:
+        raise LedgerServiceError(
+            f"risk hint not found in evaluation run: {payload.hint_code}"
+        )
+
+    decision = decision_service.create_decision(
+        case_id,
+        DecisionCreate(
+            title=f"Explain Ledger risk hint: {payload.hint_code}",
+            status="accepted",
+            rationale=payload.rationale,
+            result=payload.disposition,
+            metadata={
+                "source": LEDGER_SOURCE,
+                "decision_kind": "ledger_risk_hint_explanation",
+                "evaluation_run_id": payload.evaluation_run_id,
+                "hint_code": payload.hint_code,
+                "disposition": payload.disposition,
+                "evidence_ids": payload.evidence_ids,
+            },
+        ),
+    )
+    return LedgerRiskHintDecisionResponse(
+        case_id=case_id,
+        decision_id=decision.id,
+        hint_code=payload.hint_code,
+        disposition=payload.disposition,
+        evidence_ids=payload.evidence_ids,
+        status=decision.status,
+        created_at=decision.created_at,
     )
 
 
@@ -976,6 +1029,7 @@ def _evaluate_risk_hints(
     contract: dict[str, Any],
     artifacts: list[dict[str, Any]],
     evidence_rows: list[dict[str, Any]],
+    decisions: list[dict[str, Any]],
     risk_hints: list[LedgerRiskHint],
 ) -> None:
     context = _risk_hint_context(artifacts, evidence_rows)
@@ -986,6 +1040,32 @@ def _evaluate_risk_hints(
     _hint_expensive_action_without_budget(contract, artifacts, context, risk_hints)
     _hint_cost_budget_overrun(contract, artifacts, context, risk_hints)
     _hint_test_output_not_method(method_contract, artifacts, evidence_rows, risk_hints)
+    _attach_risk_hint_explanations(risk_hints, decisions)
+
+
+def _attach_risk_hint_explanations(
+    risk_hints: list[LedgerRiskHint],
+    decisions: list[dict[str, Any]],
+) -> None:
+    explanations: dict[str, dict[str, Any]] = {}
+    for decision in decisions:
+        metadata = decision["metadata"]
+        if (
+            metadata.get("decision_kind") == "ledger_risk_hint_explanation"
+            and decision["status"] == "accepted"
+            and metadata.get("hint_code")
+        ):
+            explanations[str(metadata["hint_code"])] = decision
+
+    for hint in risk_hints:
+        explanation = explanations.get(hint.code)
+        if explanation is None:
+            continue
+        hint.decision_id = explanation["id"]
+        hint.decision_status = explanation["status"]
+        disposition = explanation["metadata"].get("disposition")
+        if disposition in {"accepted", "false_positive", "mitigated", "deferred"}:
+            hint.disposition = disposition
 
 
 def _hint_forbidden_algorithm(
@@ -1457,6 +1537,21 @@ def _latest_evaluation(case_id: str) -> str | None:
     if isinstance(status_value, str) and status_value:
         return status_value
     return None
+
+
+def _load_evaluation_metadata(case_id: str, run_id: str) -> dict[str, Any]:
+    with connect() as connection:
+        row = connection.execute(
+            """
+            SELECT metadata_json
+            FROM runs
+            WHERE case_id = ? AND id = ? AND run_type = 'ledger_evaluation'
+            """,
+            (case_id, run_id),
+        ).fetchone()
+    if row is None:
+        raise NotFoundError(f"ledger evaluation run not found: {run_id}")
+    return loads_metadata(row["metadata_json"])
 
 
 def _evaluation_status(failed: list[str]) -> str:
