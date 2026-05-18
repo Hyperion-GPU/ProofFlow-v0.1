@@ -158,6 +158,61 @@ async def test_record_event_tool():
 
 @pytest.mark.asyncio
 @respx.mock
+async def test_record_algorithm_decision_tool():
+    respx.post("http://127.0.0.1:8787/ledger/cases/c1/algorithm-decisions").mock(
+        return_value=httpx.Response(200, json={
+            "case_id": "c1",
+            "artifact_id": "artifact-algorithm",
+            "sequence": 1,
+            "summary": "Reuse timestamps",
+            "name": "ledger-algorithm-decision-001.md",
+            "created_at": "t",
+        })
+    )
+    result = await call_tool(
+        "proofflow_record_algorithm_decision",
+        {
+            "case_id": "c1",
+            "summary": "Reuse timestamps",
+            "chosen_approach": "Remap existing subtitle timestamps",
+            "rationale": "Avoid rerunning ASR",
+        },
+    )
+    text = result[0].text
+    assert "Ledger algorithm decision recorded" in text
+    assert "artifact-algorithm" in text
+    assert "Reuse timestamps" in text
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_record_cost_budget_tool():
+    respx.post("http://127.0.0.1:8787/ledger/cases/c1/cost-budgets").mock(
+        return_value=httpx.Response(200, json={
+            "case_id": "c1",
+            "artifact_id": "artifact-budget",
+            "sequence": 1,
+            "summary": "No GPU ASR",
+            "name": "ledger-cost-budget-001.md",
+            "created_at": "t",
+        })
+    )
+    result = await call_tool(
+        "proofflow_record_cost_budget",
+        {
+            "case_id": "c1",
+            "summary": "No GPU ASR",
+            "budget": {"max_gpu_jobs": 0},
+        },
+    )
+    text = result[0].text
+    assert "Ledger cost budget recorded" in text
+    assert "artifact-budget" in text
+    assert "No GPU ASR" in text
+
+
+@pytest.mark.asyncio
+@respx.mock
 async def test_capture_snapshot_tool():
     respx.post("http://127.0.0.1:8787/ledger/cases/c1/snapshots").mock(
         return_value=httpx.Response(200, json={

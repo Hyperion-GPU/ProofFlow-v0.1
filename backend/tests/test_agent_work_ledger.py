@@ -26,6 +26,8 @@ def _start_ledger(client: TestClient, tmp_path: Path, **overrides) -> dict:
         "required_tests": [],
         "done_criteria": ["packet exports"],
         "evidence_requirements": [],
+        "algorithm_requirements": [],
+        "cost_budget": {},
     }
     payload.update(overrides)
     response = client.post("/ledger/start", json=payload)
@@ -245,6 +247,81 @@ def test_ledger_records_evidence_and_requires_claim_bindings(monkeypatch, tmp_pa
     assert row["claim_id"] == claim.json()["claim_id"]
     assert "Tests passed" in exported.json()["content"]
     assert "python -m pytest passed" in exported.json()["content"]
+
+
+def test_ledger_records_algorithm_decision_and_cost_budget(monkeypatch, tmp_path):
+    _require_git()
+    repo = _init_repo(tmp_path / "repo")
+
+    with _client(monkeypatch, tmp_path) as client:
+        case_id = _start_ledger(
+            client,
+            tmp_path,
+            repo_path=str(repo),
+            algorithm_requirements=["choose subtitle synchronization strategy"],
+            cost_budget={"max_gpu_jobs": 0, "max_runtime_seconds": 60},
+            evidence_requirements=["algorithm_decision", "cost_budget"],
+        )["case_id"]
+        decision = client.post(
+            f"/ledger/cases/{case_id}/algorithm-decisions",
+            json={
+                "summary": "Reuse existing subtitle timestamps",
+                "chosen_approach": "Remap original subtitle timestamps through the edit decision list.",
+                "rationale": "Avoids rerunning ASR and preserves transcript provenance.",
+                "alternatives_considered": ["Rerun ASR after trimming"],
+                "invariants": ["Do not invoke GPU ASR for subtitle sync"],
+                "forbidden_approaches": ["Full video retranscription"],
+                "metadata": {"pipeline": "subtitle_sync"},
+            },
+        )
+        budget = client.post(
+            f"/ledger/cases/{case_id}/cost-budgets",
+            json={
+                "summary": "No GPU work for subtitle sync",
+                "budget": {"max_gpu_jobs": 0, "max_runtime_seconds": 60},
+                "expected_operations": ["timestamp remap"],
+                "limits": ["Do not run Whisper after trimming"],
+            },
+        )
+        client.post(
+            f"/ledger/cases/{case_id}/snapshots",
+            json={"repo_path": str(repo), "phase": "final"},
+        )
+        evaluation = client.post(f"/ledger/cases/{case_id}/evaluate")
+        exported = client.post(f"/reports/cases/{case_id}/export", json={"format": "markdown"})
+
+    assert decision.status_code == 200
+    assert decision.json()["sequence"] == 1
+    assert budget.status_code == 200
+    assert budget.json()["sequence"] == 1
+    assert evaluation.status_code == 200
+    assert evaluation.json()["status"] == "ready_for_review"
+    assert "algorithm_decision" in evaluation.json()["passed"]
+    assert "cost_budget" in evaluation.json()["passed"]
+    content = exported.json()["content"]
+    assert "## Algorithm Decisions" in content
+    assert "Reuse existing subtitle timestamps" in content
+    assert "## Cost Budget" in content
+    assert "No GPU work for subtitle sync" in content
+
+
+def test_ledger_evaluator_requires_algorithm_decision_and_cost_budget(monkeypatch, tmp_path):
+    with _client(monkeypatch, tmp_path) as client:
+        case_id = _start_ledger(
+            client,
+            tmp_path,
+            algorithm_requirements=["choose transcript sync strategy"],
+            cost_budget={"max_gpu_jobs": 0},
+        )["case_id"]
+        response = client.post(f"/ledger/cases/{case_id}/evaluate")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "missing_algorithm_decision"
+    assert "missing_algorithm_decision" in payload["failed"]
+    assert "missing_cost_budget" in payload["failed"]
+    assert "algorithm_decision" in payload["missing_evidence"]
+    assert "cost_budget" in payload["missing_evidence"]
 
 
 def test_ledger_evaluator_reports_missing_tests(monkeypatch, tmp_path):

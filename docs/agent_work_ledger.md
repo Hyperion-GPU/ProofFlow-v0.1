@@ -2,29 +2,33 @@
 
 ProofFlow records AI coding work as a local, evidence-backed delivery ledger.
 The goal is not only to review a final diff, but to preserve the contract,
-code state, claims, evidence, evaluation, and exported packet that explain why
-the work should be trusted.
+algorithm choice, cost budget, code state, claims, evidence, evaluation, and
+exported packet that explain why the work should be trusted.
 
 ## Main Flow
 
 ```mermaid
 flowchart LR
-  A["Work Contract"] --> B["Snapshot"]
-  B --> C["Evidence"]
-  C --> D["Claim"]
-  D --> E["Done Criteria Evaluation"]
-  E --> F["Proof Packet"]
+  A["Work Contract"] --> B["Algorithm Decision"]
+  B --> C["Cost Budget"]
+  C --> D["Snapshot"]
+  D --> E["Evidence"]
+  E --> F["Claim"]
+  F --> G["Done Criteria Evaluation"]
+  G --> H["Proof Packet"]
 ```
 
 ## What Each Step Proves
 
 | Step | Purpose | Stored as |
 | --- | --- | --- |
-| Work Contract | Objective, repo path, allowed scope, forbidden actions, required tests, done criteria, and evidence requirements | `agent_work_ledger` Case metadata |
+| Work Contract | Objective, repo path, allowed scope, forbidden actions, required tests, done criteria, evidence requirements, algorithm requirements, and cost budget | `agent_work_ledger` Case metadata |
+| Algorithm Decision | The selected algorithm or workflow, rationale, rejected alternatives, invariants, and forbidden approaches | `algorithm_decision` Artifact |
+| Cost Budget | Token, API, GPU, CPU, runtime, iteration, or other cost limits before expensive work begins | `cost_budget` Artifact |
 | Snapshot | Git diff, changed files, HEAD SHA, base ref, status, and diff hash | `git_diff` Artifact |
 | Evidence | Test output, command output, notes, screenshots, or supporting files | Artifact + Evidence row |
 | Claim | A statement the agent wants the maintainer to trust | Claim bound to Evidence |
-| Evaluation | Deterministic check for tests, scope, evidence, and open risks | `ledger_evaluation` Run |
+| Evaluation | Deterministic check for tests, algorithm decisions, cost budget, scope, evidence, and open risks | `ledger_evaluation` Run |
 | Proof Packet | Exported markdown handoff for review, audit, and PR comments | `proof_packet` Artifact |
 
 ## Relationship To Existing Workflows
@@ -45,6 +49,10 @@ Ledger gives them a shared delivery context:
 ## Hard Rules
 
 - No Contract, no Ledger.
+- No Algorithm Decision, no trusted implementation strategy when the contract
+  requires one.
+- No Cost Budget, no expensive workflow when the contract declares budget
+  limits.
 - No final Snapshot, no Finish.
 - No Evidence, no trusted Claim.
 - No ready Evaluation, no quiet success.
@@ -58,6 +66,8 @@ Ledger gives them a shared delivery context:
 | `ready_for_review` | Contract checks passed and the Ledger can be reviewed as complete. |
 | `needs_tests` | A required test command is missing from Evidence or Artifacts. |
 | `scope_violation` | Final snapshot changed files outside `allowed_scope`. |
+| `missing_algorithm_decision` | The contract requires an algorithm decision, but no Algorithm Decision Artifact exists. |
+| `missing_cost_budget` | The contract declares a cost budget, but no Cost Budget Artifact exists. |
 | `incomplete_evidence` | Required evidence types are missing. |
 | `risk_acceptance_required` | Open medium/high Claims need an accepted Decision. |
 | `finished_with_risks` | Finish was allowed, but the latest evaluation was not ready. |

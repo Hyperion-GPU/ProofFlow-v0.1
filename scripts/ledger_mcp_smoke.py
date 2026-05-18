@@ -3,8 +3,8 @@
 Starts the ProofFlow backend in-process with FastAPI TestClient, routes MCP
 tool calls through the real tool handlers, and verifies the Ledger chain:
 
-    health -> start contract -> snapshot -> event -> evidence -> claim ->
-    evaluate -> finish -> export packet
+    health -> start contract -> algorithm decision -> cost budget -> snapshot ->
+    event -> evidence -> claim -> evaluate -> finish -> export packet
 
 Usage:
     python scripts/ledger_mcp_smoke.py [--cleanup]
@@ -109,10 +109,40 @@ async def _run_ledger_flow(repo: Path) -> dict[str, Any]:
             "required_tests": ["python -m pytest smoke"],
             "done_criteria": ["Ledger MCP smoke reaches ready_for_review"],
             "evidence_requirements": ["git_diff", "test_output"],
+            "algorithm_requirements": ["record smoke algorithm decision"],
+            "cost_budget": {"max_gpu_jobs": 0, "max_api_calls": 0},
         },
     )
     case_id = _extract_value(start, "Case ID")
     print(f"  [PASS] proofflow_start_work_contract -> {case_id}")
+
+    algorithm = await _call(
+        "proofflow_record_algorithm_decision",
+        {
+            "case_id": case_id,
+            "summary": "Use direct file edit for smoke repo",
+            "chosen_approach": "Modify app.py directly and verify with recorded test evidence.",
+            "rationale": "The smoke repo is tiny and does not need generated or remote work.",
+            "alternatives_considered": ["Run a model or external formatter service"],
+            "invariants": ["No remote calls", "No GPU work"],
+            "forbidden_approaches": ["External API calls"],
+        },
+    )
+    _assert_contains(algorithm, "Ledger algorithm decision recorded.")
+    print("  [PASS] proofflow_record_algorithm_decision")
+
+    budget = await _call(
+        "proofflow_record_cost_budget",
+        {
+            "case_id": case_id,
+            "summary": "No remote or GPU cost for smoke flow",
+            "budget": {"max_gpu_jobs": 0, "max_api_calls": 0},
+            "expected_operations": ["local git diff", "local pytest evidence"],
+            "limits": ["Do not call remote APIs", "Do not run GPU workloads"],
+        },
+    )
+    _assert_contains(budget, "Ledger cost budget recorded.")
+    print("  [PASS] proofflow_record_cost_budget")
 
     start_snapshot = await _call(
         "proofflow_capture_snapshot",
@@ -200,6 +230,8 @@ async def _run_ledger_flow(repo: Path) -> dict[str, Any]:
     for expected in (
         "Proof Packet exported",
         "## Work Contract",
+        "## Algorithm Decisions",
+        "## Cost Budget",
         "## Ledger Timeline",
         "## Snapshots",
         "## Done Criteria Evaluation",

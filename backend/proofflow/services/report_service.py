@@ -155,6 +155,8 @@ def _render_markdown(packet: dict[str, Any], created_at: str) -> str:
     lines.extend(_render_agentguard_provenance(case))
     if case["case_type"] == "agent_work_ledger":
         lines.extend(_render_ledger_work_contract(case))
+        lines.extend(_render_ledger_algorithm_decisions(packet["artifacts"]))
+        lines.extend(_render_ledger_cost_budgets(packet["artifacts"]))
         lines.extend(_render_ledger_timeline(packet["artifacts"]))
         lines.extend(_render_ledger_snapshots(packet["artifacts"]))
         lines.extend(_render_ledger_evaluation(packet["runs"]))
@@ -251,11 +253,57 @@ def _render_ledger_work_contract(case: Any) -> list[str]:
         f"- Required tests: `{_metadata_list(contract.get('required_tests'))}`",
         f"- Done criteria: `{_metadata_list(contract.get('done_criteria'))}`",
         f"- Evidence requirements: `{_metadata_list(contract.get('evidence_requirements'))}`",
+        f"- Algorithm requirements: `{_metadata_list(contract.get('algorithm_requirements'))}`",
+        f"- Cost budget: `{_metadata_object(contract.get('cost_budget'))}`",
     ]
     if metadata.get("finish_summary"):
         lines.append(f"- Finish summary: {_md(metadata.get('finish_summary'))}")
     if metadata.get("finished_at"):
         lines.append(f"- Finished at: `{_metadata_value(metadata.get('finished_at'))}`")
+    return lines + [""]
+
+
+def _render_ledger_algorithm_decisions(artifacts: list[Any]) -> list[str]:
+    decisions = _ledger_artifacts(artifacts, "algorithm_decision")
+    if not decisions:
+        return ["## Algorithm Decisions", "", "No algorithm decisions recorded.", ""]
+
+    lines = ["## Algorithm Decisions", ""]
+    for decision in decisions:
+        metadata = loads_metadata(decision["metadata_json"])
+        lines.extend(
+            [
+                f"- `{_metadata_value(metadata.get('sequence'))}` {_md(metadata.get('summary', decision['name']))}",
+                f"  - Artifact: `{decision['id']}` {_md(decision['name'])}",
+                f"  - Chosen approach: {_md(metadata.get('chosen_approach', 'not recorded'))}",
+                f"  - Rationale: {_md(metadata.get('rationale', 'not recorded'))}",
+                f"  - Alternatives: `{_metadata_list(metadata.get('alternatives_considered'))}`",
+                f"  - Invariants: `{_metadata_list(metadata.get('invariants'))}`",
+                f"  - Forbidden approaches: `{_metadata_list(metadata.get('forbidden_approaches'))}`",
+                f"  - Created: `{decision['created_at']}`",
+            ]
+        )
+    return lines + [""]
+
+
+def _render_ledger_cost_budgets(artifacts: list[Any]) -> list[str]:
+    budgets = _ledger_artifacts(artifacts, "cost_budget")
+    if not budgets:
+        return ["## Cost Budget", "", "No cost budget recorded.", ""]
+
+    lines = ["## Cost Budget", ""]
+    for budget in budgets:
+        metadata = loads_metadata(budget["metadata_json"])
+        lines.extend(
+            [
+                f"- `{_metadata_value(metadata.get('sequence'))}` {_md(metadata.get('summary', budget['name']))}",
+                f"  - Artifact: `{budget['id']}` {_md(budget['name'])}",
+                f"  - Budget: `{_metadata_object(metadata.get('budget'))}`",
+                f"  - Expected operations: `{_metadata_list(metadata.get('expected_operations'))}`",
+                f"  - Limits: `{_metadata_list(metadata.get('limits'))}`",
+                f"  - Created: `{budget['created_at']}`",
+            ]
+        )
     return lines + [""]
 
 
@@ -670,6 +718,12 @@ def _metadata_list(value: Any) -> str:
     if not isinstance(value, list) or not value:
         return "not recorded"
     return ", ".join(str(item) for item in value)
+
+
+def _metadata_object(value: Any) -> str:
+    if not isinstance(value, dict) or not value:
+        return "not recorded"
+    return json.dumps(value, sort_keys=True, separators=(",", ":"))
 
 
 def _quote_block(content: str) -> list[str]:

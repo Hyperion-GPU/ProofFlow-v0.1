@@ -43,16 +43,82 @@ Tool: `proofflow_start_work_contract`
   "evidence_requirements": [
     "git_diff",
     "test_output"
-  ]
+  ],
+  "algorithm_requirements": [
+    "Choose the label preservation algorithm before editing code"
+  ],
+  "cost_budget": {
+    "max_api_calls": 0,
+    "max_gpu_jobs": 0
+  }
 }
 ```
 
 Expected result:
 
 - A new `agent_work_ledger` Case ID.
-- Case metadata contains the work contract.
+- Case metadata contains the work contract, algorithm requirements, and cost
+  budget constraints.
 
-## 2. Capture The Start Snapshot
+## 2. Record The Algorithm Decision
+
+Tool: `proofflow_record_algorithm_decision`
+
+```json
+{
+  "case_id": "<case-id>",
+  "summary": "Preserve labels during deterministic parsing",
+  "chosen_approach": "Normalize incoming labels and preserve the original list when component inference runs.",
+  "rationale": "This keeps source issue labels as provenance instead of regenerating them later.",
+  "alternatives_considered": [
+    "Recompute labels from issue body only"
+  ],
+  "invariants": [
+    "User-provided labels remain in the triage output"
+  ],
+  "forbidden_approaches": [
+    "Drop original labels before inference"
+  ]
+}
+```
+
+Expected result:
+
+- An `algorithm_decision` Artifact.
+- The Proof Packet can show the selected approach, rationale, alternatives,
+  invariants, and forbidden approaches.
+
+## 3. Record The Cost Budget
+
+Tool: `proofflow_record_cost_budget`
+
+```json
+{
+  "case_id": "<case-id>",
+  "summary": "No remote calls or GPU work for deterministic issue triage",
+  "budget": {
+    "max_api_calls": 0,
+    "max_gpu_jobs": 0,
+    "max_runtime_seconds": 60
+  },
+  "expected_operations": [
+    "local parser update",
+    "targeted pytest run"
+  ],
+  "limits": [
+    "Do not call external labeling services",
+    "Do not run model inference for this deterministic fix"
+  ]
+}
+```
+
+Expected result:
+
+- A `cost_budget` Artifact.
+- Evaluation can confirm the contract's declared budget was recorded before
+  work proceeds.
+
+## 4. Capture The Start Snapshot
 
 Tool: `proofflow_capture_snapshot`
 
@@ -72,7 +138,7 @@ Expected result:
 - Snapshot metadata includes changed files, HEAD SHA, base ref, git status, and
   diff SHA-256.
 
-## 3. Record Work Events
+## 5. Record Work Events
 
 Tool: `proofflow_record_event`
 
@@ -95,7 +161,7 @@ Expected result:
 
 - A `log` Artifact appears in the Ledger Timeline.
 
-## 4. Record Test Evidence
+## 6. Record Test Evidence
 
 Run your required test locally, then record the output.
 
@@ -119,7 +185,7 @@ Expected result:
 - A `test_output` Artifact.
 - An Evidence ID you can bind to a Claim.
 
-## 5. Record An Evidence-Backed Claim
+## 7. Record An Evidence-Backed Claim
 
 Tool: `proofflow_record_claim`
 
@@ -144,7 +210,7 @@ Hard rule:
 - Empty `evidence_ids` returns HTTP 422. ProofFlow will not accept an unbacked
   Claim.
 
-## 6. Capture The Final Snapshot
+## 8. Capture The Final Snapshot
 
 Tool: `proofflow_capture_snapshot`
 
@@ -167,7 +233,7 @@ Hard rule:
 
 - Finishing without a final snapshot returns HTTP 400.
 
-## 7. Evaluate Done Criteria
+## 9. Evaluate Done Criteria
 
 Tool: `proofflow_evaluate_contract`
 
@@ -184,6 +250,8 @@ Expected `ready_for_review` result:
   "status": "ready_for_review",
   "passed": [
     "required_tests",
+    "algorithm_decision",
+    "cost_budget",
     "evidence_requirements",
     "allowed_scope",
     "open_risks"
@@ -200,10 +268,12 @@ Common non-ready statuses:
 | --- | --- |
 | `needs_tests` | Required test command is missing from Evidence or Artifacts. |
 | `scope_violation` | Final snapshot changed files outside `allowed_scope`. |
+| `missing_algorithm_decision` | Contract requires an algorithm decision but none is recorded. |
+| `missing_cost_budget` | Contract declares a cost budget but none is recorded. |
 | `incomplete_evidence` | Required evidence type such as `test_output` is missing. |
 | `risk_acceptance_required` | Open medium/high Claim has no accepted Decision. |
 
-## 8. Finish The Ledger
+## 10. Finish The Ledger
 
 Tool: `proofflow_finish_work_ledger`
 
@@ -219,7 +289,7 @@ Expected result:
 - `finished` when no non-ready evaluation is present.
 - `finished_with_risks` when the latest evaluation is not `ready_for_review`.
 
-## 9. Export The Proof Packet
+## 11. Export The Proof Packet
 
 Tool: `proofflow_export_packet`
 
@@ -232,6 +302,8 @@ Tool: `proofflow_export_packet`
 Expected packet sections:
 
 - Work Contract
+- Algorithm Decisions
+- Cost Budget
 - Ledger Timeline
 - Snapshots
 - Claims & Evidence
@@ -243,9 +315,10 @@ Expected packet sections:
 Use this prompt with Codex or Claude after ProofFlow MCP is available:
 
 ```text
-Use ProofFlow Agent Work Ledger for this task. Start a work contract, capture a
-start snapshot, record important events, record test output as Evidence, bind
-Claims to Evidence, capture a final snapshot, evaluate the contract, finish the
-ledger, and export a Proof Packet. If evaluation is not ready_for_review, report
-the failed criteria instead of claiming success.
+Use ProofFlow Agent Work Ledger for this task. Start a work contract, record the
+algorithm decision, record the cost budget, capture a start snapshot, record
+important events, record test output as Evidence, bind Claims to Evidence,
+capture a final snapshot, evaluate the contract, finish the ledger, and export a
+Proof Packet. If evaluation is not ready_for_review, report the failed criteria
+instead of claiming success.
 ```

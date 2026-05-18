@@ -55,7 +55,8 @@ python -m uvicorn proofflow.main:app --port 8787
 
 - Use **Agent Work Ledger** for complex code tasks, multi-file changes, feature
   work, behavior changes, risky local actions, or any task that needs contract,
-  snapshots, Evidence, Claims, done criteria evaluation, and packet export.
+  algorithm decisions, cost budgets, snapshots, Evidence, Claims, done criteria
+  evaluation, and packet export.
 - Use **AgentGuard review** when the user only asks to review a current diff,
   PR, or branch changes.
 - Use **Issue Triage** when the user provides issue text, logs, reproduction
@@ -168,11 +169,24 @@ or changes behavior that should be auditable later.
 2. Keep a short ledger while working:
    - Goal: the user-requested outcome.
    - Scope: files or modules intentionally touched.
+   - Algorithm decision: the selected approach, alternatives considered,
+     invariants, and forbidden approaches before implementation.
+   - Cost budget: expected expensive operations and limits for token, API, GPU,
+     CPU, runtime, or iteration cost.
    - Evidence: commands run, test results, diffs, screenshots, or source
      material used to support claims.
    - Decisions: user approvals, policy gate decisions, or notable tradeoffs.
    - Open risks: assumptions, skipped tests, or evidence still missing.
 3. Use ProofFlow tools for durable records when available:
+   - `proofflow_start_work_contract` before implementation,
+   - `proofflow_record_algorithm_decision` before choosing an important or
+     costly approach,
+   - `proofflow_record_cost_budget` before expensive operations,
+   - `proofflow_capture_snapshot` for start/checkpoint/final repo state,
+   - `proofflow_record_evidence` for command output and test output,
+   - `proofflow_record_claim` for evidence-backed claims,
+   - `proofflow_evaluate_contract` before finish,
+   - `proofflow_finish_work_ledger` after final snapshot and evaluation,
    - `proofflow_review` for code changes,
    - `proofflow_status` to inspect Claims and Evidence,
    - `proofflow_export_packet` for the final handoff packet.

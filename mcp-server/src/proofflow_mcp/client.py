@@ -148,6 +148,8 @@ class ProofFlowClient:
         required_tests: list[str] | None = None,
         done_criteria: list[str] | None = None,
         evidence_requirements: list[str] | None = None,
+        algorithm_requirements: list[str] | None = None,
+        cost_budget: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         return await self._request(
             "POST",
@@ -160,6 +162,8 @@ class ProofFlowClient:
                 "required_tests": required_tests or [],
                 "done_criteria": done_criteria or [],
                 "evidence_requirements": evidence_requirements or [],
+                "algorithm_requirements": algorithm_requirements or [],
+                "cost_budget": cost_budget or {},
             },
         )
 
@@ -178,6 +182,52 @@ class ProofFlowClient:
                 "event_type": event_type,
                 "summary": summary,
                 "content": content,
+                "metadata": metadata or {},
+            },
+        )
+
+    async def record_algorithm_decision(
+        self,
+        case_id: str,
+        summary: str,
+        chosen_approach: str,
+        rationale: str,
+        alternatives_considered: list[str] | None = None,
+        invariants: list[str] | None = None,
+        forbidden_approaches: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return await self._request(
+            "POST",
+            f"/ledger/cases/{case_id}/algorithm-decisions",
+            json={
+                "summary": summary,
+                "chosen_approach": chosen_approach,
+                "rationale": rationale,
+                "alternatives_considered": alternatives_considered or [],
+                "invariants": invariants or [],
+                "forbidden_approaches": forbidden_approaches or [],
+                "metadata": metadata or {},
+            },
+        )
+
+    async def record_cost_budget(
+        self,
+        case_id: str,
+        summary: str,
+        budget: dict[str, Any] | None = None,
+        expected_operations: list[str] | None = None,
+        limits: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return await self._request(
+            "POST",
+            f"/ledger/cases/{case_id}/cost-budgets",
+            json={
+                "summary": summary,
+                "budget": budget or {},
+                "expected_operations": expected_operations or [],
+                "limits": limits or [],
                 "metadata": metadata or {},
             },
         )
