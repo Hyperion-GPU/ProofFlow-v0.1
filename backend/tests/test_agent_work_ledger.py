@@ -296,6 +296,7 @@ def test_ledger_records_algorithm_decision_and_cost_budget(monkeypatch, tmp_path
     assert budget.json()["sequence"] == 1
     assert evaluation.status_code == 200
     assert evaluation.json()["status"] == "ready_for_review"
+    assert evaluation.json()["risk_hints"] == []
     assert "algorithm_decision" in evaluation.json()["passed"]
     assert "cost_budget" in evaluation.json()["passed"]
     content = exported.json()["content"]
@@ -450,6 +451,117 @@ def test_ledger_evaluator_reports_ready_for_review(monkeypatch, tmp_path):
     payload = response.json()
     assert payload["status"] == "ready_for_review"
     assert payload["failed"] == []
+    assert payload["risk_hints"] == []
     content = exported.json()["content"]
     assert "## Done Criteria Evaluation" in content
     assert "ready_for_review" in content
+
+
+def test_ledger_risk_hints_flag_algorithm_route_and_cost_overrun(monkeypatch, tmp_path):
+    _require_git()
+    repo = _init_repo(tmp_path / "repo")
+    (repo / "app.py").write_text("VALUE = 2\n", encoding="utf-8")
+
+    with _client(monkeypatch, tmp_path) as client:
+        case_id = _start_ledger(
+            client,
+            tmp_path,
+            objective="Preserve source mapping and lineage for a data conversion pipeline",
+            repo_path=str(repo),
+            allowed_scope=["app.py"],
+            required_tests=["python -m pytest synthetic"],
+            evidence_requirements=[
+                "git_diff",
+                "test_output",
+                "algorithm_decision",
+                "cost_budget",
+            ],
+            algorithm_requirements=["preserve source mapping and lineage"],
+            cost_budget={"max_api_calls": 0, "max_gpu_jobs": 0},
+        )["case_id"]
+        client.post(
+            f"/ledger/cases/{case_id}/algorithm-decisions",
+            json={
+                "summary": "Regenerate derived records",
+                "chosen_approach": "Regenerate derived records with a new API call.",
+                "rationale": "This is simpler than carrying source mapping through the pipeline.",
+                "alternatives_considered": ["Preserve source mapping through an ID remap table"],
+                "invariants": ["Keep output rows compatible with the old schema"],
+                "forbidden_approaches": ["regenerate derived records"],
+                "metadata": {"pipeline": "synthetic_conversion"},
+            },
+        )
+        client.post(
+            f"/ledger/cases/{case_id}/cost-budgets",
+            json={
+                "summary": "No remote or GPU work",
+                "budget": {"max_api_calls": 0, "max_gpu_jobs": 0},
+                "expected_operations": ["local mapping transform"],
+                "limits": ["Do not call APIs", "Do not run GPU jobs"],
+            },
+        )
+        client.post(
+            f"/ledger/cases/{case_id}/snapshots",
+            json={"repo_path": str(repo), "phase": "final"},
+        )
+        evidence = client.post(
+            f"/ledger/cases/{case_id}/evidence",
+            json={
+                "evidence_type": "test_output",
+                "content": "COMMAND: python -m pytest synthetic\nRETURN_CODE: 0\n1 passed\n",
+                "source_ref": "synthetic smoke",
+                "metadata": {
+                    "command": "python -m pytest synthetic",
+                    "usage": {"api_calls": 3, "gpu_jobs": 1},
+                },
+            },
+        )
+        client.post(
+            f"/ledger/cases/{case_id}/claims",
+            json={
+                "claim_text": "Synthetic conversion tests passed.",
+                "severity": "info",
+                "evidence_ids": [evidence.json()["evidence_id"]],
+            },
+        )
+        evaluation = client.post(f"/ledger/cases/{case_id}/evaluate")
+        exported = client.post(f"/reports/cases/{case_id}/export", json={"format": "markdown"})
+
+    assert evaluation.status_code == 200
+    payload = evaluation.json()
+    assert payload["status"] == "ready_for_review"
+    assert payload["failed"] == []
+    codes = {hint["code"] for hint in payload["risk_hints"]}
+    assert {
+        "forbidden_algorithm_mentioned",
+        "regeneration_over_mapping",
+        "cost_budget_possible_overrun",
+        "test_proves_output_not_method",
+    }.issubset(codes)
+
+    content = exported.json()["content"]
+    assert "Risk Hints" in content
+    assert "forbidden_algorithm_mentioned" in content
+    assert "cost_budget_possible_overrun" in content
+
+
+def test_ledger_risk_hint_flags_expensive_action_without_budget(monkeypatch, tmp_path):
+    with _client(monkeypatch, tmp_path) as client:
+        case_id = _start_ledger(client, tmp_path)["case_id"]
+        client.post(
+            f"/ledger/cases/{case_id}/events",
+            json={
+                "event_type": "implementation",
+                "summary": "Ran expensive remote operation",
+                "content": "Performed GPU ASR and external API calls for conversion.",
+                "metadata": {"usage": {"api_calls": 2, "gpu_jobs": 1}},
+            },
+        )
+        evaluation = client.post(f"/ledger/cases/{case_id}/evaluate")
+
+    assert evaluation.status_code == 200
+    payload = evaluation.json()
+    assert payload["status"] == "ready_for_review"
+    assert "expensive_action_without_budget" in {
+        hint["code"] for hint in payload["risk_hints"]
+    }

@@ -374,6 +374,15 @@ class LedgerClaimCreateResponse(BaseModel):
     created_at: str
 
 
+class LedgerRiskHint(BaseModel):
+    code: str
+    severity: RiskLevel
+    title: str
+    message: str
+    evidence: list[str] = Field(default_factory=list)
+    recommendation: str
+
+
 class LedgerEvaluationResponse(BaseModel):
     case_id: str
     run_id: str
@@ -383,6 +392,7 @@ class LedgerEvaluationResponse(BaseModel):
     warnings: list[str]
     missing_evidence: list[str]
     scope_violations: list[str]
+    risk_hints: list[LedgerRiskHint] = Field(default_factory=list)
 
 
 class IssueTriageRequest(StrictRequest):

@@ -305,11 +305,22 @@ async def test_evaluate_contract(client):
             "warnings": [],
             "missing_evidence": [],
             "scope_violations": [],
+            "risk_hints": [
+                {
+                    "code": "cost_budget_possible_overrun",
+                    "severity": "medium",
+                    "title": "Recorded usage appears to exceed the Cost Budget",
+                    "message": "api_calls=3 > max_api_calls=0.",
+                    "evidence": ["evidence:ev-1:test_output"],
+                    "recommendation": "Review the usage metadata.",
+                }
+            ],
         })
     )
     result = await client.evaluate_contract("c1")
     assert result["status"] == "passed"
     assert result["passed"] == ["required_tests"]
+    assert result["risk_hints"][0]["code"] == "cost_budget_possible_overrun"
 
 
 @pytest.mark.asyncio

@@ -375,8 +375,27 @@ def _render_ledger_evaluation(runs: list[Any]) -> list[str]:
                 f"  - Missing evidence: `{_metadata_list(metadata.get('missing_evidence'))}`",
                 f"  - Scope violations: `{_metadata_list(metadata.get('scope_violations'))}`",
                 f"  - Warnings: `{_metadata_list(metadata.get('warnings'))}`",
+                f"  - Risk Hints: `{len(_metadata_list_or_objects(metadata.get('risk_hints')))}`",
             ]
         )
+        risk_hints = _metadata_list_or_objects(metadata.get("risk_hints"))
+        if risk_hints:
+            for hint in risk_hints[:20]:
+                if not isinstance(hint, dict):
+                    continue
+                lines.extend(
+                    [
+                        (
+                            "    - "
+                            f"[`{_metadata_value(hint.get('severity'))}`] "
+                            f"`{_metadata_value(hint.get('code'))}`: "
+                            f"{_md(hint.get('title', 'Risk hint'))}"
+                        ),
+                        f"      - Message: {_md(hint.get('message', 'not recorded'))}",
+                        f"      - Evidence: `{_metadata_list(hint.get('evidence'))}`",
+                        f"      - Recommendation: {_md(hint.get('recommendation', 'not recorded'))}",
+                    ]
+                )
     return lines + [""]
 
 
@@ -718,6 +737,12 @@ def _metadata_list(value: Any) -> str:
     if not isinstance(value, list) or not value:
         return "not recorded"
     return ", ".join(str(item) for item in value)
+
+
+def _metadata_list_or_objects(value: Any) -> list[Any]:
+    if not isinstance(value, list):
+        return []
+    return value
 
 
 def _metadata_object(value: Any) -> str:

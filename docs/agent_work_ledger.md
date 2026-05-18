@@ -14,7 +14,7 @@ flowchart LR
   C --> D["Snapshot"]
   D --> E["Evidence"]
   E --> F["Claim"]
-  F --> G["Done Criteria Evaluation"]
+  F --> G["Done Criteria Evaluation + Risk Hints"]
   G --> H["Proof Packet"]
 ```
 
@@ -28,7 +28,7 @@ flowchart LR
 | Snapshot | Git diff, changed files, HEAD SHA, base ref, status, and diff hash | `git_diff` Artifact |
 | Evidence | Test output, command output, notes, screenshots, or supporting files | Artifact + Evidence row |
 | Claim | A statement the agent wants the maintainer to trust | Claim bound to Evidence |
-| Evaluation | Deterministic check for tests, algorithm decisions, cost budget, scope, evidence, and open risks | `ledger_evaluation` Run |
+| Evaluation | Deterministic check for tests, algorithm decisions, cost budget, scope, evidence, open risks, and non-blocking Risk Hints | `ledger_evaluation` Run |
 | Proof Packet | Exported markdown handoff for review, audit, and PR comments | `proof_packet` Artifact |
 
 ## Relationship To Existing Workflows
@@ -61,6 +61,11 @@ Ledger gives them a shared delivery context:
 
 ## Evaluation Outcomes
 
+Evaluation returns `risk_hints` alongside pass/fail status. Hints do not change
+`ready_for_review`; they tell the maintainer when the evidence flow suggests a
+route worth checking, such as regeneration where the contract asked for mapping,
+or recorded API/GPU usage above the declared Cost Budget.
+
 | Status | Meaning |
 | --- | --- |
 | `ready_for_review` | Contract checks passed and the Ledger can be reviewed as complete. |
@@ -71,6 +76,21 @@ Ledger gives them a shared delivery context:
 | `incomplete_evidence` | Required evidence types are missing. |
 | `risk_acceptance_required` | Open medium/high Claims need an accepted Decision. |
 | `finished_with_risks` | Finish was allowed, but the latest evaluation was not ready. |
+
+## Risk Hints
+
+Risk Hints are deterministic prompts, not automatic verdicts. They can surface
+cases where the work ran and tests passed, but the recorded route may still be
+wrong or too expensive:
+
+- `forbidden_algorithm_mentioned`
+- `regeneration_over_mapping`
+- `expensive_action_without_budget`
+- `cost_budget_possible_overrun`
+- `test_proves_output_not_method`
+
+See [`ledger_risk_hints.md`](ledger_risk_hints.md) for rule details and
+expected false positives.
 
 ## Why This Matters
 
