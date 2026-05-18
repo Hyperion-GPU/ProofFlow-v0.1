@@ -6,7 +6,7 @@
 
 Vibe coding is fast. Blind trust is not enough.
 
-ProofFlow 让 AI coding agents 的行为变得可评审、可追踪、可回退：先记录 work contract，再捕获 snapshot，把 claim 绑定到 evidence，评估 done criteria，最后导出 Proof Packet。
+ProofFlow 让 AI coding agents 的行为变得可评审、可追踪、可回退：先记录 work contract，再写清 algorithm decision 和 cost budget，然后捕获 snapshot，把 claim 绑定到 evidence，评估 done criteria，最后导出 Proof Packet。
 
 **最新版本：** [v0.1.8 - Agent Work Ledger for AI coding](https://github.com/Hyperion-GPU/ProofFlow-v0.1/releases/tag/v0.1.8)
 

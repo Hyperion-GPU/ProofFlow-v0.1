@@ -13,7 +13,8 @@ replace maintainer judgment. It connects Codex to the local ProofFlow MCP server
 and adds a skill that keeps maintenance work evidence-backed.
 
 The default path for complex coding work is Ledger-first:
-Work Contract -> Snapshot -> Evidence -> Claim -> Evaluation -> Proof Packet.
+Work Contract -> Algorithm Decision -> Cost Budget -> Snapshot -> Evidence ->
+Claim -> Evaluation -> Proof Packet.
 
 ## Requirements
 

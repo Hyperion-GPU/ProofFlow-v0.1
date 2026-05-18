@@ -1,8 +1,12 @@
 from fastapi import APIRouter, HTTPException, status
 
 from proofflow.models.schemas import (
+    LedgerAlgorithmDecisionCreateRequest,
+    LedgerAlgorithmDecisionResponse,
     LedgerClaimCreateRequest,
     LedgerClaimCreateResponse,
+    LedgerCostBudgetCreateRequest,
+    LedgerCostBudgetResponse,
     LedgerEvaluationResponse,
     LedgerEventCreateRequest,
     LedgerEventResponse,
@@ -22,7 +26,9 @@ from proofflow.services.ledger_service import (
     capture_snapshot,
     evaluate_contract,
     finish_work_ledger,
+    record_algorithm_decision,
     record_claim,
+    record_cost_budget,
     record_event,
     record_evidence,
     start_work_contract,
@@ -43,6 +49,35 @@ def create_ledger_event(
 ) -> LedgerEventResponse:
     try:
         return record_event(case_id, payload)
+    except NotFoundError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+    except LedgerServiceError as error:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from error
+
+
+@router.post(
+    "/cases/{case_id}/algorithm-decisions",
+    response_model=LedgerAlgorithmDecisionResponse,
+)
+def create_ledger_algorithm_decision(
+    case_id: str,
+    payload: LedgerAlgorithmDecisionCreateRequest,
+) -> LedgerAlgorithmDecisionResponse:
+    try:
+        return record_algorithm_decision(case_id, payload)
+    except NotFoundError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+    except LedgerServiceError as error:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from error
+
+
+@router.post("/cases/{case_id}/cost-budgets", response_model=LedgerCostBudgetResponse)
+def create_ledger_cost_budget(
+    case_id: str,
+    payload: LedgerCostBudgetCreateRequest,
+) -> LedgerCostBudgetResponse:
+    try:
+        return record_cost_budget(case_id, payload)
     except NotFoundError as error:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
     except LedgerServiceError as error:

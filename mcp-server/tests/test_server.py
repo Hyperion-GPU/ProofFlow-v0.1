@@ -14,6 +14,8 @@ def test_all_tools_defined():
         "proofflow_triage_issue",
         "proofflow_start_work_contract",
         "proofflow_record_event",
+        "proofflow_record_algorithm_decision",
+        "proofflow_record_cost_budget",
         "proofflow_capture_snapshot",
         "proofflow_record_evidence",
         "proofflow_record_claim",

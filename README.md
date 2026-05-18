@@ -8,8 +8,9 @@ Vibe coding is fast. Blind trust is not enough.
 
 ProofFlow makes AI-generated work reviewable, traceable, and reversible by
 recording the full chain from work contract to proof packet: contract first,
-snapshot the code state, bind claims to evidence, evaluate done criteria, then
-export an auditable packet.
+record the algorithm decision, declare the cost budget, snapshot the code state,
+bind claims to evidence, evaluate done criteria, then export an auditable
+packet.
 
 **Latest release:** [v0.1.8 - Agent Work Ledger for AI coding](https://github.com/Hyperion-GPU/ProofFlow-v0.1/releases/tag/v0.1.8)
 
@@ -35,22 +36,28 @@ coding work. A Ledger Case captures the workflow before, during, and after an
 agent changes code:
 
 1. **Work Contract** - record the objective, repo path, allowed scope,
-   forbidden actions, required tests, done criteria, and evidence requirements.
-2. **Snapshot** - capture the git diff, changed files, HEAD SHA, base ref, and
+   forbidden actions, required tests, done criteria, evidence requirements,
+   algorithm requirements, and cost budget.
+2. **Algorithm Decision** - record the selected approach, rationale,
+   alternatives, invariants, and forbidden approaches before implementation.
+3. **Cost Budget** - declare token, API, GPU, CPU, runtime, or iteration limits
+   before expensive work begins.
+4. **Snapshot** - capture the git diff, changed files, HEAD SHA, base ref, and
    diff hash so reviewers know exactly what code state was examined.
-3. **Evidence** - store command output, test output, diffs, notes, screenshots,
+5. **Evidence** - store command output, test output, diffs, notes, screenshots,
    or other artifacts as searchable evidence.
-4. **Claim** - require every agent claim to bind to evidence before it is
+6. **Claim** - require every agent claim to bind to evidence before it is
    trusted.
-5. **Evaluation** - deterministically check required tests, scope boundaries,
-   missing evidence, and unaccepted risks.
-6. **Proof Packet** - export the contract, timeline, snapshots, claims,
-   evidence, evaluation, decisions, and remaining risks into markdown.
+7. **Evaluation** - deterministically check required tests, algorithm decision,
+   cost budget, scope boundaries, missing evidence, and unaccepted risks.
+8. **Proof Packet** - export the contract, algorithm decision, cost budget,
+   timeline, snapshots, claims, evidence, evaluation, decisions, and remaining
+   risks into markdown.
 
-Main chain: Work Contract -> Snapshot -> Evidence -> Claim -> Evaluation ->
-Proof Packet. This keeps the core product invariant sharp: no Case, no
-workflow; no Evidence, no trusted Claim; no done criteria evaluation, no quiet
-success.
+Main chain: Work Contract -> Algorithm Decision -> Cost Budget -> Snapshot ->
+Evidence -> Claim -> Evaluation -> Proof Packet. This keeps the core product
+invariant sharp: no Case, no workflow; no Evidence, no trusted Claim; no done
+criteria evaluation, no quiet success.
 
 See [`docs/agent_work_ledger.md`](docs/agent_work_ledger.md) for the full
 architecture and evaluation model, or
@@ -174,13 +181,13 @@ AI Agent (Claude Code / Codex / Custom)
     |
     | MCP Protocol (stdio)
     v
-ProofFlow MCP Server (20 tools)
+ProofFlow MCP Server (22 tools)
     |
     | HTTP REST API
     v
 ProofFlow Backend (FastAPI + SQLite)
     |
-    |--- Agent Work Ledger: Contract > Snapshot > Evidence > Claim > Evaluation > Packet
+    |--- Agent Work Ledger: Contract > Algorithm > Budget > Snapshot > Evidence > Claim > Evaluation > Packet
     |--- Evidence Graph: Cases > Artifacts > Claims > Evidence
     |--- Action Pipeline: Preview > Approve > Execute > Undo
     |--- Policy Gates: Risk classification > Owner decision
@@ -193,9 +200,10 @@ Local Filesystem (scanned files, git repos)
 
 ### Agent Work Ledger
 Records complex AI coding work as a first-class Case. The main flow is Work
-Contract -> Snapshot -> Evidence -> Claim -> Evaluation -> Proof Packet, so
-maintainers can see what the agent promised, what changed, what evidence backs
-its claims, and whether the done criteria were satisfied.
+Contract -> Algorithm Decision -> Cost Budget -> Snapshot -> Evidence -> Claim
+-> Evaluation -> Proof Packet, so maintainers can see what the agent promised,
+what approach it chose, what cost limits it accepted, what changed, what
+evidence backs its claims, and whether the done criteria were satisfied.
 
 ### Evidence-Backed Code Review (AgentGuard)
 Analyzes git diffs, generates risk-scored claims, and links each claim to specific evidence (changed lines, test results). No claim exists without supporting evidence.
@@ -211,6 +219,8 @@ High-risk filesystem actions (moves to system paths, bulk operations) are automa
 
 ### Safety Invariants
 - **No Contract, no Ledger** - AI coding work starts with explicit scope and done criteria
+- **No Algorithm Decision, no trusted strategy** - important approaches must be recorded before implementation
+- **No Cost Budget, no expensive workflow** - costly operations need declared limits first
 - **No Final Snapshot, no Finish** - finished ledgers must prove the reviewed repo state
 - **No Preview, no Action** — destructive operations require two-phase confirmation
 - **No Evidence, no Claim** — every assertion links to verifiable data
@@ -218,16 +228,16 @@ High-risk filesystem actions (moves to system paths, bulk operations) are automa
 - **No Undo, no Destructive Action** — executed actions carry rollback metadata
 - **No Case, no Workflow** — all work is tracked in auditable containers
 
-### MCP Tool Suite (20 tools)
-`health` · `scan` · `suggest` · `review` · `triage_issue` · `status` · `approve_execute` · `export_packet` · `search` · `list_cases` · `list_actions` · `undo` · `decide`
+### MCP Tool Suite (22 tools)
+`health` · `scan` · `suggest` · `review` · `triage_issue` · `start_work_contract` · `record_algorithm_decision` · `record_cost_budget` · `capture_snapshot` · `record_evidence` · `record_claim` · `evaluate_contract` · `finish_work_ledger` · `status` · `approve_execute` · `export_packet` · `search` · `list_cases` · `list_actions` · `undo` · `decide`
 
 ## Technical Stack
 
 | Layer | Technology | Tests |
 |-------|-----------|-------|
-| Backend | Python 3.12, FastAPI, SQLite | 300 |
+| Backend | Python 3.12, FastAPI, SQLite | 311 |
 | Frontend | React 19, TypeScript, Vite | 25 |
-| MCP Server | Python, MCP SDK, httpx | 26 |
+| MCP Server | Python, MCP SDK, httpx | 44 |
 | CI | GitHub Actions (PR review + release gates) | Audit artifact + PR comment |
 
 ## Security Features
@@ -268,9 +278,9 @@ High-risk filesystem actions (moves to system paths, bulk operations) are automa
 
 ```bash
 # Run all tests
-cd backend && python -m pytest          # 295 tests
-cd frontend && npm run test             # 25 tests
-cd mcp-server && pip install -e ".[dev]" && python -m pytest  # 24 tests
+cd backend && python -m pytest          # 311 tests
+cd frontend && npm run test             # 29 tests
+cd mcp-server && pip install -e ".[dev]" && python -m pytest  # 44 tests
 
 # End-to-end smoke test
 python scripts/mcp_smoke.py --cleanup

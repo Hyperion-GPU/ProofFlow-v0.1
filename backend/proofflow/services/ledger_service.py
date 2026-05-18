@@ -9,8 +9,12 @@ import re
 from proofflow.db import connect, new_uuid, utc_now_iso
 from proofflow.models.schemas import (
     CaseCreate,
+    LedgerAlgorithmDecisionCreateRequest,
+    LedgerAlgorithmDecisionResponse,
     LedgerClaimCreateRequest,
     LedgerClaimCreateResponse,
+    LedgerCostBudgetCreateRequest,
+    LedgerCostBudgetResponse,
     LedgerEvaluationResponse,
     LedgerEventCreateRequest,
     LedgerEventResponse,
@@ -51,6 +55,8 @@ KNOWN_ARTIFACT_TYPES = {
     "proof_packet",
     "screenshot",
     "issue",
+    "algorithm_decision",
+    "cost_budget",
 }
 CLOSED_CLAIM_STATUSES = {"closed", "resolved", "accepted", "rejected"}
 
@@ -107,6 +113,84 @@ def record_event(case_id: str, payload: LedgerEventCreateRequest) -> LedgerEvent
         artifact_id=artifact["id"],
         sequence=sequence,
         event_type=payload.event_type,
+        name=name,
+        created_at=artifact["created_at"],
+    )
+
+
+def record_algorithm_decision(
+    case_id: str,
+    payload: LedgerAlgorithmDecisionCreateRequest,
+) -> LedgerAlgorithmDecisionResponse:
+    _require_ledger_case(case_id)
+    sequence = _next_ledger_item_sequence(case_id, "algorithm-decision")
+    name = f"ledger-algorithm-decision-{sequence:03d}.md"
+    content = _format_algorithm_decision_content(sequence, payload)
+    metadata = {
+        "source": LEDGER_SOURCE,
+        "ledger_item_type": "algorithm_decision",
+        "summary": payload.summary,
+        "chosen_approach": payload.chosen_approach,
+        "rationale": payload.rationale,
+        "alternatives_considered": payload.alternatives_considered,
+        "invariants": payload.invariants,
+        "forbidden_approaches": payload.forbidden_approaches,
+        "sequence": sequence,
+        **payload.metadata,
+    }
+    artifact = _insert_text_artifact(
+        case_id=case_id,
+        kind="algorithm_decision",
+        name=name,
+        content=content,
+        role="supporting",
+        uri=f"ledger://{case_id}/algorithm-decisions/{sequence:03d}",
+        metadata=metadata,
+        mime_type="text/markdown",
+    )
+    return LedgerAlgorithmDecisionResponse(
+        case_id=case_id,
+        artifact_id=artifact["id"],
+        sequence=sequence,
+        summary=payload.summary,
+        name=name,
+        created_at=artifact["created_at"],
+    )
+
+
+def record_cost_budget(
+    case_id: str,
+    payload: LedgerCostBudgetCreateRequest,
+) -> LedgerCostBudgetResponse:
+    _require_ledger_case(case_id)
+    sequence = _next_ledger_item_sequence(case_id, "cost-budget")
+    name = f"ledger-cost-budget-{sequence:03d}.md"
+    content = _format_cost_budget_content(sequence, payload)
+    metadata = {
+        "source": LEDGER_SOURCE,
+        "ledger_item_type": "cost_budget",
+        "summary": payload.summary,
+        "budget": payload.budget,
+        "expected_operations": payload.expected_operations,
+        "limits": payload.limits,
+        "sequence": sequence,
+        **payload.metadata,
+    }
+    artifact = _insert_text_artifact(
+        case_id=case_id,
+        kind="cost_budget",
+        name=name,
+        content=content,
+        role="supporting",
+        uri=f"ledger://{case_id}/cost-budgets/{sequence:03d}",
+        metadata=metadata,
+        mime_type="text/markdown",
+    )
+    return LedgerCostBudgetResponse(
+        case_id=case_id,
+        artifact_id=artifact["id"],
+        sequence=sequence,
+        summary=payload.summary,
         name=name,
         created_at=artifact["created_at"],
     )
@@ -350,6 +434,8 @@ def evaluate_contract(case_id: str) -> LedgerEvaluationResponse:
         failed,
         missing_evidence,
     )
+    _evaluate_algorithm_decision(contract, artifacts, passed, failed, missing_evidence)
+    _evaluate_cost_budget(contract, artifacts, passed, failed, missing_evidence)
     _evaluate_scope(contract, artifacts, passed, failed, warnings, scope_violations)
     _evaluate_open_risks(claims, decisions, passed, failed)
 
@@ -425,6 +511,21 @@ def _next_evidence_sequence(case_id: str) -> int:
               AND artifacts.name LIKE 'ledger-evidence-%'
             """,
             (case_id,),
+        ).fetchone()
+    return int(row[0]) + 1
+
+
+def _next_ledger_item_sequence(case_id: str, name_prefix: str) -> int:
+    with connect() as connection:
+        row = connection.execute(
+            """
+            SELECT COUNT(*)
+            FROM case_artifacts
+            JOIN artifacts ON artifacts.id = case_artifacts.artifact_id
+            WHERE case_artifacts.case_id = ?
+              AND artifacts.name LIKE ?
+            """,
+            (case_id, f"ledger-{name_prefix}-%"),
         ).fetchone()
     return int(row[0]) + 1
 
@@ -533,6 +634,62 @@ def _format_event_content(sequence: int, payload: LedgerEventCreateRequest) -> s
     return "\n".join(lines).rstrip() + "\n"
 
 
+def _format_algorithm_decision_content(
+    sequence: int,
+    payload: LedgerAlgorithmDecisionCreateRequest,
+) -> str:
+    lines = [
+        f"# Algorithm Decision {sequence:03d}: {payload.summary}",
+        "",
+        "## Chosen Approach",
+        "",
+        payload.chosen_approach,
+        "",
+        "## Rationale",
+        "",
+        payload.rationale,
+        "",
+    ]
+    _append_list_section(lines, "Alternatives Considered", payload.alternatives_considered)
+    _append_list_section(lines, "Invariants", payload.invariants)
+    _append_list_section(lines, "Forbidden Approaches", payload.forbidden_approaches)
+    if payload.metadata:
+        lines.extend(["## Metadata", "", "```json"])
+        lines.append(json.dumps(payload.metadata, indent=2, sort_keys=True))
+        lines.extend(["```", ""])
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def _format_cost_budget_content(
+    sequence: int,
+    payload: LedgerCostBudgetCreateRequest,
+) -> str:
+    lines = [
+        f"# Cost Budget {sequence:03d}: {payload.summary}",
+        "",
+    ]
+    if payload.budget:
+        lines.extend(["## Budget", "", "```json"])
+        lines.append(json.dumps(payload.budget, indent=2, sort_keys=True))
+        lines.extend(["```", ""])
+    _append_list_section(lines, "Expected Operations", payload.expected_operations)
+    _append_list_section(lines, "Limits", payload.limits)
+    if payload.metadata:
+        lines.extend(["## Metadata", "", "```json"])
+        lines.append(json.dumps(payload.metadata, indent=2, sort_keys=True))
+        lines.extend(["```", ""])
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def _append_list_section(lines: list[str], title: str, values: list[str]) -> None:
+    if not values:
+        return
+    lines.extend([f"## {title}", ""])
+    for value in values:
+        lines.append(f"- {value}")
+    lines.append("")
+
+
 def _slug(value: str) -> str:
     slug = re.sub(r"[^A-Za-z0-9_.-]+", "-", value.strip().lower()).strip(".-")
     return slug or "item"
@@ -552,6 +709,8 @@ def _contract_from_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
             "required_tests",
             "done_criteria",
             "evidence_requirements",
+            "algorithm_requirements",
+            "cost_budget",
         )
     }
 
@@ -704,6 +863,10 @@ def _evaluate_evidence_requirements(
     available = {
         artifact["artifact_type"]
         for artifact in artifacts
+    } | {
+        str(artifact["metadata"].get("ledger_item_type"))
+        for artifact in artifacts
+        if artifact["metadata"].get("ledger_item_type")
     } | {row["evidence_type"] for row in evidence_rows}
     for requirement in requirements:
         if requirement not in available:
@@ -712,6 +875,44 @@ def _evaluate_evidence_requirements(
         failed.append("incomplete_evidence")
     else:
         passed.append("evidence_requirements")
+
+
+def _evaluate_algorithm_decision(
+    contract: dict[str, Any],
+    artifacts: list[dict[str, Any]],
+    passed: list[str],
+    failed: list[str],
+    missing_evidence: list[str],
+) -> None:
+    requirements = _string_list(contract.get("algorithm_requirements"))
+    if not requirements:
+        passed.append("algorithm_requirements_not_configured")
+        return
+
+    if _ledger_artifact_exists(artifacts, "algorithm_decision"):
+        passed.append("algorithm_decision")
+    else:
+        missing_evidence.append("algorithm_decision")
+        failed.append("missing_algorithm_decision")
+
+
+def _evaluate_cost_budget(
+    contract: dict[str, Any],
+    artifacts: list[dict[str, Any]],
+    passed: list[str],
+    failed: list[str],
+    missing_evidence: list[str],
+) -> None:
+    budget = contract.get("cost_budget")
+    if not isinstance(budget, dict) or not budget:
+        passed.append("cost_budget_not_configured")
+        return
+
+    if _ledger_artifact_exists(artifacts, "cost_budget"):
+        passed.append("cost_budget")
+    else:
+        missing_evidence.append("cost_budget")
+        failed.append("missing_cost_budget")
 
 
 def _evaluate_scope(
@@ -827,12 +1028,21 @@ def _evaluation_status(failed: list[str]) -> str:
     for status_value in (
         "scope_violation",
         "needs_tests",
+        "missing_algorithm_decision",
+        "missing_cost_budget",
         "incomplete_evidence",
         "risk_acceptance_required",
     ):
         if status_value in failed:
             return status_value
     return "ready_for_review"
+
+
+def _ledger_artifact_exists(artifacts: list[dict[str, Any]], item_type: str) -> bool:
+    return any(
+        artifact["metadata"].get("ledger_item_type") == item_type
+        for artifact in artifacts
+    )
 
 
 def _insert_evaluation_run(

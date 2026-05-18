@@ -28,6 +28,8 @@ ArtifactKind = Literal[
     "proof_packet",
     "screenshot",
     "issue",
+    "algorithm_decision",
+    "cost_budget",
 ]
 CaseArtifactRole = Literal["primary", "supporting", "reference"]
 ActionKind = Literal["move_file", "rename_file", "manual_check", "mkdir_dir"]
@@ -251,6 +253,8 @@ class WorkContractStartRequest(StrictRequest):
     required_tests: list[str] = Field(default_factory=list)
     done_criteria: list[str] = Field(default_factory=list)
     evidence_requirements: list[str] = Field(default_factory=list)
+    algorithm_requirements: list[str] = Field(default_factory=list)
+    cost_budget: dict[str, Any] = Field(default_factory=dict)
 
 
 class WorkContractStartResponse(BaseModel):
@@ -271,6 +275,42 @@ class LedgerEventResponse(BaseModel):
     artifact_id: str
     sequence: int
     event_type: str
+    name: str
+    created_at: str
+
+
+class LedgerAlgorithmDecisionCreateRequest(StrictRequest):
+    summary: str = Field(min_length=1)
+    chosen_approach: str = Field(min_length=1)
+    rationale: str = Field(min_length=1)
+    alternatives_considered: list[str] = Field(default_factory=list)
+    invariants: list[str] = Field(default_factory=list)
+    forbidden_approaches: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class LedgerAlgorithmDecisionResponse(BaseModel):
+    case_id: str
+    artifact_id: str
+    sequence: int
+    summary: str
+    name: str
+    created_at: str
+
+
+class LedgerCostBudgetCreateRequest(StrictRequest):
+    summary: str = Field(min_length=1)
+    budget: dict[str, Any] = Field(default_factory=dict)
+    expected_operations: list[str] = Field(default_factory=list)
+    limits: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class LedgerCostBudgetResponse(BaseModel):
+    case_id: str
+    artifact_id: str
+    sequence: int
+    summary: str
     name: str
     created_at: str
 

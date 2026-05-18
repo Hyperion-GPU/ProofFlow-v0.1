@@ -144,6 +144,8 @@ async def test_start_work_contract(client):
     assert payload["allowed_scope"] == ["mcp-server"]
     assert payload["required_tests"] == ["pytest"]
     assert payload["forbidden_actions"] == []
+    assert payload["algorithm_requirements"] == []
+    assert payload["cost_budget"] == {}
 
 
 @pytest.mark.asyncio
@@ -169,6 +171,57 @@ async def test_record_event(client):
     assert result["artifact_id"] == "artifact-event"
     assert payload["content"] == ""
     assert payload["metadata"] == {"phase": "implementation"}
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_record_algorithm_decision(client):
+    route = respx.post("http://127.0.0.1:8787/ledger/cases/c1/algorithm-decisions").mock(
+        return_value=httpx.Response(200, json={
+            "case_id": "c1",
+            "artifact_id": "artifact-algorithm",
+            "sequence": 1,
+            "summary": "Reuse timestamps",
+            "name": "ledger-algorithm-decision-001.md",
+            "created_at": "t",
+        })
+    )
+    result = await client.record_algorithm_decision(
+        case_id="c1",
+        summary="Reuse timestamps",
+        chosen_approach="Remap existing subtitle timestamps",
+        rationale="Avoid rerunning ASR",
+        forbidden_approaches=["Full retranscription"],
+    )
+    payload = json.loads(route.calls.last.request.content)
+    assert result["artifact_id"] == "artifact-algorithm"
+    assert payload["chosen_approach"] == "Remap existing subtitle timestamps"
+    assert payload["forbidden_approaches"] == ["Full retranscription"]
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_record_cost_budget(client):
+    route = respx.post("http://127.0.0.1:8787/ledger/cases/c1/cost-budgets").mock(
+        return_value=httpx.Response(200, json={
+            "case_id": "c1",
+            "artifact_id": "artifact-budget",
+            "sequence": 1,
+            "summary": "No GPU ASR",
+            "name": "ledger-cost-budget-001.md",
+            "created_at": "t",
+        })
+    )
+    result = await client.record_cost_budget(
+        case_id="c1",
+        summary="No GPU ASR",
+        budget={"max_gpu_jobs": 0},
+        limits=["Do not run Whisper after trimming"],
+    )
+    payload = json.loads(route.calls.last.request.content)
+    assert result["artifact_id"] == "artifact-budget"
+    assert payload["budget"] == {"max_gpu_jobs": 0}
+    assert payload["limits"] == ["Do not run Whisper after trimming"]
 
 
 @pytest.mark.asyncio

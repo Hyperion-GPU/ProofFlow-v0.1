@@ -159,6 +159,17 @@ TOOLS: list[Tool] = [
                     "description": "Evidence required to support final claims.",
                     "default": [],
                 },
+                "algorithm_requirements": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Algorithm decisions required before implementation.",
+                    "default": [],
+                },
+                "cost_budget": {
+                    "type": "object",
+                    "description": "Budget constraints such as token, API, GPU, CPU, or time limits.",
+                    "default": {},
+                },
             },
             "required": ["objective", "repo_path"],
         },
@@ -176,6 +187,75 @@ TOOLS: list[Tool] = [
                 "metadata": {"type": "object", "description": "Optional event metadata.", "default": {}},
             },
             "required": ["case_id", "event_type", "summary"],
+        },
+    ),
+    Tool(
+        name="proofflow_record_algorithm_decision",
+        description=(
+            "Record an Algorithm Decision for an Agent Work Ledger Case before "
+            "implementation chooses a costly or important approach."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "case_id": {"type": "string", "description": "Agent Work Ledger Case ID."},
+                "summary": {"type": "string", "description": "Short decision summary."},
+                "chosen_approach": {"type": "string", "description": "The selected algorithm or workflow approach."},
+                "rationale": {"type": "string", "description": "Why this approach was selected."},
+                "alternatives_considered": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Rejected or deferred alternatives.",
+                    "default": [],
+                },
+                "invariants": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Algorithm invariants that must remain true.",
+                    "default": [],
+                },
+                "forbidden_approaches": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Approaches this work must not use.",
+                    "default": [],
+                },
+                "metadata": {"type": "object", "description": "Optional decision metadata.", "default": {}},
+            },
+            "required": ["case_id", "summary", "chosen_approach", "rationale"],
+        },
+    ),
+    Tool(
+        name="proofflow_record_cost_budget",
+        description=(
+            "Record a Cost Budget for an Agent Work Ledger Case, such as token, "
+            "API, GPU, CPU, or runtime limits."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "case_id": {"type": "string", "description": "Agent Work Ledger Case ID."},
+                "summary": {"type": "string", "description": "Short budget summary."},
+                "budget": {
+                    "type": "object",
+                    "description": "Structured budget values, e.g. max_tokens, max_cost_usd, max_runtime_seconds.",
+                    "default": {},
+                },
+                "expected_operations": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Expected expensive operations.",
+                    "default": [],
+                },
+                "limits": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Plain-language hard limits.",
+                    "default": [],
+                },
+                "metadata": {"type": "object", "description": "Optional budget metadata.", "default": {}},
+            },
+            "required": ["case_id", "summary"],
         },
     ),
     Tool(
@@ -410,6 +490,10 @@ async def _dispatch(name: str, args: dict[str, Any]) -> list[TextContent]:
         return await _handle_start_work_contract(args)
     elif name == "proofflow_record_event":
         return await _handle_record_event(args)
+    elif name == "proofflow_record_algorithm_decision":
+        return await _handle_record_algorithm_decision(args)
+    elif name == "proofflow_record_cost_budget":
+        return await _handle_record_cost_budget(args)
     elif name == "proofflow_capture_snapshot":
         return await _handle_capture_snapshot(args)
     elif name == "proofflow_record_evidence":
@@ -553,6 +637,8 @@ async def _handle_start_work_contract(args: dict[str, Any]) -> list[TextContent]
         required_tests=args.get("required_tests", []),
         done_criteria=args.get("done_criteria", []),
         evidence_requirements=args.get("evidence_requirements", []),
+        algorithm_requirements=args.get("algorithm_requirements", []),
+        cost_budget=args.get("cost_budget", {}),
     )
     case = result.get("case", {})
     lines = [
@@ -578,6 +664,46 @@ async def _handle_record_event(args: dict[str, Any]) -> list[TextContent]:
         f"Artifact: {result['artifact_id']}\n"
         f"Sequence: {result['sequence']}\n"
         f"Type: {result['event_type']}\n"
+        f"Name: {result['name']}"
+    )
+
+
+async def _handle_record_algorithm_decision(args: dict[str, Any]) -> list[TextContent]:
+    result = await _client.record_algorithm_decision(
+        case_id=args["case_id"],
+        summary=args["summary"],
+        chosen_approach=args["chosen_approach"],
+        rationale=args["rationale"],
+        alternatives_considered=args.get("alternatives_considered", []),
+        invariants=args.get("invariants", []),
+        forbidden_approaches=args.get("forbidden_approaches", []),
+        metadata=args.get("metadata", {}),
+    )
+    return _text(
+        f"Ledger algorithm decision recorded.\n"
+        f"Case: {result['case_id']}\n"
+        f"Artifact: {result['artifact_id']}\n"
+        f"Sequence: {result['sequence']}\n"
+        f"Summary: {result['summary']}\n"
+        f"Name: {result['name']}"
+    )
+
+
+async def _handle_record_cost_budget(args: dict[str, Any]) -> list[TextContent]:
+    result = await _client.record_cost_budget(
+        case_id=args["case_id"],
+        summary=args["summary"],
+        budget=args.get("budget", {}),
+        expected_operations=args.get("expected_operations", []),
+        limits=args.get("limits", []),
+        metadata=args.get("metadata", {}),
+    )
+    return _text(
+        f"Ledger cost budget recorded.\n"
+        f"Case: {result['case_id']}\n"
+        f"Artifact: {result['artifact_id']}\n"
+        f"Sequence: {result['sequence']}\n"
+        f"Summary: {result['summary']}\n"
         f"Name: {result['name']}"
     )
 
