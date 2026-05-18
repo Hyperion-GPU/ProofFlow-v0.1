@@ -295,6 +295,7 @@ cd mcp-server && pip install -e ".[dev]" && python -m pytest  # 44 tests
 python scripts/mcp_smoke.py --cleanup
 python scripts/ledger_mcp_smoke.py --cleanup
 python scripts/ledger_risk_hints_smoke.py --cleanup
+python scripts/ledger_risk_hints_dogfood_matrix.py --cleanup
 
 # Demo workflow
 python scripts/demo_workflow.py

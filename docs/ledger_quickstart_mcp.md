@@ -21,6 +21,12 @@ To exercise non-blocking Risk Hints with a synthetic local scenario, run:
 python scripts/ledger_risk_hints_smoke.py --cleanup
 ```
 
+To exercise the cross-domain Risk Hints dogfood matrix, run:
+
+```bash
+python scripts/ledger_risk_hints_dogfood_matrix.py --cleanup
+```
+
 ## 1. Start The Contract
 
 Tool: `proofflow_start_work_contract`

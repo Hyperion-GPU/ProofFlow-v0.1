@@ -16,6 +16,9 @@ evidence appear to disagree.
 - Proof Packet: `## Done Criteria Evaluation` includes `Risk Hints`.
 - Storage: hints are stored in `runs.metadata_json.risk_hints`.
 
+For a cross-domain dogfood matrix, see
+[`examples/ledger_risk_hints_dogfood_matrix.md`](examples/ledger_risk_hints_dogfood_matrix.md).
+
 ## Current Deterministic Rules
 
 | Code | Meaning |
@@ -49,3 +52,11 @@ confirm that a forbidden approach was only listed as a rejected alternative.
   expected diff or mapping.
 - Refactor: output-level tests pass, but no algorithm trace proves behavior was
   preserved through a risky rewrite.
+
+## Dogfood Command
+
+Run the full local matrix with:
+
+```bash
+python scripts/ledger_risk_hints_dogfood_matrix.py --cleanup
+```
