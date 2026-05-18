@@ -21,6 +21,8 @@ packet.
 
 **Agent Work Ledger guide:** [`docs/agent_work_ledger.md`](docs/agent_work_ledger.md)
 
+**Ledger Risk Hints:** [`docs/ledger_risk_hints.md`](docs/ledger_risk_hints.md)
+
 **5-minute MCP quickstart:** [`docs/ledger_quickstart_mcp.md`](docs/ledger_quickstart_mcp.md)
 
 **Ledger PR comment template:** [`docs/examples/pr_comment_agent_work_ledger.md`](docs/examples/pr_comment_agent_work_ledger.md)
@@ -49,7 +51,8 @@ agent changes code:
 6. **Claim** - require every agent claim to bind to evidence before it is
    trusted.
 7. **Evaluation** - deterministically check required tests, algorithm decision,
-   cost budget, scope boundaries, missing evidence, and unaccepted risks.
+   cost budget, scope boundaries, missing evidence, unaccepted risks, and
+   non-blocking Risk Hints for suspicious routes.
 8. **Proof Packet** - export the contract, algorithm decision, cost budget,
    timeline, snapshots, claims, evidence, evaluation, decisions, and remaining
    risks into markdown.
@@ -58,6 +61,11 @@ Main chain: Work Contract -> Algorithm Decision -> Cost Budget -> Snapshot ->
 Evidence -> Claim -> Evaluation -> Proof Packet. This keeps the core product
 invariant sharp: no Case, no workflow; no Evidence, no trusted Claim; no done
 criteria evaluation, no quiet success.
+
+Risk Hints extend the evidence flow without turning ProofFlow into an automatic
+algorithm judge. They tell the maintainer when the recorded route may be wrong
+or too expensive, such as regeneration where mapping was required, budget
+overrun metadata, or tests that prove output but not method.
 
 See [`docs/agent_work_ledger.md`](docs/agent_work_ledger.md) for the full
 architecture and evaluation model, or
@@ -203,7 +211,8 @@ Records complex AI coding work as a first-class Case. The main flow is Work
 Contract -> Algorithm Decision -> Cost Budget -> Snapshot -> Evidence -> Claim
 -> Evaluation -> Proof Packet, so maintainers can see what the agent promised,
 what approach it chose, what cost limits it accepted, what changed, what
-evidence backs its claims, and whether the done criteria were satisfied.
+evidence backs its claims, whether the done criteria were satisfied, and which
+Risk Hints deserve human review.
 
 ### Evidence-Backed Code Review (AgentGuard)
 Analyzes git diffs, generates risk-scored claims, and links each claim to specific evidence (changed lines, test results). No claim exists without supporting evidence.
@@ -284,6 +293,8 @@ cd mcp-server && pip install -e ".[dev]" && python -m pytest  # 44 tests
 
 # End-to-end smoke test
 python scripts/mcp_smoke.py --cleanup
+python scripts/ledger_mcp_smoke.py --cleanup
+python scripts/ledger_risk_hints_smoke.py --cleanup
 
 # Demo workflow
 python scripts/demo_workflow.py

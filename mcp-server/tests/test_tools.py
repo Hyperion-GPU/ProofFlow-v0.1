@@ -302,6 +302,16 @@ async def test_evaluate_contract_tool():
             "warnings": ["final snapshot missing"],
             "missing_evidence": ["pytest output"],
             "scope_violations": [],
+            "risk_hints": [
+                {
+                    "code": "test_proves_output_not_method",
+                    "severity": "low",
+                    "title": "Tests prove output, but not the algorithm route",
+                    "message": "Test output exists without lineage evidence.",
+                    "evidence": ["evidence:ev-1:test_output"],
+                    "recommendation": "Add mapping or lineage evidence.",
+                }
+            ],
         })
     )
     result = await call_tool("proofflow_evaluate_contract", {"case_id": "c1"})
@@ -310,6 +320,10 @@ async def test_evaluate_contract_tool():
     assert "needs_attention" in text
     assert "required_tests" in text
     assert "pytest output" in text
+    assert "Risk hints: 1" in text
+    assert "test_proves_output_not_method" in text
+    assert "Tests prove output" in text
+    assert "Test output exists without lineage evidence." in text
 
 
 @pytest.mark.asyncio

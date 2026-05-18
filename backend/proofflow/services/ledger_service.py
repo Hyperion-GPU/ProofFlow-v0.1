@@ -22,6 +22,7 @@ from proofflow.models.schemas import (
     LedgerEvidenceCreateResponse,
     LedgerFinishRequest,
     LedgerFinishResponse,
+    LedgerRiskHint,
     WorkContractStartRequest,
     WorkContractStartResponse,
     WorkSnapshotRequest,
@@ -424,6 +425,7 @@ def evaluate_contract(case_id: str) -> LedgerEvaluationResponse:
     warnings: list[str] = []
     missing_evidence: list[str] = []
     scope_violations: list[str] = []
+    risk_hints: list[LedgerRiskHint] = []
 
     _evaluate_required_tests(contract, artifacts, evidence_rows, passed, failed)
     _evaluate_evidence_requirements(
@@ -438,6 +440,7 @@ def evaluate_contract(case_id: str) -> LedgerEvaluationResponse:
     _evaluate_cost_budget(contract, artifacts, passed, failed, missing_evidence)
     _evaluate_scope(contract, artifacts, passed, failed, warnings, scope_violations)
     _evaluate_open_risks(claims, decisions, passed, failed)
+    _evaluate_risk_hints(contract, artifacts, evidence_rows, risk_hints)
 
     status_value = _evaluation_status(failed)
     run_id = _insert_evaluation_run(
@@ -448,6 +451,7 @@ def evaluate_contract(case_id: str) -> LedgerEvaluationResponse:
         warnings,
         missing_evidence,
         scope_violations,
+        risk_hints,
     )
     return LedgerEvaluationResponse(
         case_id=case_id,
@@ -458,6 +462,7 @@ def evaluate_contract(case_id: str) -> LedgerEvaluationResponse:
         warnings=warnings,
         missing_evidence=missing_evidence,
         scope_violations=scope_violations,
+        risk_hints=risk_hints,
     )
 
 
@@ -967,6 +972,436 @@ def _evaluate_open_risks(
         failed.append("risk_acceptance_required")
 
 
+def _evaluate_risk_hints(
+    contract: dict[str, Any],
+    artifacts: list[dict[str, Any]],
+    evidence_rows: list[dict[str, Any]],
+    risk_hints: list[LedgerRiskHint],
+) -> None:
+    context = _risk_hint_context(artifacts, evidence_rows)
+    method_contract = _contract_mentions_method_preservation(contract)
+
+    _hint_forbidden_algorithm(contract, artifacts, context, risk_hints)
+    _hint_regeneration_over_mapping(method_contract, context, risk_hints)
+    _hint_expensive_action_without_budget(contract, artifacts, context, risk_hints)
+    _hint_cost_budget_overrun(contract, artifacts, context, risk_hints)
+    _hint_test_output_not_method(method_contract, artifacts, evidence_rows, risk_hints)
+
+
+def _hint_forbidden_algorithm(
+    contract: dict[str, Any],
+    artifacts: list[dict[str, Any]],
+    context: list[dict[str, Any]],
+    risk_hints: list[LedgerRiskHint],
+) -> None:
+    forbidden = _string_list(contract.get("forbidden_actions"))
+    for artifact in artifacts:
+        metadata = artifact["metadata"]
+        if metadata.get("ledger_item_type") == "algorithm_decision":
+            forbidden.extend(_string_list(metadata.get("forbidden_approaches")))
+
+    forbidden = _unique_normalized_phrases(forbidden)
+    if not forbidden:
+        return
+
+    searchable_context = [
+        item
+        for item in context
+        if item["kind"] in {"algorithm_decision", "evidence"}
+    ]
+    matches: list[str] = []
+    refs: list[str] = []
+    for phrase in forbidden:
+        for item in searchable_context:
+            searchable_text = item.get("forbidden_search_text", item["text"])
+            if phrase in searchable_text:
+                matches.append(phrase)
+                refs.append(item["ref"])
+                break
+
+    if matches:
+        _add_risk_hint(
+            risk_hints,
+            code="forbidden_algorithm_mentioned",
+            severity="medium",
+            title="Forbidden algorithm route appears in the ledger",
+            message=(
+                "A forbidden approach is mentioned in an Algorithm Decision or "
+                f"Evidence record: {', '.join(matches[:5])}."
+            ),
+            evidence=refs,
+            recommendation=(
+                "Review whether the implemented route actually used the forbidden "
+                "approach, or record a decision explaining why the mention is only "
+                "a rejected alternative."
+            ),
+        )
+
+
+def _hint_regeneration_over_mapping(
+    method_contract: bool,
+    context: list[dict[str, Any]],
+    risk_hints: list[LedgerRiskHint],
+) -> None:
+    if not method_contract:
+        return
+
+    regeneration_terms = (
+        "regenerate",
+        "rerun",
+        "recreate",
+        "re-extract",
+        "reextract",
+        "retranscribe",
+        "re-transcribe",
+    )
+    refs = [
+        item["ref"]
+        for item in context
+        if item["kind"] in {"algorithm_decision", "evidence"}
+        and any(term in item["text"] for term in regeneration_terms)
+    ]
+    if refs:
+        _add_risk_hint(
+            risk_hints,
+            code="regeneration_over_mapping",
+            severity="medium",
+            title="Regeneration route conflicts with mapping or lineage intent",
+            message=(
+                "The contract emphasizes preserving source mapping or lineage, "
+                "but the ledger mentions regenerate/rerun/recreate style work."
+            ),
+            evidence=refs,
+            recommendation=(
+                "Ask for explicit lineage or mapping evidence, or confirm that "
+                "regeneration was intentional and cost-appropriate."
+            ),
+        )
+
+
+def _hint_expensive_action_without_budget(
+    contract: dict[str, Any],
+    artifacts: list[dict[str, Any]],
+    context: list[dict[str, Any]],
+    risk_hints: list[LedgerRiskHint],
+) -> None:
+    if _effective_cost_budget(contract, artifacts):
+        return
+
+    expensive_terms = (
+        "api call",
+        "api_calls",
+        "gpu",
+        "asr",
+        "whisper",
+        "llm batch",
+        "video generation",
+        "generate video",
+        "external service",
+    )
+    refs = [
+        item["ref"]
+        for item in context
+        if any(term in item["text"] for term in expensive_terms)
+    ]
+    if refs:
+        _add_risk_hint(
+            risk_hints,
+            code="expensive_action_without_budget",
+            severity="low",
+            title="Expensive operation appears without a Cost Budget",
+            message=(
+                "The ledger mentions API, GPU, ASR, LLM batch, video generation, "
+                "or external service work, but no structured Cost Budget is recorded."
+            ),
+            evidence=refs,
+            recommendation=(
+                "Record a Cost Budget before accepting the work, especially for "
+                "repeatable agent workflows."
+            ),
+        )
+
+
+def _hint_cost_budget_overrun(
+    contract: dict[str, Any],
+    artifacts: list[dict[str, Any]],
+    context: list[dict[str, Any]],
+    risk_hints: list[LedgerRiskHint],
+) -> None:
+    budget = _effective_cost_budget(contract, artifacts)
+    if not budget:
+        return
+
+    limit_to_usage = {
+        "max_api_calls": ("api_calls",),
+        "max_gpu_jobs": ("gpu_jobs",),
+        "max_runtime_seconds": ("runtime_seconds", "duration_seconds"),
+        "max_iterations": ("iterations",),
+    }
+    overruns: list[str] = []
+    refs: list[str] = []
+    for item in context:
+        usage = item.get("usage")
+        if not isinstance(usage, dict):
+            continue
+        for limit_key, usage_keys in limit_to_usage.items():
+            limit = _numeric_value(budget.get(limit_key))
+            if limit is None:
+                continue
+            for usage_key in usage_keys:
+                value = _numeric_value(usage.get(usage_key))
+                if value is not None and value > limit:
+                    overruns.append(f"{usage_key}={value:g} > {limit_key}={limit:g}")
+                    refs.append(item["ref"])
+
+    if overruns:
+        _add_risk_hint(
+            risk_hints,
+            code="cost_budget_possible_overrun",
+            severity="medium",
+            title="Recorded usage appears to exceed the Cost Budget",
+            message="Usage metadata exceeds one or more declared budget limits: "
+            + "; ".join(overruns[:5])
+            + ".",
+            evidence=refs,
+            recommendation=(
+                "Review whether the usage metadata is accurate, then either fix "
+                "the workflow or record an explicit risk/cost acceptance decision."
+            ),
+        )
+
+
+def _hint_test_output_not_method(
+    method_contract: bool,
+    artifacts: list[dict[str, Any]],
+    evidence_rows: list[dict[str, Any]],
+    risk_hints: list[LedgerRiskHint],
+) -> None:
+    if not method_contract:
+        return
+
+    has_test_output = any(
+        row["evidence_type"] in {"test_output", "test_result"}
+        or "test" in row["evidence_type"].lower()
+        for row in evidence_rows
+    ) or any(artifact["artifact_type"] in {"test_output", "test_result"} for artifact in artifacts)
+    if not has_test_output:
+        return
+
+    method_terms = ("lineage", "mapping", "algorithm_trace", "cost_report")
+    has_method_evidence = any(
+        _evidence_row_mentions(row, method_terms) for row in evidence_rows
+    ) or any(
+        artifact["metadata"].get("ledger_item_type") == "evidence"
+        and _artifact_mentions(artifact, method_terms)
+        for artifact in artifacts
+    )
+    if has_method_evidence:
+        return
+
+    refs = [
+        f"evidence:{row['id']}:{row['evidence_type']}"
+        for row in evidence_rows
+        if row["evidence_type"] in {"test_output", "test_result"}
+        or "test" in row["evidence_type"].lower()
+    ]
+    _add_risk_hint(
+        risk_hints,
+        code="test_proves_output_not_method",
+        severity="low",
+        title="Tests prove output, but not the algorithm route",
+        message=(
+            "The ledger contains test output for a method-sensitive contract, "
+            "but no lineage, mapping, algorithm trace, or cost report evidence."
+        ),
+        evidence=refs,
+        recommendation=(
+            "Add method evidence that proves the implementation preserved the "
+            "expected mapping/lineage or stayed within the intended algorithm route."
+        ),
+    )
+
+
+def _risk_hint_context(
+    artifacts: list[dict[str, Any]],
+    evidence_rows: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    items: list[dict[str, Any]] = []
+    for artifact in artifacts:
+        metadata = artifact["metadata"]
+        item_type = str(metadata.get("ledger_item_type") or artifact["artifact_type"])
+        text_parts = [
+            artifact["artifact_type"],
+            artifact["name"],
+            json.dumps(metadata, sort_keys=True),
+        ]
+        items.append(
+            {
+                "kind": item_type,
+                "ref": f"artifact:{artifact['id']}:{artifact['name']}",
+                "text": "\n".join(text_parts).lower(),
+                "forbidden_search_text": _artifact_forbidden_search_text(artifact),
+                "usage": metadata.get("usage"),
+            }
+        )
+    for row in evidence_rows:
+        metadata = row["metadata"]
+        items.append(
+            {
+                "kind": "evidence",
+                "ref": f"evidence:{row['id']}:{row['evidence_type']}",
+                "text": "\n".join(
+                    [
+                        row["evidence_type"],
+                        row["content"],
+                        row["source_ref"] or "",
+                        json.dumps(metadata, sort_keys=True),
+                    ]
+                ).lower(),
+                "forbidden_search_text": "\n".join(
+                    [
+                        row["evidence_type"],
+                        row["content"],
+                        row["source_ref"] or "",
+                        json.dumps(metadata, sort_keys=True),
+                    ]
+                ).lower(),
+                "usage": metadata.get("usage"),
+            }
+        )
+    return items
+
+
+def _artifact_forbidden_search_text(artifact: dict[str, Any]) -> str:
+    metadata = artifact["metadata"]
+    if metadata.get("ledger_item_type") != "algorithm_decision":
+        return "\n".join(
+            [
+                artifact["artifact_type"],
+                artifact["name"],
+                json.dumps(metadata, sort_keys=True),
+            ]
+        ).lower()
+    return "\n".join(
+        [
+            artifact["artifact_type"],
+            artifact["name"],
+            _metadata_text(metadata.get("summary")),
+            _metadata_text(metadata.get("chosen_approach")),
+            _metadata_text(metadata.get("rationale")),
+        ]
+    ).lower()
+
+
+def _contract_mentions_method_preservation(contract: dict[str, Any]) -> bool:
+    terms = ("preserve", "mapping", "lineage", "source")
+    parts = [
+        _metadata_text(contract.get("algorithm_requirements")),
+        _metadata_text(contract.get("done_criteria")),
+        _metadata_text(contract.get("evidence_requirements")),
+        _metadata_text(contract.get("objective")),
+    ]
+    text = "\n".join(parts).lower()
+    return any(term in text for term in terms)
+
+
+def _effective_cost_budget(
+    contract: dict[str, Any],
+    artifacts: list[dict[str, Any]],
+) -> dict[str, Any]:
+    budget: dict[str, Any] = {}
+    contract_budget = contract.get("cost_budget")
+    if isinstance(contract_budget, dict):
+        budget.update(contract_budget)
+    for artifact in artifacts:
+        metadata = artifact["metadata"]
+        if metadata.get("ledger_item_type") == "cost_budget" and isinstance(metadata.get("budget"), dict):
+            budget.update(metadata["budget"])
+    return {key: value for key, value in budget.items() if value not in (None, "")}
+
+
+def _unique_normalized_phrases(values: list[str]) -> list[str]:
+    phrases: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        phrase = value.strip().lower()
+        if not phrase or phrase in seen:
+            continue
+        seen.add(phrase)
+        phrases.append(phrase)
+    return phrases
+
+
+def _numeric_value(value: Any) -> float | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int | float):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return float(value)
+        except ValueError:
+            return None
+    return None
+
+
+def _metadata_text(value: Any) -> str:
+    if isinstance(value, str):
+        return value
+    if isinstance(value, list):
+        return "\n".join(_metadata_text(item) for item in value)
+    if isinstance(value, dict):
+        return json.dumps(value, sort_keys=True)
+    return ""
+
+
+def _evidence_row_mentions(row: dict[str, Any], terms: tuple[str, ...]) -> bool:
+    text = "\n".join(
+        [
+            row["evidence_type"],
+            row["content"],
+            row["source_ref"] or "",
+            json.dumps(row["metadata"], sort_keys=True),
+        ]
+    ).lower()
+    return any(term in text for term in terms)
+
+
+def _artifact_mentions(artifact: dict[str, Any], terms: tuple[str, ...]) -> bool:
+    text = "\n".join(
+        [
+            artifact["artifact_type"],
+            artifact["name"],
+            json.dumps(artifact["metadata"], sort_keys=True),
+        ]
+    ).lower()
+    return any(term in text for term in terms)
+
+
+def _add_risk_hint(
+    risk_hints: list[LedgerRiskHint],
+    *,
+    code: str,
+    severity: str,
+    title: str,
+    message: str,
+    evidence: list[str],
+    recommendation: str,
+) -> None:
+    if any(hint.code == code for hint in risk_hints):
+        return
+    risk_hints.append(
+        LedgerRiskHint(
+            code=code,
+            severity=severity,
+            title=title,
+            message=message,
+            evidence=sorted(set(evidence)),
+            recommendation=recommendation,
+        )
+    )
+
+
 def _ledger_haystack(
     artifacts: list[dict[str, Any]],
     evidence_rows: list[dict[str, Any]],
@@ -1053,6 +1488,7 @@ def _insert_evaluation_run(
     warnings: list[str],
     missing_evidence: list[str],
     scope_violations: list[str],
+    risk_hints: list[LedgerRiskHint],
 ) -> str:
     run_id = new_uuid()
     now = utc_now_iso()
@@ -1081,6 +1517,9 @@ def _insert_evaluation_run(
                         "warnings": warnings,
                         "missing_evidence": missing_evidence,
                         "scope_violations": scope_violations,
+                        "risk_hints": [
+                            hint.model_dump(mode="json") for hint in risk_hints
+                        ],
                     }
                 ),
                 now,

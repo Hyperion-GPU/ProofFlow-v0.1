@@ -192,9 +192,12 @@ or changes behavior that should be auditable later.
    - `proofflow_export_packet` for the final handoff packet.
 4. Keep claims evidence-backed. Do not say a behavior is fixed unless a command,
    test, diff, or review artifact supports it.
-5. If tests are required for the workflow, run them outside ProofFlow unless
+5. After `proofflow_evaluate_contract`, read and report `risk_hints`. If hints
+   are present, include them in known gaps or open review items even when the
+   evaluation status is `ready_for_review`.
+6. If tests are required for the workflow, run them outside ProofFlow unless
    the user explicitly asks ProofFlow to execute a `test_command`.
-6. Close the handoff with the Case ID, packet path if exported, tests or checks
+7. Close the handoff with the Case ID, packet path if exported, tests or checks
    run, known gaps, and the recommended next step.
 
 ## Policy Gates

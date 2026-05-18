@@ -15,6 +15,12 @@ For a one-command release smoke test, run:
 python scripts/ledger_mcp_smoke.py --cleanup
 ```
 
+To exercise non-blocking Risk Hints with a synthetic local scenario, run:
+
+```bash
+python scripts/ledger_risk_hints_smoke.py --cleanup
+```
+
 ## 1. Start The Contract
 
 Tool: `proofflow_start_work_contract`
@@ -258,7 +264,8 @@ Expected `ready_for_review` result:
   ],
   "failed": [],
   "missing_evidence": [],
-  "scope_violations": []
+  "scope_violations": [],
+  "risk_hints": []
 }
 ```
 
@@ -272,6 +279,11 @@ Common non-ready statuses:
 | `missing_cost_budget` | Contract declares a cost budget but none is recorded. |
 | `incomplete_evidence` | Required evidence type such as `test_output` is missing. |
 | `risk_acceptance_required` | Open medium/high Claim has no accepted Decision. |
+
+Risk Hints may appear even when `status` is `ready_for_review`. Treat them as
+review prompts for routes that may be wrong or too expensive, such as
+regeneration where the contract required mapping, budget overrun metadata, or
+test output that proves the result but not the method.
 
 ## 10. Finish The Ledger
 
@@ -308,6 +320,7 @@ Expected packet sections:
 - Snapshots
 - Claims & Evidence
 - Done Criteria Evaluation
+- Risk Hints when evaluation records them
 - Remaining Risks
 
 ## Minimal Agent Prompt
@@ -320,5 +333,6 @@ algorithm decision, record the cost budget, capture a start snapshot, record
 important events, record test output as Evidence, bind Claims to Evidence,
 capture a final snapshot, evaluate the contract, finish the ledger, and export a
 Proof Packet. If evaluation is not ready_for_review, report the failed criteria
-instead of claiming success.
+instead of claiming success. If risk_hints is non-empty, report those hints as
+items for human review even when the status is ready_for_review.
 ```

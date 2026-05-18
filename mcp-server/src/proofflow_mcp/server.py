@@ -767,6 +767,7 @@ async def _handle_record_claim(args: dict[str, Any]) -> list[TextContent]:
 
 async def _handle_evaluate_contract(args: dict[str, Any]) -> list[TextContent]:
     result = await _client.evaluate_contract(args["case_id"])
+    risk_hints = result.get("risk_hints", [])
     lines = [
         "Ledger contract evaluated.",
         f"Case: {result['case_id']}",
@@ -777,6 +778,7 @@ async def _handle_evaluate_contract(args: dict[str, Any]) -> list[TextContent]:
         f"Warnings: {len(result['warnings'])}",
         f"Missing evidence: {len(result['missing_evidence'])}",
         f"Scope violations: {len(result['scope_violations'])}",
+        f"Risk hints: {len(risk_hints)}",
     ]
     for label, key in (
         ("Failed", "failed"),
@@ -788,6 +790,20 @@ async def _handle_evaluate_contract(args: dict[str, Any]) -> list[TextContent]:
             lines.append(f"\n{label}:")
             for item in result[key][:10]:
                 lines.append(f"  - {item}")
+    if risk_hints:
+        lines.append("\nRisk hints:")
+        for hint in risk_hints[:10]:
+            if not isinstance(hint, dict):
+                lines.append(f"  - {hint}")
+                continue
+            lines.append(
+                "  - "
+                f"[{hint.get('severity', 'unknown')}] "
+                f"{hint.get('code', 'unknown')}: {hint.get('title', 'Risk hint')}"
+            )
+            message = hint.get("message")
+            if message:
+                lines.append(f"    {message}")
     return _text("\n".join(lines))
 
 
