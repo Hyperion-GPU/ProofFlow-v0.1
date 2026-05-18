@@ -327,6 +327,40 @@ TOOLS: list[Tool] = [
         },
     ),
     Tool(
+        name="proofflow_explain_risk_hint",
+        description=(
+            "Record an evidence-backed accepted Decision explaining a Ledger Risk Hint. "
+            "This does not suppress the hint; it annotates future evaluations and Proof Packets."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "case_id": {"type": "string", "description": "Agent Work Ledger Case ID."},
+                "evaluation_run_id": {"type": "string", "description": "Evaluation run ID that emitted the hint."},
+                "hint_code": {"type": "string", "description": "Risk hint code to explain."},
+                "disposition": {
+                    "type": "string",
+                    "enum": ["accepted", "false_positive", "mitigated", "deferred"],
+                    "description": "How the owner interprets this hint.",
+                },
+                "rationale": {"type": "string", "description": "Evidence-backed rationale."},
+                "evidence_ids": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Evidence IDs supporting this explanation.",
+                },
+            },
+            "required": [
+                "case_id",
+                "evaluation_run_id",
+                "hint_code",
+                "disposition",
+                "rationale",
+                "evidence_ids",
+            ],
+        },
+    ),
+    Tool(
         name="proofflow_finish_work_ledger",
         description="Finish an Agent Work Ledger Case after contract evaluation and Evidence capture.",
         inputSchema={
@@ -502,6 +536,8 @@ async def _dispatch(name: str, args: dict[str, Any]) -> list[TextContent]:
         return await _handle_record_claim(args)
     elif name == "proofflow_evaluate_contract":
         return await _handle_evaluate_contract(args)
+    elif name == "proofflow_explain_risk_hint":
+        return await _handle_explain_risk_hint(args)
     elif name == "proofflow_finish_work_ledger":
         return await _handle_finish_work_ledger(args)
     elif name == "proofflow_status":
@@ -804,7 +840,34 @@ async def _handle_evaluate_contract(args: dict[str, Any]) -> list[TextContent]:
             message = hint.get("message")
             if message:
                 lines.append(f"    {message}")
+            if hint.get("decision_id"):
+                lines.append(
+                    "    Explained by Decision: "
+                    f"{hint['decision_id']} "
+                    f"({hint.get('disposition', 'unknown')}, "
+                    f"status {hint.get('decision_status', 'unknown')})"
+                )
     return _text("\n".join(lines))
+
+
+async def _handle_explain_risk_hint(args: dict[str, Any]) -> list[TextContent]:
+    result = await _client.explain_risk_hint(
+        case_id=args["case_id"],
+        evaluation_run_id=args["evaluation_run_id"],
+        hint_code=args["hint_code"],
+        disposition=args["disposition"],
+        rationale=args["rationale"],
+        evidence_ids=args["evidence_ids"],
+    )
+    return _text(
+        f"Ledger risk hint explained.\n"
+        f"Case: {result['case_id']}\n"
+        f"Decision: {result['decision_id']}\n"
+        f"Status: {result['status']}\n"
+        f"Hint: {result['hint_code']}\n"
+        f"Disposition: {result['disposition']}\n"
+        f"Evidence IDs: {', '.join(result['evidence_ids'])}"
+    )
 
 
 async def _handle_finish_work_ledger(args: dict[str, Any]) -> list[TextContent]:

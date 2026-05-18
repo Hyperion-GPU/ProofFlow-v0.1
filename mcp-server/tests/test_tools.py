@@ -328,6 +328,39 @@ async def test_evaluate_contract_tool():
 
 @pytest.mark.asyncio
 @respx.mock
+async def test_explain_risk_hint_tool():
+    respx.post("http://127.0.0.1:8787/ledger/cases/c1/risk-hints/decisions").mock(
+        return_value=httpx.Response(200, json={
+            "case_id": "c1",
+            "decision_id": "dec-1",
+            "hint_code": "cost_budget_possible_overrun",
+            "disposition": "accepted",
+            "evidence_ids": ["ev-1"],
+            "status": "accepted",
+            "created_at": "t",
+        })
+    )
+    result = await call_tool(
+        "proofflow_explain_risk_hint",
+        {
+            "case_id": "c1",
+            "evaluation_run_id": "run-1",
+            "hint_code": "cost_budget_possible_overrun",
+            "disposition": "accepted",
+            "rationale": "Owner accepted this synthetic overrun.",
+            "evidence_ids": ["ev-1"],
+        },
+    )
+    text = result[0].text
+    assert "Ledger risk hint explained" in text
+    assert "dec-1" in text
+    assert "cost_budget_possible_overrun" in text
+    assert "accepted" in text
+    assert "ev-1" in text
+
+
+@pytest.mark.asyncio
+@respx.mock
 async def test_finish_work_ledger_tool():
     respx.post("http://127.0.0.1:8787/ledger/cases/c1/finish").mock(
         return_value=httpx.Response(200, json={

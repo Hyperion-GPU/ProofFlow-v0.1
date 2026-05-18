@@ -14,6 +14,8 @@ from proofflow.models.schemas import (
     LedgerEvidenceCreateResponse,
     LedgerFinishRequest,
     LedgerFinishResponse,
+    LedgerRiskHintDecisionCreateRequest,
+    LedgerRiskHintDecisionResponse,
     WorkContractStartRequest,
     WorkContractStartResponse,
     WorkSnapshotRequest,
@@ -25,6 +27,7 @@ from proofflow.services.ledger_service import (
     LedgerServiceError,
     capture_snapshot,
     evaluate_contract,
+    explain_risk_hint,
     finish_work_ledger,
     record_algorithm_decision,
     record_claim,
@@ -114,6 +117,22 @@ def create_ledger_snapshot(
 def evaluate_ledger(case_id: str) -> LedgerEvaluationResponse:
     try:
         return evaluate_contract(case_id)
+    except NotFoundError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+    except LedgerServiceError as error:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from error
+
+
+@router.post(
+    "/cases/{case_id}/risk-hints/decisions",
+    response_model=LedgerRiskHintDecisionResponse,
+)
+def explain_ledger_risk_hint(
+    case_id: str,
+    payload: LedgerRiskHintDecisionCreateRequest,
+) -> LedgerRiskHintDecisionResponse:
+    try:
+        return explain_risk_hint(case_id, payload)
     except NotFoundError as error:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
     except LedgerServiceError as error:

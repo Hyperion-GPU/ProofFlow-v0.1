@@ -291,7 +291,33 @@ review prompts for routes that may be wrong or too expensive, such as
 regeneration where the contract required mapping, budget overrun metadata, or
 test output that proves the result but not the method.
 
-## 10. Finish The Ledger
+## 10. Explain An Expected Risk Hint
+
+Tool: `proofflow_explain_risk_hint`
+
+Use this when a maintainer reviewed a hint and wants to keep the audit signal
+while explaining the outcome with Evidence.
+
+```json
+{
+  "case_id": "<case-id>",
+  "evaluation_run_id": "<run-id>",
+  "hint_code": "cost_budget_possible_overrun",
+  "disposition": "accepted",
+  "rationale": "The extra API calls were intentional for this dogfood run.",
+  "evidence_ids": [
+    "<evidence-id>"
+  ]
+}
+```
+
+Expected result:
+
+- A Decision with `decision_kind = ledger_risk_hint_explanation`.
+- Future evaluations still show the hint, annotated with the Decision ID and
+  disposition.
+
+## 11. Finish The Ledger
 
 Tool: `proofflow_finish_work_ledger`
 
@@ -307,7 +333,7 @@ Expected result:
 - `finished` when no non-ready evaluation is present.
 - `finished_with_risks` when the latest evaluation is not `ready_for_review`.
 
-## 11. Export The Proof Packet
+## 12. Export The Proof Packet
 
 Tool: `proofflow_export_packet`
 
