@@ -16,6 +16,9 @@ evidence appear to disagree.
 - Proof Packet: `## Done Criteria Evaluation` includes `Risk Hints`.
 - Storage: hints are stored in `runs.metadata_json.risk_hints`.
 
+For a cross-domain dogfood matrix, see
+[`examples/ledger_risk_hints_dogfood_matrix.md`](examples/ledger_risk_hints_dogfood_matrix.md).
+
 ## Current Deterministic Rules
 
 | Code | Meaning |
@@ -37,6 +40,11 @@ When a hint is expected, record a Decision or Evidence explaining why. For
 example, a maintainer may accept a cost overrun after seeing a cost report, or
 confirm that a forbidden approach was only listed as a rejected alternative.
 
+Use `proofflow_explain_risk_hint` to create an evidence-backed accepted
+Decision for an expected hint, false positive, mitigation, or deferred risk.
+The hint remains visible in evaluation and Proof Packets; the Decision explains
+it instead of suppressing it.
+
 ## General Scenarios
 
 - Data conversion: a contract requires source lineage, but the implementation
@@ -49,3 +57,11 @@ confirm that a forbidden approach was only listed as a rejected alternative.
   expected diff or mapping.
 - Refactor: output-level tests pass, but no algorithm trace proves behavior was
   preserved through a risky rewrite.
+
+## Dogfood Command
+
+Run the full local matrix with:
+
+```bash
+python scripts/ledger_risk_hints_dogfood_matrix.py --cleanup
+```

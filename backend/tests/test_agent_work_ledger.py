@@ -545,6 +545,158 @@ def test_ledger_risk_hints_flag_algorithm_route_and_cost_overrun(monkeypatch, tm
     assert "cost_budget_possible_overrun" in content
 
 
+def _create_explainable_risk_hint_ledger(client: TestClient, tmp_path: Path, repo: Path) -> dict:
+    (repo / "app.py").write_text("VALUE = 2\n", encoding="utf-8")
+    case_id = _start_ledger(
+        client,
+        tmp_path,
+        objective="Preserve source mapping and lineage for a data conversion pipeline",
+        repo_path=str(repo),
+        allowed_scope=["app.py"],
+        required_tests=["python -m pytest synthetic"],
+        evidence_requirements=[
+            "git_diff",
+            "test_output",
+            "algorithm_decision",
+            "cost_budget",
+        ],
+        algorithm_requirements=["preserve source mapping and lineage"],
+        cost_budget={"max_api_calls": 0},
+    )["case_id"]
+    client.post(
+        f"/ledger/cases/{case_id}/algorithm-decisions",
+        json={
+            "summary": "Regenerate derived records",
+            "chosen_approach": "Regenerate derived records with a new API call.",
+            "rationale": "This is simpler than preserving source mapping.",
+            "forbidden_approaches": ["regenerate derived records"],
+        },
+    )
+    client.post(
+        f"/ledger/cases/{case_id}/cost-budgets",
+        json={
+            "summary": "No remote calls",
+            "budget": {"max_api_calls": 0},
+        },
+    )
+    client.post(
+        f"/ledger/cases/{case_id}/snapshots",
+        json={"repo_path": str(repo), "phase": "final"},
+    )
+    evidence = client.post(
+        f"/ledger/cases/{case_id}/evidence",
+        json={
+            "evidence_type": "test_output",
+            "content": "COMMAND: python -m pytest synthetic\nRETURN_CODE: 0\n1 passed\n",
+            "metadata": {
+                "command": "python -m pytest synthetic",
+                "usage": {"api_calls": 3},
+            },
+        },
+    )
+    client.post(
+        f"/ledger/cases/{case_id}/claims",
+        json={
+            "claim_text": "Synthetic conversion tests passed.",
+            "severity": "info",
+            "evidence_ids": [evidence.json()["evidence_id"]],
+        },
+    )
+    evaluation = client.post(f"/ledger/cases/{case_id}/evaluate")
+    assert evaluation.status_code == 200
+    return {
+        "case_id": case_id,
+        "evidence_id": evidence.json()["evidence_id"],
+        "evaluation": evaluation.json(),
+    }
+
+
+def test_ledger_risk_hint_explanation_decision_annotates_evaluation_and_packet(monkeypatch, tmp_path):
+    _require_git()
+    repo = _init_repo(tmp_path / "repo")
+
+    with _client(monkeypatch, tmp_path) as client:
+        setup = _create_explainable_risk_hint_ledger(client, tmp_path, repo)
+        explanation = client.post(
+            f"/ledger/cases/{setup['case_id']}/risk-hints/decisions",
+            json={
+                "evaluation_run_id": setup["evaluation"]["run_id"],
+                "hint_code": "cost_budget_possible_overrun",
+                "disposition": "accepted",
+                "rationale": "Maintainer accepted this synthetic overrun for dogfood.",
+                "evidence_ids": [setup["evidence_id"]],
+            },
+        )
+        reevaluation = client.post(f"/ledger/cases/{setup['case_id']}/evaluate")
+        exported = client.post(
+            f"/reports/cases/{setup['case_id']}/export",
+            json={"format": "markdown"},
+        )
+
+    assert explanation.status_code == 200
+    explained = explanation.json()
+    assert explained["status"] == "accepted"
+    assert explained["hint_code"] == "cost_budget_possible_overrun"
+    assert explained["disposition"] == "accepted"
+    assert explained["evidence_ids"] == [setup["evidence_id"]]
+
+    payload = reevaluation.json()
+    hint = next(
+        hint for hint in payload["risk_hints"]
+        if hint["code"] == "cost_budget_possible_overrun"
+    )
+    assert hint["decision_id"] == explained["decision_id"]
+    assert hint["decision_status"] == "accepted"
+    assert hint["disposition"] == "accepted"
+
+    content = exported.json()["content"]
+    assert "Explained by Decision" in content
+    assert explained["decision_id"] in content
+    assert "ledger_risk_hint_explanation" in content
+
+
+def test_ledger_risk_hint_explanation_rejects_missing_inputs(monkeypatch, tmp_path):
+    _require_git()
+    repo = _init_repo(tmp_path / "repo")
+
+    with _client(monkeypatch, tmp_path) as client:
+        setup = _create_explainable_risk_hint_ledger(client, tmp_path, repo)
+        empty_evidence = client.post(
+            f"/ledger/cases/{setup['case_id']}/risk-hints/decisions",
+            json={
+                "evaluation_run_id": setup["evaluation"]["run_id"],
+                "hint_code": "cost_budget_possible_overrun",
+                "disposition": "accepted",
+                "rationale": "No evidence.",
+                "evidence_ids": [],
+            },
+        )
+        missing_run = client.post(
+            f"/ledger/cases/{setup['case_id']}/risk-hints/decisions",
+            json={
+                "evaluation_run_id": "missing-run",
+                "hint_code": "cost_budget_possible_overrun",
+                "disposition": "accepted",
+                "rationale": "Run does not exist.",
+                "evidence_ids": [setup["evidence_id"]],
+            },
+        )
+        missing_hint = client.post(
+            f"/ledger/cases/{setup['case_id']}/risk-hints/decisions",
+            json={
+                "evaluation_run_id": setup["evaluation"]["run_id"],
+                "hint_code": "not_a_hint",
+                "disposition": "accepted",
+                "rationale": "Hint does not exist.",
+                "evidence_ids": [setup["evidence_id"]],
+            },
+        )
+
+    assert empty_evidence.status_code == 422
+    assert missing_run.status_code == 404
+    assert missing_hint.status_code == 400
+
+
 def test_ledger_risk_hint_flags_expensive_action_without_budget(monkeypatch, tmp_path):
     with _client(monkeypatch, tmp_path) as client:
         case_id = _start_ledger(client, tmp_path)["case_id"]

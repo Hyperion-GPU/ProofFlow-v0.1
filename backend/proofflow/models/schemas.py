@@ -35,6 +35,7 @@ CaseArtifactRole = Literal["primary", "supporting", "reference"]
 ActionKind = Literal["move_file", "rename_file", "manual_check", "mkdir_dir"]
 ActionStatus = Literal["pending", "previewed", "approved", "executed", "undone", "rejected", "pending_decision"]
 DecisionStatus = Literal["proposed", "accepted", "rejected", "superseded"]
+LedgerRiskHintDisposition = Literal["accepted", "false_positive", "mitigated", "deferred"]
 
 
 class StrictRequest(BaseModel):
@@ -381,6 +382,9 @@ class LedgerRiskHint(BaseModel):
     message: str
     evidence: list[str] = Field(default_factory=list)
     recommendation: str
+    decision_status: DecisionStatus | None = None
+    decision_id: str | None = None
+    disposition: LedgerRiskHintDisposition | None = None
 
 
 class LedgerEvaluationResponse(BaseModel):
@@ -393,6 +397,24 @@ class LedgerEvaluationResponse(BaseModel):
     missing_evidence: list[str]
     scope_violations: list[str]
     risk_hints: list[LedgerRiskHint] = Field(default_factory=list)
+
+
+class LedgerRiskHintDecisionCreateRequest(StrictRequest):
+    evaluation_run_id: str = Field(min_length=1)
+    hint_code: str = Field(min_length=1)
+    disposition: LedgerRiskHintDisposition
+    rationale: str = Field(min_length=1)
+    evidence_ids: list[str] = Field(min_length=1)
+
+
+class LedgerRiskHintDecisionResponse(BaseModel):
+    case_id: str
+    decision_id: str
+    hint_code: str
+    disposition: LedgerRiskHintDisposition
+    evidence_ids: list[str]
+    status: DecisionStatus
+    created_at: str
 
 
 class IssueTriageRequest(StrictRequest):

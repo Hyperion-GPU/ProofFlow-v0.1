@@ -104,7 +104,7 @@ def _load_packet_data(connection: Any, case_id: str) -> dict[str, Any]:
     ).fetchall()
     decisions = connection.execute(
         """
-        SELECT id, title, status, rationale, result, created_at, updated_at
+        SELECT id, title, status, rationale, result, metadata_json, created_at, updated_at
         FROM decisions
         WHERE case_id = ?
         ORDER BY created_at ASC, id ASC
@@ -396,6 +396,13 @@ def _render_ledger_evaluation(runs: list[Any]) -> list[str]:
                         f"      - Recommendation: {_md(hint.get('recommendation', 'not recorded'))}",
                     ]
                 )
+                if hint.get("decision_id"):
+                    lines.append(
+                        "      - Explained by Decision: "
+                        f"`{_metadata_value(hint.get('decision_id'))}` "
+                        f"({_metadata_value(hint.get('disposition'))}, "
+                        f"status `{_metadata_value(hint.get('decision_status'))}`)"
+                    )
     return lines + [""]
 
 
@@ -502,6 +509,7 @@ def _render_decisions(decisions: list[Any]) -> list[str]:
         return lines + ["No decisions recorded.", ""]
 
     for decision in decisions:
+        metadata = loads_metadata(decision["metadata_json"])
         lines.extend(
             [
                 f"- {_md(decision['title'])}",
@@ -511,6 +519,15 @@ def _render_decisions(decisions: list[Any]) -> list[str]:
                 f"  - Result: {_md(decision['result'])}",
             ]
         )
+        if metadata.get("decision_kind") == "ledger_risk_hint_explanation":
+            lines.extend(
+                [
+                    f"  - Kind: `{_metadata_value(metadata.get('decision_kind'))}`",
+                    f"  - Risk hint: `{_metadata_value(metadata.get('hint_code'))}`",
+                    f"  - Evaluation run: `{_metadata_value(metadata.get('evaluation_run_id'))}`",
+                    f"  - Evidence IDs: `{_metadata_list(metadata.get('evidence_ids'))}`",
+                ]
+            )
     return lines + [""]
 
 

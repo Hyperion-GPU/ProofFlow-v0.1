@@ -186,6 +186,8 @@ or changes behavior that should be auditable later.
    - `proofflow_record_evidence` for command output and test output,
    - `proofflow_record_claim` for evidence-backed claims,
    - `proofflow_evaluate_contract` before finish,
+   - `proofflow_explain_risk_hint` when a maintainer accepts, mitigates,
+     defers, or marks a Risk Hint as a false positive with Evidence,
    - `proofflow_finish_work_ledger` after final snapshot and evaluation,
    - `proofflow_review` for code changes,
    - `proofflow_status` to inspect Claims and Evidence,

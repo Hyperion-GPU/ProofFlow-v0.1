@@ -20,6 +20,7 @@ def test_all_tools_defined():
         "proofflow_record_evidence",
         "proofflow_record_claim",
         "proofflow_evaluate_contract",
+        "proofflow_explain_risk_hint",
         "proofflow_finish_work_ledger",
         "proofflow_status",
         "proofflow_approve_execute",
