@@ -25,17 +25,28 @@ The post-release RC1 bug bash log is tracked in
 
 ## Commands
 
+All commands below run in a single PowerShell session. Each block uses
+`Push-Location` / `Pop-Location` so the working directory is restored after
+the block, which lets you paste the next block without manually adjusting
+`cd`. Substitute `"<repo root>"` with the absolute path of your local clone
+(double quotes are required because the path may contain spaces, for example
+`"D:\ProofFlow v0.1"`). The backend port is fixed to `8787` to match the
+`make dev-backend` baseline.
+
 Seed demo data:
 
 ```powershell
-cd "<repo root>"
+Push-Location "<repo root>"
 python .\scripts\demo_seed.py
+Pop-Location
 ```
 
 Run the API smoke helper with temporary DB/data paths:
 
 ```powershell
+Push-Location "<repo root>"
 python .\scripts\rc_api_smoke.py
+Pop-Location
 ```
 
 The helper keeps its temp packet for inspection unless you pass `--cleanup`.
@@ -43,25 +54,29 @@ The helper keeps its temp packet for inspection unless you pass `--cleanup`.
 Run backend checks:
 
 ```powershell
-cd "<repo root>\backend"
+Push-Location "<repo root>\backend"
 python -m pytest
+Pop-Location
 ```
 
-Start the backend:
+Start the backend (long-running uvicorn process):
 
 ```powershell
-cd "<repo root>\backend"
+Push-Location "<repo root>\backend"
 python -m uvicorn proofflow.main:app --host 127.0.0.1 --port 8787 --reload
+Pop-Location
 ```
 
-Start and verify the frontend:
+Start and verify the frontend (long-running `npm run dev`; recommended in a
+second PowerShell session):
 
 ```powershell
-cd "<repo root>\frontend"
+Push-Location "<repo root>\frontend"
 npm ci
 npm run test
 npm run build
 npm run dev
+Pop-Location
 ```
 
 Open `http://127.0.0.1:5173`.
