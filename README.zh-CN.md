@@ -55,33 +55,63 @@ ProofFlow 关注的是证据和控制权：
 > inline audit / Approve Gate 截图统一推迟到下个 dogfood 周期。Backlog 锚点：
 > [`PLANS.md#vscode-channel-screenshots-deferred-from-v0-1-x-dogfood`](PLANS.md#vscode-channel-screenshots-deferred-from-v0-1-x-dogfood)。
 
+以下命令在 PowerShell 中执行，cwd 为仓库根；每段使用 `Push-Location` /
+`Pop-Location` 配对，结束后会回到仓库根，便于在同一会话内连续粘贴执行。
+backend 端口固定为 `8787`，与 `make dev-backend` 与 `README.md` 一致。
+`npm run dev` 是长驻进程，建议在第二个 PowerShell 会话中执行 frontend 段，
+以便保留第一个会话用于查看 backend uvicorn 输出。
+
 ### Backend
 
-```bash
-cd backend
+```powershell
+Push-Location backend
 python -m venv .venv
-.venv\Scripts\activate
+.\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-uvicorn app.main:app --reload
+python -m uvicorn proofflow.main:app --host 127.0.0.1 --port 8787 --reload
+Pop-Location
 ```
 
 ### Frontend
 
-```bash
-cd frontend
+```powershell
+Push-Location frontend
 npm install
 npm run dev
+Pop-Location
 ```
 
 ### MCP server
 
-```bash
-cd mcp-server
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
-python -m proofflow_mcp.server
+ProofFlow 已发布到 PyPI，包名 `proofflow-mcp`，console-script 入口
+`proofflow-mcp` 与 README.md / `.mcp.json` 保持一致：
+
+```powershell
+pip install proofflow-mcp
 ```
+
+将以下内容加入项目的 `.mcp.json`：
+
+```json
+{
+  "mcpServers": {
+    "proofflow": {
+      "command": "proofflow-mcp",
+      "env": { "PROOFFLOW_BASE_URL": "http://127.0.0.1:8787" }
+    }
+  }
+}
+```
+
+如需从源码安装（用于 mcp-server 开发），在仓库根执行：
+
+```powershell
+Push-Location .
+pip install -e mcp-server\
+Pop-Location
+```
+
+`mcp-server/` 没有独立 `requirements.txt`，依赖由 `pyproject.toml` 管理。
 
 ## 架构
 
