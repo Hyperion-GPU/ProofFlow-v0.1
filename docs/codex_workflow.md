@@ -11,12 +11,21 @@ as a Proof Packet.
 
 ## Setup
 
+All commands below assume the working directory is the parent directory that
+contains the freshly cloned `ProofFlow-v0.1` repository, and that you are using
+a single PowerShell session. Each block uses `Push-Location` / `Pop-Location`
+to enter the right subdirectory and restore cwd afterwards, so subsequent
+blocks can be pasted in the same session without manual `cd` adjustments. The
+backend port is fixed to `8787` to match the `README.md` and `make dev-backend`
+baseline.
+
 ### 1. Start ProofFlow backend
 
-```bash
-cd ProofFlow-v0.1/backend
+```powershell
+Push-Location ProofFlow-v0.1\backend
 pip install -r requirements.txt
 python -m uvicorn proofflow.main:app --port 8787
+Pop-Location
 ```
 
 ### 2. Connect via MCP
@@ -36,8 +45,13 @@ Add to your project's `.mcp.json`:
 
 ### 3. Install MCP server
 
-```bash
-pip install -e mcp-server/
+The `mcp-server\` path is repo-root relative; the `Push-Location` block enters
+the cloned repository root from the parent directory used in step 1.
+
+```powershell
+Push-Location ProofFlow-v0.1
+pip install -e mcp-server\
+Pop-Location
 ```
 
 ## Available MCP Tools (13 total)
@@ -181,10 +195,14 @@ Safety semantics:
 
 ## Verification
 
-Run the end-to-end smoke test to verify all tools work:
+Run the end-to-end smoke test from the cloned repository root in PowerShell.
+The `Push-Location` block makes cwd explicit so the `scripts\` path resolves
+without relying on an implicit `cd` from the Setup section above.
 
-```bash
-python scripts/mcp_smoke.py --cleanup
+```powershell
+Push-Location ProofFlow-v0.1
+python .\scripts\mcp_smoke.py --cleanup
+Pop-Location
 ```
 
 Expected output:
