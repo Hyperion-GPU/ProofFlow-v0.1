@@ -115,10 +115,16 @@ ProofFlow solves this by sitting between the agent and the filesystem, creating 
 
 ### Docker (recommended)
 
-```bash
+Run from the parent directory of the freshly cloned repo. The
+`Push-Location` / `Pop-Location` pair keeps the working directory at the
+repository root for the `docker compose up` command and restores it after the
+block, so this snippet is copy-paste safe in a single PowerShell session.
+
+```powershell
 git clone https://github.com/Hyperion-GPU/ProofFlow-v0.1.git
-cd ProofFlow-v0.1
+Push-Location ProofFlow-v0.1
 docker compose up
+Pop-Location
 ```
 
 Backend: http://localhost:8787 | Frontend: http://localhost:5173
@@ -140,13 +146,25 @@ backend to run local test commands during review.
 
 ### Manual
 
-```bash
-# Backend
-cd backend && pip install -r requirements.txt
-python -m uvicorn proofflow.main:app --port 8787
+Start each component from the repository root in a single PowerShell session.
+`Push-Location` / `Pop-Location` keeps the working directory predictable across
+the backend and frontend blocks; the backend port is fixed to `8787` to match
+the `make dev-backend` baseline. `npm run dev` is a long-running process - run
+the frontend block in a second PowerShell session if you want to keep the
+backend uvicorn process visible in the first.
 
-# Frontend
-cd frontend && npm ci && npm run dev
+```powershell
+# Backend
+Push-Location backend
+pip install -r requirements.txt
+python -m uvicorn proofflow.main:app --port 8787
+Pop-Location
+
+# Frontend (long-running; recommended in a second PowerShell session)
+Push-Location frontend
+npm ci
+npm run dev
+Pop-Location
 ```
 
 ### MCP Integration (Claude Code / Codex)
@@ -295,19 +313,33 @@ without suppressing the hint.
 
 ## Development
 
-```bash
-# Run all tests
-cd backend && python -m pytest          # 311 tests
-cd frontend && npm run test             # 29 tests
-cd mcp-server && pip install -e ".[dev]" && python -m pytest  # 44 tests
+Run from the repository root in a single PowerShell session. Each
+`Push-Location` / `Pop-Location` block restores the working directory back to
+the repository root, so the `python scripts/...` smoke tests and
+`scripts/demo_workflow.py` below can be pasted in the same session.
 
-# End-to-end smoke test
+```powershell
+# Run all tests
+Push-Location backend
+python -m pytest          # 311 tests
+Pop-Location
+
+Push-Location frontend
+npm run test              # 29 tests
+Pop-Location
+
+Push-Location mcp-server
+pip install -e ".[dev]"
+python -m pytest          # 44 tests
+Pop-Location
+
+# End-to-end smoke test (cwd: repository root)
 python scripts/mcp_smoke.py --cleanup
 python scripts/ledger_mcp_smoke.py --cleanup
 python scripts/ledger_risk_hints_smoke.py --cleanup
 python scripts/ledger_risk_hints_dogfood_matrix.py --cleanup
 
-# Demo workflow
+# Demo workflow (cwd: repository root)
 python scripts/demo_workflow.py
 ```
 
