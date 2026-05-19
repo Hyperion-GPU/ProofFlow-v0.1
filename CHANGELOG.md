@@ -4,6 +4,8 @@ All notable changes for ProofFlow v0.1 are tracked here.
 
 ## Unreleased
 
+- Dogfood and channel-polish report (milestone v0.1.x): [docs/releases/V0_1_X_DOGFOOD_AND_CHANNEL_POLISH.md](docs/releases/V0_1_X_DOGFOOD_AND_CHANNEL_POLISH.md)
+
 ## v0.1.6.1
 
 ### Fixed

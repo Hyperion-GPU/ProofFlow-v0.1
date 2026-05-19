@@ -15,6 +15,13 @@ packet.
 **Latest release:** [v0.1.8 - Agent Work Ledger for AI coding](https://github.com/Hyperion-GPU/ProofFlow-v0.1/releases/tag/v0.1.8)
 
 ▶ **Watch the 72s demo:** [From AI agent claims to verifiable Proof Packets](https://github.com/Hyperion-GPU/ProofFlow-v0.1/releases/tag/v0.1.3)<br>
+
+> **Demo asset (deferred)**: The end-to-end dogfood Demo_Asset GIF and the
+> VSCode_Channel inline audit / Approve Gate screenshots for the v0.1.x
+> dogfood-and-channel-polish milestone are deferred to the next dogfood cycle
+> (no capturable VS Code window in this milestone). Tracked in
+> [`PLANS.md#vscode-channel-screenshots-deferred-from-v0-1-x-dogfood`](PLANS.md#vscode-channel-screenshots-deferred-from-v0-1-x-dogfood).
+
 📦 **Example Proof Packets:** [`code review`](docs/examples/proof_packet_codex_review.md) · [`issue triage`](docs/examples/proof_packet_issue_triage.md) · [`agent work ledger`](docs/examples/proof_packet_agent_work_ledger.md) · [`ledger dogfood`](docs/examples/proof_packet_agent_work_ledger_dogfood.md)
 
 **Maintainer workflow:** [`docs/maintainer_evidence_workflow.md`](docs/maintainer_evidence_workflow.md)

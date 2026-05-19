@@ -3,6 +3,12 @@
 This quickstart shows how a Codex or Claude user can record a complete Agent
 Work Ledger through ProofFlow MCP tools in about five minutes.
 
+> **Demo asset (deferred)**: The end-to-end dogfood Demo_Asset GIF and the
+> VSCode_Channel inline audit / Approve Gate screenshots for the v0.1.x
+> dogfood-and-channel-polish milestone are deferred to the next dogfood cycle
+> (no capturable VS Code window in this milestone). Tracked in
+> [`PLANS.md#vscode-channel-screenshots-deferred-from-v0-1-x-dogfood`](PLANS.md#vscode-channel-screenshots-deferred-from-v0-1-x-dogfood).
+
 Prerequisites:
 
 - ProofFlow backend running on `http://127.0.0.1:8787`

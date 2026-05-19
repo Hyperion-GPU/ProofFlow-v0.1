@@ -50,6 +50,11 @@ ProofFlow 关注的是证据和控制权：
 
 ## 快速开始
 
+> **Demo 资产（Deferred）**：本里程碑（v0.1.x dogfood-and-channel-polish）
+> 因执行环境无可视 VS Code 窗口可抓取，端到端 Demo_Asset GIF 与 VSCode_Channel
+> inline audit / Approve Gate 截图统一推迟到下个 dogfood 周期。Backlog 锚点：
+> [`PLANS.md#vscode-channel-screenshots-deferred-from-v0-1-x-dogfood`](PLANS.md#vscode-channel-screenshots-deferred-from-v0-1-x-dogfood)。
+
 ### Backend
 
 ```bash
