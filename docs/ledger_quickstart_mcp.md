@@ -13,24 +13,34 @@ Prerequisites:
 
 - ProofFlow backend running on `http://127.0.0.1:8787`
 - `proofflow-mcp` installed and configured for your agent
-- A local git repository path, such as `D:\ProofFlow v0.1`
+- A local git repository path, such as `"D:\ProofFlow v0.1"` (PowerShell quotes
+  the path because it contains a space)
+- Run the smoke commands below from the repository root inside a single
+  PowerShell session; the `Push-Location` / `Pop-Location` pair anchors the
+  working directory so the `scripts\...` paths resolve consistently.
 
 For a one-command release smoke test, run:
 
-```bash
-python scripts/ledger_mcp_smoke.py --cleanup
+```powershell
+Push-Location .
+python .\scripts\ledger_mcp_smoke.py --cleanup
+Pop-Location
 ```
 
 To exercise non-blocking Risk Hints with a synthetic local scenario, run:
 
-```bash
-python scripts/ledger_risk_hints_smoke.py --cleanup
+```powershell
+Push-Location .
+python .\scripts\ledger_risk_hints_smoke.py --cleanup
+Pop-Location
 ```
 
 To exercise the cross-domain Risk Hints dogfood matrix, run:
 
-```bash
-python scripts/ledger_risk_hints_dogfood_matrix.py --cleanup
+```powershell
+Push-Location .
+python .\scripts\ledger_risk_hints_dogfood_matrix.py --cleanup
+Pop-Location
 ```
 
 ## 1. Start The Contract
