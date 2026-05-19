@@ -160,6 +160,18 @@ Source: Dogfood_Report v0.1.x dogfood-and-channel-polish, Demo and Example Packe
 
 ### quickstart-polish-prs-pending-packaging-from-v0-1-x-dogfood
 
+**Status: CLOSED on 2026-05-19** — 5 polish/quickstart-* PRs squash merged into `main`:
+
+- F-1 → PR [#122](https://github.com/Hyperion-GPU/ProofFlow-v0.1/pull/122) `docs: make README quickstart PowerShell-safe` (commit `7a49da471b0af7cc2b7445f50e51d5e0146a5473`)
+- F-2 → PR [#123](https://github.com/Hyperion-GPU/ProofFlow-v0.1/pull/123) `docs: align Chinese quickstart commands` (commit `277fb0c1def1e95c12a3d2a1eaaf96fb6deddc6d`)
+- F-3 → PR [#124](https://github.com/Hyperion-GPU/ProofFlow-v0.1/pull/124) `docs: anchor ledger MCP quickstart smoke commands` (commit `3a5195be9458ad5de52e566557e1c3c79b160920`)
+- F-4 → PR [#125](https://github.com/Hyperion-GPU/ProofFlow-v0.1/pull/125) `docs: make Codex workflow setup cwd-safe` (commit `fdac327a384e6fde37d9f5469beaac8b2272d9bd`)
+- F-5 → PR [#126](https://github.com/Hyperion-GPU/ProofFlow-v0.1/pull/126) `docs: make dogfood guide commands cwd-safe` (commit `2575785bcb7b9f70239cbf993f5ad53e062ed7fa`)
+
+Post-merge audit refresh (capture-4 at `2026-05-19T14:08:05+08:00`): `git ls-remote --tags origin` SHA-256 = `0B4AAEAC…329E` and `gh release list` SHA-256 = `CACAB81B…979F` byte-identical with milestone start (Property 4 / DoD-8 unchanged); 5 squash commit `git tag --points-at <SHA>` all empty (Existing_Release_Tag 9 set unchanged). Dogfood_Report Findings rows F-1 ~ F-5 upgraded `Out_Of_Scope_Finding` → `In_Scope_Fix` with merged PR URL as `link`; Pre-Merge Gate Checklist 5 placeholder rows replaced with post-merge actuals; Property 3 sub-table 5 rows `Validated commit SHA` upgraded to polish merged commit SHA.
+
+Original (now historical) deferral context preserved below for audit trail:
+
 Source: Dogfood_Report v0.1.x dogfood-and-channel-polish, Findings and Triage section (F-1 ~ F-5) + task 6.1 (`transcripts/6_1_quickstart_validation.md`) + task 6.2 (`transcripts/6_2_quickstart_polish.md`).
 
 - Why deferred: task 6.2 已按用户 Option B 决定在 working tree 直接修复 5 份 Quickstart_Doc_Set 共 20 处裸 `cd` / `&&` 串联 / 错误 entry / 缺 port / 不存在引用，且 task 6.3 通过 audit-style lint 验证 Property 3 三组检查 0 命中（详见 transcript `6_3_quickstart_lint.md` 与 Dogfood_Report `验证与复现 / Verify and Reproduce` Property 3 段）；但用户决定**不**在本里程碑打包成 polish/* 系列 PR、**不**切分支、**不** `git push`，等待后续打包。按 Requirement 7.2「`In_Scope_Fix` 行 `link` 必须是 `https://github.com/<owner>/<repo>/pull/<n>` 且 PR 已 merged」严格判定，5 行 Finding 候选（F-1 ~ F-5）当下不能挂 `In_Scope_Fix` + merged PR URL，按 Requirement 7.5 backlog honesty 暂归 `Out_Of_Scope_Finding` 并挂本 anchor，待 5 个 PR merged 后由 task 9.2 升级回 `In_Scope_Fix` 并把 `link` 替换为真实 PR URL。
