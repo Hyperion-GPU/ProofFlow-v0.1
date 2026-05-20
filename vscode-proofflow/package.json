@@ -2,7 +2,7 @@
   "name": "proofflow",
   "displayName": "ProofFlow",
   "description": "Local-first audit layer for AI coding agents — review, gate, and trace every AI change",
-  "version": "0.1.5",
+  "version": "0.2.0-dev",
   "publisher": "hyperion-gpu",
   "license": "MIT",
   "repository": {
@@ -51,6 +51,53 @@
       {
         "command": "proofflow.showLogs",
         "title": "ProofFlow: Show Logs"
+      },
+      {
+        "command": "proofflow.startWorkContract",
+        "title": "ProofFlow: Ledger — Start Work Contract"
+      },
+      {
+        "command": "proofflow.recordEvent",
+        "title": "ProofFlow: Ledger — Record Event"
+      },
+      {
+        "command": "proofflow.recordAlgorithmDecision",
+        "title": "ProofFlow: Ledger — Record Algorithm Decision"
+      },
+      {
+        "command": "proofflow.recordCostBudget",
+        "title": "ProofFlow: Ledger — Record Cost Budget"
+      },
+      {
+        "command": "proofflow.captureSnapshot",
+        "title": "ProofFlow: Ledger — Capture Snapshot"
+      },
+      {
+        "command": "proofflow.recordEvidence",
+        "title": "ProofFlow: Ledger — Record Evidence"
+      },
+      {
+        "command": "proofflow.recordClaim",
+        "title": "ProofFlow: Ledger — Record Claim"
+      },
+      {
+        "command": "proofflow.evaluateContract",
+        "title": "ProofFlow: Ledger — Evaluate Contract",
+        "icon": "$(beaker)"
+      },
+      {
+        "command": "proofflow.finishWorkLedger",
+        "title": "ProofFlow: Ledger — Finish",
+        "icon": "$(check)"
+      },
+      {
+        "command": "proofflow.openCaseDetail",
+        "title": "ProofFlow: Open Case Detail"
+      },
+      {
+        "command": "proofflow.exportPacket",
+        "title": "ProofFlow: Export Proof Packet",
+        "icon": "$(export)"
       }
     ],
     "viewsContainers": {
@@ -67,6 +114,10 @@
         {
           "id": "proofflow.casesView",
           "name": "Cases"
+        },
+        {
+          "id": "proofflow.ledgerView",
+          "name": "Active Ledger"
         }
       ]
     },
@@ -74,6 +125,10 @@
       {
         "view": "proofflow.casesView",
         "contents": "No cases found.\n[Review Last AI Changes](command:proofflow.reviewLastChanges)\n[Scan Current Folder](command:proofflow.scanFolder)"
+      },
+      {
+        "view": "proofflow.ledgerView",
+        "contents": "No active ledger cases.\n[Start Work Contract](command:proofflow.startWorkContract)"
       }
     ],
     "menus": {
@@ -82,6 +137,16 @@
           "command": "proofflow.refresh",
           "when": "view == proofflow.casesView",
           "group": "navigation"
+        },
+        {
+          "command": "proofflow.refresh",
+          "when": "view == proofflow.ledgerView",
+          "group": "navigation"
+        },
+        {
+          "command": "proofflow.startWorkContract",
+          "when": "view == proofflow.ledgerView",
+          "group": "navigation@10"
         }
       ],
       "explorer/context": [
@@ -99,6 +164,31 @@
         {
           "command": "proofflow.approveAction",
           "when": "view == proofflow.casesView && viewItem == action",
+          "group": "inline"
+        },
+        {
+          "command": "proofflow.evaluateContract",
+          "when": "view == proofflow.ledgerView && viewItem == ledgerCase",
+          "group": "inline@1"
+        },
+        {
+          "command": "proofflow.finishWorkLedger",
+          "when": "view == proofflow.ledgerView && viewItem == ledgerCase",
+          "group": "inline@2"
+        },
+        {
+          "command": "proofflow.exportPacket",
+          "when": "view == proofflow.ledgerView && viewItem == ledgerCase",
+          "group": "inline@3"
+        },
+        {
+          "command": "proofflow.recordEvidence",
+          "when": "view == proofflow.ledgerView && viewItem == ledgerSection:evidence",
+          "group": "inline"
+        },
+        {
+          "command": "proofflow.recordClaim",
+          "when": "view == proofflow.ledgerView && viewItem == ledgerSection:claims",
           "group": "inline"
         }
       ]

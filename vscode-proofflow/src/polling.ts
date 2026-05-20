@@ -3,6 +3,7 @@ import { StatusBar } from "./statusBar";
 import { CasesTreeProvider } from "./views/casesTreeProvider";
 import * as vscode from "vscode";
 import type { CaseResponse } from "./types";
+import type { LedgerStore } from "./store/ledgerStore";
 
 const APPROVE_GATE_LABEL = "Approve Gate & Execute";
 
@@ -17,17 +18,20 @@ export class Poller {
   private statusBar: StatusBar;
   private treeProvider: CasesTreeProvider;
   private inlineDecorations: InlineDecorations | undefined;
+  private store: LedgerStore | undefined;
 
   constructor(
     client: ProofFlowClient,
     statusBar: StatusBar,
     treeProvider: CasesTreeProvider,
-    inlineDecorations?: InlineDecorations
+    inlineDecorations?: InlineDecorations,
+    store?: LedgerStore
   ) {
     this.client = client;
     this.statusBar = statusBar;
     this.treeProvider = treeProvider;
     this.inlineDecorations = inlineDecorations;
+    this.store = store;
   }
 
   start(): void {
@@ -52,7 +56,10 @@ export class Poller {
       for (const c of cases) {
         const actions = await this.client.listCaseActions(c.id);
         for (const action of actions) {
-          if (action.status === "pending_decision") {
+          if (
+            action.status === "pending_decision" ||
+            action.status === "pending"
+          ) {
             pendingActionIds.push(action.id);
           }
         }
@@ -61,6 +68,9 @@ export class Poller {
       await this.notifyPendingActions(pendingActionIds);
       this.treeProvider.refresh();
       await this.inlineDecorations?.refresh(cases).catch(() => undefined);
+      if (this.store) {
+        await this.store.refresh().catch(() => undefined);
+      }
     } catch {
       this.statusBar.setOnline(false);
     }

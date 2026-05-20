@@ -172,6 +172,52 @@ export class Range {
   ) {}
 }
 
+type Listener<T> = (event: T) => unknown;
+
+export class EventEmitter<T> {
+  private listeners = new Set<Listener<T>>();
+  readonly event = (listener: Listener<T>): { dispose(): void } => {
+    this.listeners.add(listener);
+    return {
+      dispose: () => {
+        this.listeners.delete(listener);
+      },
+    };
+  };
+  fire(value: T): void {
+    for (const listener of this.listeners) {
+      try {
+        listener(value);
+      } catch {
+        // ignore listener errors in tests
+      }
+    }
+  }
+  dispose(): void {
+    this.listeners.clear();
+  }
+}
+
+export const TreeItemCollapsibleState = {
+  None: 0,
+  Collapsed: 1,
+  Expanded: 2,
+};
+
+export class TreeItem {
+  label: string;
+  collapsibleState: number;
+  description?: string;
+  contextValue?: string;
+  tooltip?: string;
+  iconPath?: unknown;
+  command?: unknown;
+  constructor(label: string, collapsibleState: number = 0) {
+    this.label = label;
+    this.collapsibleState = collapsibleState;
+  }
+}
+
 function normalizePath(value: string): string {
   return value.replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase();
 }

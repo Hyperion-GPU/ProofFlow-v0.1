@@ -13,6 +13,8 @@ const testFiles = [
   "test/polling.test.ts",
   "test/packageContributions.test.ts",
   "test/inlineDecorations.test.ts",
+  "test/mcpClient.test.ts",
+  "test/ledgerStore.test.ts",
 ];
 
 const vscodeMockPlugin = {

@@ -9,11 +9,20 @@ import type {
   DecisionCreatePayload,
   DecisionResponse,
 } from "../types";
+import { McpClient } from "../mcp/client";
 
+/**
+ * Backwards-compatible facade over the MCP-backed client. The public surface
+ * matches the original REST client so commands, the poller, and the tests can
+ * keep talking to a single object. New code should reach for {@link McpClient}
+ * directly to access ledger and webview features.
+ */
 export class ProofFlowClient {
   private output: vscode.OutputChannel | undefined;
+  private mcp: McpClient;
 
-  constructor(output?: vscode.OutputChannel) {
+  constructor(mcp: McpClient, output?: vscode.OutputChannel) {
+    this.mcp = mcp;
     this.output = output;
   }
 
@@ -24,104 +33,64 @@ export class ProofFlowClient {
     }
   }
 
-  private get baseUrl(): string {
-    return vscode.workspace
-      .getConfiguration("proofflow")
-      .get<string>("backendUrl", "http://127.0.0.1:8787");
-  }
-
-  private get apiKey(): string {
-    return vscode.workspace
-      .getConfiguration("proofflow")
-      .get<string>("apiKey", "");
-  }
-
-  private async request<T>(
-    method: string,
-    path: string,
-    body?: unknown
-  ): Promise<T> {
-    const url = `${this.baseUrl}${path}`;
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-    };
-    if (this.apiKey) {
-      headers["X-ProofFlow-Token"] = this.apiKey;
-    }
-
-    this.log(`${method} ${url}`);
-
-    let resp: Response;
-    try {
-      resp = await fetch(url, {
-        method,
-        headers,
-        body: body ? JSON.stringify(body) : undefined,
-      });
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      this.log(`  fetch threw: ${msg}`);
-      throw err;
-    }
-
-    if (!resp.ok) {
-      const text = await resp.text().catch(() => "");
-      this.log(`  ${resp.status} ${text.slice(0, 200)}`);
-      throw new Error(`ProofFlow API ${resp.status}: ${text}`);
-    }
-
-    const data = (await resp.json()) as T;
-    const summary = Array.isArray(data)
-      ? `array(${data.length})`
-      : "object";
-    this.log(`  ${resp.status} ${summary}`);
-    return data;
+  getMcp(): McpClient {
+    return this.mcp;
   }
 
   async checkHealth(): Promise<HealthResponse> {
-    return this.request("GET", "/health");
+    this.log("mcp -> proofflow_health");
+    return this.mcp.health();
   }
 
   async listCases(): Promise<CaseResponse[]> {
-    return this.request("GET", "/cases");
+    this.log("mcp -> proofflow_list_cases");
+    return this.mcp.listCases() as Promise<CaseResponse[]>;
   }
 
   async listCaseActions(caseId: string): Promise<ActionResponse[]> {
-    return this.request("GET", `/cases/${caseId}/actions`);
+    this.log(`mcp -> proofflow_list_actions(${caseId})`);
+    return this.mcp.listActions(caseId) as Promise<ActionResponse[]>;
   }
 
   async review(repoPath: string): Promise<ReviewResponse> {
-    return this.request("POST", "/agentguard/review", {
-      repo_path: repoPath,
-      base_ref: "HEAD",
-      include_untracked: true,
-    });
+    this.log(`mcp -> proofflow_review(${repoPath})`);
+    return this.mcp.review(repoPath, {
+      baseRef: "HEAD",
+      includeUntracked: true,
+    }) as Promise<ReviewResponse>;
   }
 
   async scan(folderPath: string): Promise<ScanResponse> {
-    return this.request("POST", "/localproof/scan", {
-      folder_path: folderPath,
-      recursive: true,
-      max_files: 500,
-    });
+    this.log(`mcp -> proofflow_scan(${folderPath})`);
+    return this.mcp.scan(folderPath) as Promise<ScanResponse>;
   }
 
   async approveAction(actionId: string): Promise<void> {
-    await this.request("POST", `/actions/${actionId}/approve`);
+    // proofflow_approve_execute does the approve+execute combo. We expose
+    // the plain approve under the same name so legacy callers stay correct;
+    // the policy-gate decision flow uses createDecision + executeAction below.
+    this.log(`mcp -> proofflow_approve_execute(${actionId})`);
+    await this.mcp.approveExecute(actionId);
   }
 
   async createDecision(
     caseId: string,
     payload: DecisionCreatePayload
   ): Promise<DecisionResponse> {
-    return this.request("POST", `/cases/${caseId}/decisions`, payload);
+    this.log(`mcp -> proofflow_decide(${caseId})`);
+    return this.mcp.decide(caseId, payload) as Promise<DecisionResponse>;
   }
 
   async executeAction(actionId: string): Promise<ActionResponse> {
-    return this.request("POST", `/actions/${actionId}/execute`);
+    // approve_execute on the MCP server runs both approve and execute, which
+    // matches the legacy semantics of "after the policy gate decision is in,
+    // run the action". For undo we have a dedicated MCP wrapper.
+    this.log(`mcp -> proofflow_approve_execute(${actionId}) [execute]`);
+    return this.mcp.approveExecute(actionId) as Promise<ActionResponse>;
   }
 
   async getCasePacket(caseId: string): Promise<CasePacket> {
-    return this.request("GET", `/cases/${caseId}/packet`);
+    this.log(`mcp -> proofflow_status(${caseId})`);
+    return this.mcp.getStatus(caseId) as Promise<CasePacket>;
   }
 }
