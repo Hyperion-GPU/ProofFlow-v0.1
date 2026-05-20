@@ -49,15 +49,7 @@ export class McpClient implements vscode.Disposable {
     this.transitionTo("starting");
     // Fire and forget — the poller will run health on its own cadence.
     this.healthCheck = this.health()
-      .then((res) => {
-        this.transitionTo("ready");
-        return res;
-      })
-      .catch((err) => {
-        this.transitionTo(
-          "failed",
-          err instanceof Error ? err.message : String(err)
-        );
+      .catch(() => {
         return undefined as unknown as McpHealth;
       });
   }
@@ -70,13 +62,7 @@ export class McpClient implements vscode.Disposable {
     this.config = config;
     this.transitionTo("starting");
     void this.health()
-      .then(() => this.transitionTo("ready"))
-      .catch((err) =>
-        this.transitionTo(
-          "failed",
-          err instanceof Error ? err.message : String(err)
-        )
-      );
+      .catch(() => undefined);
   }
 
   private transitionTo(state: ProofFlowMcpState, detail?: string): void {
@@ -148,7 +134,17 @@ export class McpClient implements vscode.Disposable {
   // --- Health ---
 
   async health(): Promise<McpHealth> {
-    return this.request<McpHealth>("GET", "/health");
+    try {
+      const result = await this.request<McpHealth>("GET", "/health");
+      this.transitionTo("ready");
+      return result;
+    } catch (err) {
+      this.transitionTo(
+        "failed",
+        err instanceof Error ? err.message : String(err)
+      );
+      throw err;
+    }
   }
 
   // --- Cases ---
@@ -224,9 +220,17 @@ export class McpClient implements vscode.Disposable {
   // --- Actions ---
 
   async approveExecute(actionId: string): Promise<McpAction> {
-    // Two-step at the REST layer: approve flips status to approved, execute
-    // performs the filesystem mutation. Mirrors the legacy ProofFlowClient
-    // semantics so the policy gate flow stays correct.
+    try {
+      return await this.request<McpAction>(
+        "POST",
+        `/actions/${actionId}/execute`
+      );
+    } catch (err) {
+      if (!isActionNeedsApprovalError(err)) {
+        throw err;
+      }
+    }
+
     await this.request<unknown>("POST", `/actions/${actionId}/approve`);
     return this.request<McpAction>("POST", `/actions/${actionId}/execute`);
   }
@@ -473,6 +477,15 @@ export class McpClient implements vscode.Disposable {
 export function resolvePythonCommand(): never {
   throw new Error(
     "resolvePythonCommand is no longer used; the extension now talks to the ProofFlow backend over REST."
+  );
+}
+
+function isActionNeedsApprovalError(err: unknown): boolean {
+  if (!(err instanceof Error)) {
+    return false;
+  }
+  return err.message.includes(
+    "only approved or decision-gated actions can execute"
   );
 }
 

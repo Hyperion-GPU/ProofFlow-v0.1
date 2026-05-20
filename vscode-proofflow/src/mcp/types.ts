@@ -153,7 +153,7 @@ export interface McpCasePacket {
   risk_level: McpRiskLevel;
   artifacts: McpArtifact[];
   claims: McpClaim[];
-  actions: { id: string; title: string; status: string }[];
+  actions: McpAction[];
   decisions: McpDecision[];
   runs: McpRun[];
   observations: unknown[];

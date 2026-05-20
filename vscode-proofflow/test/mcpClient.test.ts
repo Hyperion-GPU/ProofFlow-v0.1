@@ -94,6 +94,40 @@ test("McpClient.health calls /health and returns the JSON body", async () => {
   }
 });
 
+test("McpClient.health restores ready state after a failed check", async () => {
+  const records: CallRecord[] = [];
+  let healthCalls = 0;
+  const states: string[] = [];
+  const restore = installFetchMock(
+    (_method, url) => {
+      if (url.endsWith("/health")) {
+        healthCalls += 1;
+        if (healthCalls === 1) {
+          return { status: 503, text: "backend not running" };
+        }
+        return { json: { status: "ok", version: "0.2.0-dev" } };
+      }
+      return { status: 404, text: "not found" };
+    },
+    records
+  );
+  try {
+    const client = new McpClient(defaultConfig(), {
+      onStateChange: (state) => states.push(state),
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.equal(client.getState(), "failed");
+
+    const result = await client.health();
+
+    assert.equal(result.version, "0.2.0-dev");
+    assert.equal(client.getState(), "ready");
+    assert.deepEqual(states, ["starting", "failed", "ready"]);
+  } finally {
+    restore();
+  }
+});
+
 test("McpClient.listCases hits /cases", async () => {
   const records: CallRecord[] = [];
   const restore = installFetchMock(
@@ -209,14 +243,11 @@ test("McpClient surfaces non-2xx responses as exceptions", async () => {
   }
 });
 
-test("McpClient.approveExecute approves then executes the action", async () => {
+test("McpClient.approveExecute executes decision-gated actions directly", async () => {
   const records: CallRecord[] = [];
   const restore = installFetchMock((_method, url) => {
     if (url.endsWith("/health")) {
       return { json: { status: "ok", version: "test" } };
-    }
-    if (url.endsWith("/approve")) {
-      return { json: {} };
     }
     if (url.endsWith("/execute")) {
       return {
@@ -237,9 +268,53 @@ test("McpClient.approveExecute approves then executes the action", async () => {
     const result = await client.approveExecute("action-1");
     assert.equal(result.status, "executed");
     const actionCalls = records.filter((r) => !r.url.endsWith("/health"));
-    assert.equal(actionCalls.length, 2);
-    assert.ok(actionCalls[0].url.endsWith("/actions/action-1/approve"));
-    assert.ok(actionCalls[1].url.endsWith("/actions/action-1/execute"));
+    assert.equal(actionCalls.length, 1);
+    assert.ok(actionCalls[0].url.endsWith("/actions/action-1/execute"));
+  } finally {
+    restore();
+  }
+});
+
+test("McpClient.approveExecute approves when backend says approval is required", async () => {
+  const records: CallRecord[] = [];
+  let executeCalls = 0;
+  const restore = installFetchMock((_method, url) => {
+    if (url.endsWith("/health")) {
+      return { json: { status: "ok", version: "test" } };
+    }
+    if (url.endsWith("/execute")) {
+      executeCalls += 1;
+      if (executeCalls === 1) {
+        return {
+          status: 400,
+          text: "only approved or decision-gated actions can execute",
+        };
+      }
+      return {
+        json: {
+          id: "action-1",
+          status: "executed",
+          kind: "move_file",
+          title: "x",
+          case_id: "case-1",
+          created_at: "",
+        },
+      };
+    }
+    if (url.endsWith("/approve")) {
+      return { json: {} };
+    }
+    return { status: 404, text: "not found" };
+  }, records);
+  try {
+    const client = new McpClient(defaultConfig());
+    const result = await client.approveExecute("action-1");
+    assert.equal(result.status, "executed");
+    const actionCalls = records.filter((r) => !r.url.endsWith("/health"));
+    assert.equal(actionCalls.length, 3);
+    assert.ok(actionCalls[0].url.endsWith("/actions/action-1/execute"));
+    assert.ok(actionCalls[1].url.endsWith("/actions/action-1/approve"));
+    assert.ok(actionCalls[2].url.endsWith("/actions/action-1/execute"));
   } finally {
     restore();
   }

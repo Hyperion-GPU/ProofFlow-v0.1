@@ -6,6 +6,7 @@ import type {
   McpCasePacket,
   McpClaim,
 } from "../mcp/types";
+import { buildPolicyGateDecisionPayload } from "../commands/policyGateDecision";
 
 interface ApproveGateContext {
   client: McpClient;
@@ -21,6 +22,7 @@ export class ApproveGatePanel implements vscode.Disposable {
   private disposables: vscode.Disposable[] = [];
   private actionId: string;
   private caseId: string;
+  private currentAction: McpAction | undefined;
 
   static async show(
     ctx: ApproveGateContext,
@@ -84,8 +86,8 @@ export class ApproveGatePanel implements vscode.Disposable {
       void this.panel.webview.postMessage({ type: "loading" });
       return;
     }
-    const action = (packet.actions as Array<McpAction | { id: string; title: string; status: string }>)
-      .find((a) => a.id === this.actionId);
+    const action = packet.actions.find((a) => a.id === this.actionId);
+    this.currentAction = action;
     void this.panel.webview.postMessage({
       type: "render",
       action,
@@ -135,11 +137,23 @@ export class ApproveGatePanel implements vscode.Disposable {
 
   private async approveAndExecute(): Promise<void> {
     try {
-      await this.ctx.client.approveExecute(this.actionId);
+      if (this.currentAction?.status === "pending_decision") {
+        await this.ctx.client.decide(
+          this.caseId,
+          buildPolicyGateDecisionPayload(this.currentAction)
+        );
+      }
+      const result = await this.ctx.client.approveExecute(this.actionId);
+      await this.ctx.store.refresh({ includePackets: true });
+      if (result.status === "pending_decision") {
+        vscode.window.showWarningMessage(
+          "ProofFlow: Action is waiting for owner decision. Review the gate, then approve again."
+        );
+        return;
+      }
       vscode.window.showInformationMessage(
         "ProofFlow: Approve Gate approved and action executed."
       );
-      await this.ctx.store.refresh({ includePackets: true });
       this.panel.dispose();
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
