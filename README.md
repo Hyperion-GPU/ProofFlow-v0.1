@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/hyperion-gpu-proofflow-v0-1-badge.png)](https://mseep.ai/app/hyperion-gpu-proofflow-v0-1)
+
 # ProofFlow
 
 [English](README.md) | [简体中文](README.zh-CN.md)
